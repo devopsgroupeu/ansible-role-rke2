@@ -1,11 +1,11 @@
 ---
 # addons.yml — Deploy optional cluster addons via RKE2 HelmChart CRDs
-# RKE2 watches /var/lib/rancher/rke2/server/manifests/ and applies HelmChart resources automatically.
+# RKE2 watches {{ rke2_data_dir }}/server/manifests/ and applies HelmChart resources automatically.
 # Only runs on the first server node.
 
 - name: Ensure addons manifests directory exists
   ansible.builtin.file:
-    path: /var/lib/rancher/rke2/server/manifests
+    path: "{{ rke2_data_dir }}/server/manifests"
     state: directory
     owner: root
     group: root
@@ -14,7 +14,7 @@
 - name: Deploy addon HelmChart manifests
   ansible.builtin.template:
     src: addon-helmchart.yml.j2
-    dest: "/var/lib/rancher/rke2/server/manifests/addon-{{ item.name }}.yml"
+    dest: "{{ rke2_data_dir }}/server/manifests/addon-{{ item.name }}.yml"
     owner: root
     group: root
     mode: "0644"
@@ -24,7 +24,7 @@
 
 - name: Remove disabled addon HelmChart manifests
   ansible.builtin.file:
-    path: "/var/lib/rancher/rke2/server/manifests/addon-{{ item.name }}.yml"
+    path: "{{ rke2_data_dir }}/server/manifests/addon-{{ item.name }}.yml"
     state: absent
   loop: "{{ rke2_addons | selectattr('enabled', 'equalto', false) | list }}"
   loop_control:

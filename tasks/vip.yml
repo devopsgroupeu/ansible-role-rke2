@@ -26,7 +26,7 @@
 
 - name: Ensure RKE2 server manifests directory exists
   ansible.builtin.file:
-    path: /var/lib/rancher/rke2/server/manifests
+    path: "{{ rke2_data_dir }}/server/manifests"
     state: directory
     owner: root
     group: root
@@ -36,7 +36,7 @@
 - name: Deploy kube-vip RBAC manifest
   ansible.builtin.template:
     src: kube-vip-rbac.yml.j2
-    dest: /var/lib/rancher/rke2/server/manifests/kube-vip-rbac.yml
+    dest: "{{ rke2_data_dir }}/server/manifests/kube-vip-rbac.yml"
     owner: root
     group: root
     mode: "0640"
@@ -45,7 +45,7 @@
 - name: Deploy kube-vip DaemonSet manifest
   ansible.builtin.template:
     src: kube-vip.yml.j2
-    dest: /var/lib/rancher/rke2/server/manifests/kube-vip.yml
+    dest: "{{ rke2_data_dir }}/server/manifests/kube-vip.yml"
     owner: root
     group: root
     mode: "0640"
@@ -54,7 +54,7 @@
 - name: Deploy kube-vip cloud provider manifests
   ansible.builtin.template:
     src: "{{ item.src }}"
-    dest: /var/lib/rancher/rke2/server/manifests/{{ item.dest }}
+    dest: "{{ rke2_data_dir }}/server/manifests/{{ item.dest }}"
     owner: root
     group: root
     mode: "0640"
@@ -68,7 +68,7 @@
 
 - name: Remove kube-vip cloud provider manifests if disabled
   ansible.builtin.file:
-    path: /var/lib/rancher/rke2/server/manifests/{{ item }}
+    path: "{{ rke2_data_dir }}/server/manifests/{{ item }}"
     state: absent
   loop:
     - kube-vip-cloud-controller.yml
@@ -80,13 +80,13 @@
     path: "{{ item }}"
     state: absent
   loop:
-    - /var/lib/rancher/rke2/server/manifests/kube-vip-rbac.yml
-    - /var/lib/rancher/rke2/server/manifests/kube-vip.yml
+    - "{{ rke2_data_dir }}/server/manifests/kube-vip-rbac.yml"
+    - "{{ rke2_data_dir }}/server/manifests/kube-vip.yml"
   when: rke2_vip_manager != 'kubevip'
 
 - name: Remove legacy kube-vip static pod manifest if present
   ansible.builtin.file:
-    path: /var/lib/rancher/rke2/agent/pod-manifests/kube-vip.yml
+    path: "{{ rke2_data_dir }}/agent/pod-manifests/kube-vip.yml"
     state: absent
 
 # ---- keepalived -------------------------------------------------------------

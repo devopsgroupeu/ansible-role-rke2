@@ -109,7 +109,7 @@
 
 - name: Wait for RKE2 server node-token to be created
   ansible.builtin.wait_for:
-    path: /var/lib/rancher/rke2/server/node-token
+    path: "{{ rke2_data_dir }}/server/node-token"
     timeout: 300
   when:
     - inventory_hostname == groups['server_nodes'][0]
@@ -117,7 +117,7 @@
 
 - name: Fetch cluster token from first node
   ansible.builtin.slurp:
-    src: /var/lib/rancher/rke2/server/node-token
+    src: "{{ rke2_data_dir }}/server/node-token"
   register: command_output
   when:
     - inventory_hostname == groups['server_nodes'][0]
@@ -164,7 +164,7 @@
 - name: Apply custom ingress nginx configuration
   ansible.builtin.template:
     src: rke2-ingress-nginx-config.yml.j2
-    dest: /var/lib/rancher/rke2/server/manifests/rke2-ingress-nginx-config.yml
+    dest: "{{ rke2_data_dir }}/server/manifests/rke2-ingress-nginx-config.yml"
     owner: root
     group: root
     mode: "0644"
@@ -176,7 +176,7 @@
 - name: Configure CNI-specific settings
   ansible.builtin.template:
     src: cni-config.yml.j2
-    dest: "/var/lib/rancher/rke2/server/manifests/rke2-{{ rke2_cni }}-config.yml"
+    dest: "{{ rke2_data_dir }}/server/manifests/rke2-{{ rke2_cni }}-config.yml"
     owner: root
     group: root
     mode: "0644"
