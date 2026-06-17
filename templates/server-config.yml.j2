@@ -26,6 +26,10 @@ cluster-cidr: "{{ rke2_cluster_cidr }}"
 service-cidr: "{{ rke2_service_cidr }}"
 {% endif %}
 
+{% if rke2_cluster_dns | default('') | length > 0 %}
+cluster-dns: "{{ rke2_cluster_dns }}"
+{% endif %}
+
 {% if rke2_cluster_domain | default('') | length > 0 %}
 cluster-domain: "{{ rke2_cluster_domain }}"
 {% endif %}

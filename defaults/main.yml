@@ -175,6 +175,10 @@ rke2_cluster_domain: "" # Default: cluster.local
 rke2_node_ip: ""
 rke2_node_external_ip: ""
 
+# Override the cluster DNS service IP (CoreDNS). Must be inside rke2_service_cidr.
+# Empty = RKE2 default (.10 of the service CIDR).
+rke2_cluster_dns: ""
+
 # ----------------------------------------------------------------------------
 # etcd snapshots
 # ----------------------------------------------------------------------------

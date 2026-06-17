@@ -443,6 +443,14 @@ argument_specs:
           Global node-external-ip. Per-node node-external-ip overrides this.
           Empty = not set.
 
+      rke2_cluster_dns:
+        type: str
+        required: false
+        default: ""
+        description: >
+          Override the cluster DNS service IP. Must fall inside rke2_service_cidr.
+          Empty = RKE2 default.
+
       rke2_write_kubeconfig_mode:
         type: str
         required: false
