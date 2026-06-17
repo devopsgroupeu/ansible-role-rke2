@@ -32,3 +32,25 @@
   when:
     - ansible_os_family == "RedHat"
     - rke2_selinux | default(false) | bool
+
+- name: Assert this server node matches at most one rke2_server_nodes entry
+  ansible.builtin.assert:
+    that:
+      - (rke2_server_nodes | selectattr('host', 'in', [inventory_hostname, ansible_host | default(inventory_hostname)]) | list) | length <= 1
+    fail_msg: >-
+      Multiple rke2_server_nodes entries match {{ inventory_hostname }}
+      (host must equal inventory_hostname or ansible_host).
+  when:
+    - "'server_nodes' in group_names"
+    - rke2_server_nodes | length > 0
+
+- name: Assert this agent node matches at most one rke2_agent_nodes entry
+  ansible.builtin.assert:
+    that:
+      - (rke2_agent_nodes | selectattr('host', 'in', [inventory_hostname, ansible_host | default(inventory_hostname)]) | list) | length <= 1
+    fail_msg: >-
+      Multiple rke2_agent_nodes entries match {{ inventory_hostname }}
+      (host must equal inventory_hostname or ansible_host).
+  when:
+    - "'agent_nodes' in group_names"
+    - rke2_agent_nodes | length > 0

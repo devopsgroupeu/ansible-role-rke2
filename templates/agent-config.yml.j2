@@ -9,7 +9,7 @@ server: https://{{ hostvars[groups['server_nodes'][0]]['ansible_host'] | default
 
 node-name: "{{ rke2_node_name if rke2_node_name | default('') | length > 0 else inventory_hostname }}"
 
-{% set agent_list = rke2_agent_nodes | selectattr('host', 'equalto', ansible_host) | list %}
+{% set agent_list = rke2_agent_nodes | selectattr('host', 'in', [inventory_hostname, ansible_host | default(inventory_hostname)]) | list %}
 {% set agent = agent_list[0] if agent_list | length > 0 else {} %}
 
 {% if agent.get('node-label') %}

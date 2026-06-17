@@ -72,7 +72,7 @@ etcd-s3-skip-ssl-verify: true
 {% endif %}
 {% endif %}
 
-{% set server_list = rke2_server_nodes | selectattr('host', 'equalto', ansible_host) | list %}
+{% set server_list = rke2_server_nodes | selectattr('host', 'in', [inventory_hostname, ansible_host | default(inventory_hostname)]) | list %}
 {% set server = server_list[0] if server_list | length > 0 else {} %}
 
 {% if server.get('node-label') %}
