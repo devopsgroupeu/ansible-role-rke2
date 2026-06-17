@@ -5,7 +5,7 @@ galaxy_info:
   description: Ansible role for installing RKE2 — single-node and HA with kube-vip and keepalived
 
   license: Apache-2.0
-  min_ansible_version: 2.18.6
+  min_ansible_version: "2.19"
 
   role_name: rke2
   namespace: devopsgroup
