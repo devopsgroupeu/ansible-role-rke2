@@ -11,8 +11,14 @@ metadata:
   name: system:kube-vip
 rules:
   - apiGroups: [""]
-    resources: ["services", "services/status", "nodes", "endpoints"]
+    resources: ["services", "services/status", "endpoints"]
     verbs: ["list", "get", "watch", "update"]
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["list", "get", "watch", "update", "patch"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["list"]
   - apiGroups: ["discovery.k8s.io"]
     resources: ["endpointslices"]
     verbs: ["list", "get", "watch", "update"]
