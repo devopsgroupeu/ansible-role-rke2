@@ -74,6 +74,7 @@
     group: root
     mode: "0644"
   notify: Restart rke2-server
+  no_log: true
   when: inventory_hostname == groups['server_nodes'][0]
 
 - name: Enable and start RKE2 server (first node)
@@ -130,6 +131,7 @@
     group: root
     mode: "0644"
   notify: Restart rke2-server
+  no_log: true
   when: inventory_hostname != groups['server_nodes'][0]
 
 - name: Enable and start RKE2 server (additional nodes)
