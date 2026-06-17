@@ -88,6 +88,15 @@
     mode: "0600"
   notify: Restart rke2-agent
 
+- name: Validate private registry config is parseable YAML
+  ansible.builtin.assert:
+    that:
+      - rke2_private_registries_config | from_yaml is mapping
+    fail_msg: "rke2_private_registries_config is not valid YAML mapping"
+  when:
+    - rke2_private_registries_config | trim | length > 0
+    - not rke2_private_registries_config | trim | regex_search('^#')
+
 - name: Deploy private registry configuration
   ansible.builtin.template:
     src: registries.yml.j2

@@ -7,7 +7,7 @@ server: https://{{ hostvars[groups['server_nodes'][0]]['ansible_host'] | default
 cni: {{ rke2_cni }}
 {% endif %}
 
-{% set _tls_san = rke2_tls_san | list %}
+{% set _tls_san = (rke2_tls_san | default([])) | list %}
 {% if rke2_vip_enabled | default(false) and rke2_vip_address | default('') | length > 0 %}
 {% set _tls_san = (_tls_san + [rke2_vip_address]) | unique %}
 {% endif %}

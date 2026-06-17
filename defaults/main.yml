@@ -70,7 +70,7 @@ rke2_containerd_no_proxy: ""
 # ----------------------------------------------------------------------------
 # CNI plugin
 # ----------------------------------------------------------------------------
-# Options: canal, cilium, calico, flannel, or default (canal)
+# Options: canal, cilium, calico, flannel, none (BYO CNI), or default (canal)
 rke2_cni: "default"
 
 # CNI-specific configuration (only used when rke2_cni != 'default')

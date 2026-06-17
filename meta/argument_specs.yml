@@ -146,11 +146,16 @@ argument_specs:
         type: str
         required: false
         default: default
-        choices: ["default", "canal", "cilium", "calico", "flannel", "none"]
+        choices:
+          - default
+          - canal
+          - cilium
+          - calico
+          - flannel
+          - none
         description: >
-          CNI plugin to use. Options: canal, cilium, calico, flannel, default
-          (canal). Setting a value other than 'default' deploys the corresponding
-          HelmChart config from templates/cni-config.yml.j2.
+          CNI plugin. default (canal), canal, cilium, calico, flannel, or none
+          (BYO CNI — skips cni config and emits cni: none).
 
       rke2_cni_configs:
         type: dict

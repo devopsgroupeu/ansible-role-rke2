@@ -32,6 +32,25 @@
     - current_rke2_server_version != rke2_version
     - current_rke2_server_version is version(rke2_version, '>', version_type='loose')
 
+- name: Assert external cloud-provider is paired with disabled built-in CCM
+  ansible.builtin.assert:
+    that:
+      - rke2_disable_cloud_controller | default(false) | bool
+    fail_msg: >-
+      rke2_cloud_provider_name is 'external' but rke2_disable_cloud_controller
+      is false; set rke2_disable_cloud_controller: true.
+  when: rke2_cloud_provider_name | default('') == 'external'
+
+- name: Assert rke2_extra_config does not collide with dedicated keys
+  vars:
+    _managed_keys: ['disable', 'tls-san', 'cni', 'node-ip', 'cluster-dns', 'system-default-registry']
+  ansible.builtin.assert:
+    that:
+      - (rke2_extra_config | default({})).keys() | list | intersect(_managed_keys) | length == 0
+    fail_msg: >-
+      rke2_extra_config sets a key already managed by a dedicated variable;
+      use the dedicated variable instead to avoid duplicate YAML keys.
+
 - name: Install RKE2 server (internet)
   ansible.builtin.shell: |
     set -o pipefail
@@ -201,6 +220,15 @@
     - rke2_cni != 'default'
     - rke2_cni_configs is defined and rke2_cni_configs[rke2_cni] is defined
     - inventory_hostname == groups['server_nodes'][0]
+
+- name: Validate private registry config is parseable YAML
+  ansible.builtin.assert:
+    that:
+      - rke2_private_registries_config | from_yaml is mapping
+    fail_msg: "rke2_private_registries_config is not valid YAML mapping"
+  when:
+    - rke2_private_registries_config | trim | length > 0
+    - not rke2_private_registries_config | trim | regex_search('^#')
 
 - name: Deploy private registry configuration
   ansible.builtin.template:
