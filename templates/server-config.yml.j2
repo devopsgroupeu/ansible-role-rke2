@@ -104,6 +104,10 @@ debug: true
 profile: "{{ rke2_cis_profile }}"
 {% endif %}
 
+{% if rke2_audit_policy | default('') | length > 0 %}
+audit-policy-file: "/etc/rancher/rke2/audit-policy.yaml"
+{% endif %}
+
 {% if rke2_disable_cloud_controller | default(false) | bool %}
 disable-cloud-controller: true
 {% endif %}
