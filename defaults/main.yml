@@ -270,8 +270,20 @@ rke2_additional_packages:
   # - htop
 
 # ----------------------------------------------------------------------------
-# Ingress nginx configuration (optional)
+# Ingress controller
 # ----------------------------------------------------------------------------
+# Traefik is the RKE2 default ingress from v1.36 (rke2-ingress-nginx is EOL
+# Mar 2026 and removed in v1.37). Select which controller this role configures:
+#   traefik       — default; applies rke2_traefik_config (HelmChartConfig)
+#   ingress-nginx — legacy; applies rke2_ingress_nginx_config
+#   none          — disables both built-in ingress controllers (BYO ingress)
+rke2_ingress_controller: "traefik"
+
+# Helm values (YAML string) for the bundled Traefik chart (rke2-traefik).
+# Applied as a HelmChartConfig on the first server node when controller=traefik.
+rke2_traefik_config: ""
+
+# Helm values (YAML string) for rke2-ingress-nginx (controller=ingress-nginx).
 rke2_ingress_nginx_config: |
 #  controller:
 #    extraArgs:

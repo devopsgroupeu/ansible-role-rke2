@@ -611,16 +611,36 @@ argument_specs:
           Add extras such as jq or htop here.
 
       # -----------------------------------------------------------------------
-      # Ingress nginx
+      # Ingress controller
       # -----------------------------------------------------------------------
+      rke2_ingress_controller:
+        type: str
+        required: false
+        default: traefik
+        choices:
+          - traefik
+          - ingress-nginx
+          - none
+        description: >
+          Which ingress controller this role configures. traefik (v1.36 default),
+          ingress-nginx (legacy, EOL Mar 2026), or none (disables both built-ins).
+
+      rke2_traefik_config:
+        type: str
+        required: false
+        default: ""
+        description: >
+          YAML string of Helm values for the bundled rke2-traefik chart, applied
+          as a HelmChartConfig on the first server node when controller=traefik.
+
       rke2_ingress_nginx_config:
         type: str
         required: false
         default: ""
         description: >
           YAML string with Helm values for the rke2-ingress-nginx HelmChart
-          config. Deployed as a manifest on the first server node. Leave empty
-          or comment-only to skip.
+          config. Applied when rke2_ingress_controller is ingress-nginx.
+          Leave empty or comment-only to skip.
 
       # -----------------------------------------------------------------------
       # Helm addons

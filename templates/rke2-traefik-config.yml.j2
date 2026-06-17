@@ -1,0 +1,10 @@
+# Managed by Ansible - ansible-role-rke2
+---
+apiVersion: helm.cattle.io/v1
+kind: HelmChartConfig
+metadata:
+  name: rke2-traefik
+  namespace: kube-system
+spec:
+  valuesContent: |-
+{{ rke2_traefik_config | indent(4, true) }}

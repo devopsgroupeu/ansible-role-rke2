@@ -546,6 +546,24 @@ kubectl config set-cluster default \
 
 ---
 
+## Ingress controller
+
+From RKE2 v1.36 the default ingress is **Traefik** (`rke2-traefik`);
+`rke2-ingress-nginx` is deprecated (upstream EOL March 2026, removed in v1.37).
+Select the controller with `rke2_ingress_controller`:
+
+| Value | Effect |
+|-------|--------|
+| `traefik` (default) | Disables rke2-ingress-nginx; applies `rke2_traefik_config` |
+| `ingress-nginx` | Disables rke2-traefik; applies `rke2_ingress_nginx_config` |
+| `none` | Disables both built-in controllers (bring your own) |
+
+Migration: set `rke2_ingress_controller: ingress-nginx` to stay on nginx for
+now, or `traefik` to adopt the new default and move custom values into
+`rke2_traefik_config`.
+
+---
+
 ## Helm Addons
 
 RKE2 has a built-in [HelmChart CRD](https://docs.rke2.io/helm) that applies manifests placed in `/var/lib/rancher/rke2/server/manifests/` automatically. This role uses that mechanism to deploy optional addons on the first server node.

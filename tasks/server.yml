@@ -161,7 +161,7 @@
   until: not rke2_server_status.failed
   when: inventory_hostname != groups['server_nodes'][0]
 
-- name: Apply custom ingress nginx configuration
+- name: Apply custom ingress-nginx HelmChartConfig (controller=ingress-nginx)
   ansible.builtin.template:
     src: rke2-ingress-nginx-config.yml.j2
     dest: "{{ rke2_data_dir }}/server/manifests/rke2-ingress-nginx-config.yml"
@@ -169,9 +169,24 @@
     group: root
     mode: "0644"
   when:
+    - rke2_ingress_controller == 'ingress-nginx'
     - rke2_ingress_nginx_config is defined
     - rke2_ingress_nginx_config | trim | length > 0
     - not rke2_ingress_nginx_config | trim | regex_search('^#')
+    - inventory_hostname == groups['server_nodes'][0]
+
+- name: Apply custom Traefik HelmChartConfig (controller=traefik)
+  ansible.builtin.template:
+    src: rke2-traefik-config.yml.j2
+    dest: "{{ rke2_data_dir }}/server/manifests/rke2-traefik-config.yml"
+    owner: root
+    group: root
+    mode: "0644"
+  when:
+    - rke2_ingress_controller == 'traefik'
+    - rke2_traefik_config | trim | length > 0
+    - not rke2_traefik_config | trim | regex_search('^#')
+    - inventory_hostname == groups['server_nodes'][0]
 
 - name: Configure CNI-specific settings
   ansible.builtin.template:
