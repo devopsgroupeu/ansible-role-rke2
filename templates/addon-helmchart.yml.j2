@@ -9,6 +9,25 @@ spec:
   version: {{ item.version | default('') }}
   targetNamespace: {{ item.namespace | default(item.name) }}
   createNamespace: true
+{% if item.bootstrap is defined %}
+  bootstrap: {{ item.bootstrap | bool | lower }}
+{% endif %}
+{% if item.failurePolicy is defined and item.failurePolicy | length > 0 %}
+  failurePolicy: {{ item.failurePolicy }}
+{% endif %}
+{% if item.repoCA is defined and item.repoCA | length > 0 %}
+  repoCA: {{ item.repoCA }}
+{% endif %}
+{% if item.authSecret is defined and item.authSecret | length > 0 %}
+  authSecret:
+    name: {{ item.authSecret }}
+{% endif %}
+{% if item.set is defined and item.set | length > 0 %}
+  set:
+{% for k, v in item.set.items() %}
+    {{ k }}: "{{ v }}"
+{% endfor %}
+{% endif %}
 {% if item.values is defined and item.values | length > 0 %}
   valuesContent: |-
 {{ item.values | to_nice_yaml(indent=2) | indent(4, first=True) }}
