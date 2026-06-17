@@ -487,6 +487,24 @@ To upgrade RKE2 without downtime, run the playbook with `serial: 1` and set `rke
 
 > **Note:** `serial: 1` is required at the play level. Without it all nodes restart simultaneously.
 
+For a rolling restart of **agent (worker)** nodes, run the same `rolling_restart`
+entry point against `hosts: agent_nodes` with `serial: 1`. The task auto-detects
+the node type and restarts `rke2-agent`; cordon/drain still run when
+`rke2_drain_node_during_upgrade: true`, delegated to a healthy server node.
+
+```yaml
+- name: Rolling restart RKE2 agents
+  hosts: agent_nodes
+  become: true
+  serial: 1
+  vars:
+    rke2_drain_node_during_upgrade: true
+  tasks:
+    - ansible.builtin.import_role:
+        name: ansible-role-rke2
+        tasks_from: rolling_restart
+```
+
 ---
 
 ## Separate Agent Token
