@@ -83,3 +83,37 @@
 
           [Install]
           WantedBy=multi-user.target
+
+- name: Generate throwaway root CA for config-render tests
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Generate self-signed root CA key and certificate
+      ansible.builtin.command:
+        argv:
+          - openssl
+          - req
+          - -x509
+          - -newkey
+          - rsa:2048
+          - -nodes
+          - -keyout
+          - "{{ playbook_dir }}/test-root-ca.key"
+          - -out
+          - "{{ playbook_dir }}/test-root-ca.pem"
+          - -subj
+          - /CN=rke2-test-ca
+          - -days
+          - "3650"
+        creates: "{{ playbook_dir }}/test-root-ca.pem"
+      delegate_to: localhost
+      run_once: true
+      become: false
+
+    - name: Restrict permissions on root CA private key
+      ansible.builtin.file:
+        path: "{{ playbook_dir }}/test-root-ca.key"
+        mode: "0600"
+      delegate_to: localhost
+      run_once: true
+      become: false
