@@ -22,13 +22,13 @@ spec:
   authSecret:
     name: {{ item.authSecret }}
 {% endif %}
-{% if item.set is defined and item.set | length > 0 %}
+{% if item['set'] is defined and item['set'] | length > 0 %}
   set:
-{% for k, v in item.set.items() %}
+{% for k, v in item['set'].items() %}
     {{ k }}: "{{ v }}"
 {% endfor %}
 {% endif %}
-{% if item.values is defined and item.values | length > 0 %}
+{% if item['values'] is defined and item['values'] | length > 0 %}
   valuesContent: |-
-{{ item.values | to_nice_yaml(indent=2) | indent(4, first=True) }}
+{{ item['values'] | to_nice_yaml(indent=2) | indent(4, first=True) }}
 {% endif %}
