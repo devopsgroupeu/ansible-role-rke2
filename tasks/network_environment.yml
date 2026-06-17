@@ -31,6 +31,18 @@
     - not airgap_dir_stat.stat.exists
   run_once: true
 
+- name: Assert artifacts dir is set for a full air-gap install
+  ansible.builtin.assert:
+    that:
+      - rke2_airgapped_artifacts_dir | length > 0
+    fail_msg: >-
+      rke2_airgapped is true with an empty rke2_airgapped_artifacts_dir; a full
+      air-gap needs the RKE2 tarball + checksum staged. Set the dir or run a
+      partial air-gap deliberately.
+  when:
+    - rke2_airgapped | default(false) | bool
+    - rke2_require_artifacts_dir | default(true) | bool
+
 - name: Download RKE2 installer script (when artifacts dir not provided)
   ansible.builtin.get_url:
     url: "https://get.rke2.io"
@@ -51,7 +63,9 @@
   ansible.builtin.file:
     path: /tmp/rke2-artifacts
     state: directory
-    mode: "0755"
+    owner: root
+    group: root
+    mode: "0700"
   when: rke2_airgapped_artifacts_dir | length > 0
 
 - name: Copy RKE2 binary tarball to target nodes

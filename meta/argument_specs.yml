@@ -58,6 +58,14 @@ argument_specs:
       # -----------------------------------------------------------------------
       # Installation mode
       # -----------------------------------------------------------------------
+      rke2_disable_firewalld:
+        type: bool
+        required: false
+        default: true
+        description: >
+          Stop and disable firewalld before install. Set false to manage
+          firewall rules yourself.
+
       rke2_airgapped:
         type: bool
         required: false
@@ -65,6 +73,14 @@ argument_specs:
         description: >
           Set true for air-gapped environments where outbound internet access
           is blocked.
+
+      rke2_require_artifacts_dir:
+        type: bool
+        required: false
+        default: true
+        description: >
+          Require rke2_airgapped_artifacts_dir when rke2_airgapped is true.
+          Set false for a deliberate partial air-gap.
 
       rke2_airgapped_artifacts_dir:
         type: str

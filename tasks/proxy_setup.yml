@@ -21,17 +21,20 @@
         owner: root
         group: root
         mode: "0644"
-      when: rke2_http_proxy | default('') | length > 0
-      notify: Reload systemd
+      when: >-
+        (rke2_http_proxy | default('') | length > 0)
+        or (rke2_https_proxy | default('') | length > 0)
+        or (rke2_no_proxy | default('') | length > 0)
+      notify: Restart rke2-server
 
     - name: Remove RKE2 server proxy environment file if not needed
       ansible.builtin.file:
         path: /etc/default/rke2-server
         state: absent
       when:
-        - rke2_http_proxy | default('') | length == 0
+        - not ((rke2_http_proxy | default('') | length > 0) or (rke2_https_proxy | default('') | length > 0) or (rke2_no_proxy | default('') | length > 0))
         - server_proxy_file.stat.exists | default(false)
-      notify: Reload systemd
+      notify: Restart rke2-server
 
 - name: Handle RKE2 agent proxy configuration
   when: "'agent_nodes' in group_names"
@@ -43,14 +46,17 @@
         owner: root
         group: root
         mode: "0644"
-      when: rke2_http_proxy | default('') | length > 0
-      notify: Reload systemd
+      when: >-
+        (rke2_http_proxy | default('') | length > 0)
+        or (rke2_https_proxy | default('') | length > 0)
+        or (rke2_no_proxy | default('') | length > 0)
+      notify: Restart rke2-agent
 
     - name: Remove RKE2 agent proxy environment file if not needed
       ansible.builtin.file:
         path: /etc/default/rke2-agent
         state: absent
       when:
-        - rke2_http_proxy | default('') | length == 0
+        - not ((rke2_http_proxy | default('') | length > 0) or (rke2_https_proxy | default('') | length > 0) or (rke2_no_proxy | default('') | length > 0))
         - agent_proxy_file.stat.exists | default(false)
-      notify: Reload systemd
+      notify: Restart rke2-agent

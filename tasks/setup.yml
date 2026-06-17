@@ -7,8 +7,8 @@
     name: firewalld
     state: stopped
     enabled: false
-    masked: true
   when:
+    - rke2_disable_firewalld | default(true) | bool
     - "'firewalld.service' in ansible_facts.services"
     - "ansible_facts.services['firewalld.service']['status'] not in ['not-found', 'masked']"
 
@@ -22,7 +22,7 @@
     policy: targeted
     state: permissive
   when:
-    - ansible_os_family == "RedHat"
+    - ansible_facts['os_family'] == "RedHat"
     - not rke2_selinux | default(false) | bool
 
 - name: Install container-selinux when rke2_selinux is enabled (RHEL-family)
@@ -30,7 +30,7 @@
     name: container-selinux
     state: present
   when:
-    - ansible_os_family == "RedHat"
+    - ansible_facts['os_family'] == "RedHat"
     - rke2_selinux | default(false) | bool
 
 - name: Assert this server node matches at most one rke2_server_nodes entry

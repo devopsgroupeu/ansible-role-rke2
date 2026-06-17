@@ -28,6 +28,7 @@
   when:
     - not rke2_allow_downgrade | default(false) | bool
     - current_rke2_server_version != "not_installed"
+    - current_rke2_server_version | length > 0
     - current_rke2_server_version != rke2_version
     - current_rke2_server_version is version(rke2_version, '>', version_type='loose')
 

@@ -32,8 +32,17 @@ rke2_allow_downgrade: false
 # ----------------------------------------------------------------------------
 # Installation mode
 # ----------------------------------------------------------------------------
+# Stop+disable firewalld before installing RKE2 (RKE2 manages its own iptables).
+# Set false to leave firewalld alone (you must then open RKE2 ports yourself).
+rke2_disable_firewalld: true
+
 # Set to true for air-gapped environments where outbound internet access is blocked
 rke2_airgapped: false
+
+# Require rke2_airgapped_artifacts_dir to be set when rke2_airgapped is true.
+# Set false for a deliberate partial air-gap (installer downloaded from internet,
+# binaries staged locally).
+rke2_require_artifacts_dir: true
 
 # Path on the Ansible controller to a directory containing pre-downloaded RKE2 artifacts.
 # Required files: rke2-install.sh, rke2.linux-amd64.tar.gz, sha256sum-amd64.txt
