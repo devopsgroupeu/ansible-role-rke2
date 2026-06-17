@@ -9,6 +9,15 @@
       - rke2_vip_manager in ['kubevip', 'keepalived']
     fail_msg: "rke2_vip_address must be set and rke2_vip_manager must be 'kubevip' or 'keepalived'"
 
+- name: Validate keepalived auth_pass length
+  ansible.builtin.assert:
+    that:
+      - rke2_keepalived_auth_pass | length <= 8
+    fail_msg: >-
+      rke2_keepalived_auth_pass is {{ rke2_keepalived_auth_pass | length }} chars;
+      keepalived silently truncates VRRP auth_pass to 8 chars. Use <= 8 characters.
+  when: rke2_vip_manager == 'keepalived'
+
 # ---- kube-vip ---------------------------------------------------------------
 # kube-vip runs as a DaemonSet on control-plane nodes, deployed via RKE2's
 # auto-manifest directory. This gives it a proper ServiceAccount with in-cluster
