@@ -125,7 +125,7 @@ argument_specs:
         type: str
         required: false
         default: ""
-        description: Override HTTP proxy for containerd only (falls back to rke2_http_proxy when empty).
+        description: Override HTTP proxy for containerd only. Independent of rke2_http_proxy; empty means unset.
 
       rke2_containerd_https_proxy:
         type: str
@@ -194,9 +194,8 @@ argument_specs:
         default: kubevip
         choices: ["kubevip", "keepalived"]
         description: >
-          VIP manager. Options: kubevip (deploys kube-vip as a DaemonSet via
-          RKE2 server/manifests), keepalived (role installs and configures
-          keepalived directly with unicast VRRP and adds the VIP to tls-san).
+          VIP manager. Options: kubevip (kube-vip DaemonSet via server/manifests),
+          keepalived (this role installs/configures keepalived directly).
 
       rke2_kubevip_version:
         type: str
