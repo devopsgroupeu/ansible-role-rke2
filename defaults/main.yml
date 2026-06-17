@@ -96,6 +96,9 @@ rke2_agent_server_address: ""
 # role grants discovery.k8s.io/endpointslices accordingly.
 rke2_kubevip_version: "v1.2.0"
 
+# Control-plane port kube-vip advertises the VIP on (RKE2 apiserver = 6443).
+rke2_kubevip_port: "6443"
+
 # Enable kube-vip watching of LoadBalancer-type Services (svc_enable).
 # Automatically set to true when rke2_kubevip_cloud_provider_enabled is true.
 rke2_kubevip_svc_enable: false

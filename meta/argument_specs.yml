@@ -173,6 +173,12 @@ argument_specs:
         default: v1.2.0
         description: kube-vip image tag. Only used when rke2_vip_manager is 'kubevip'.
 
+      rke2_kubevip_port:
+        type: str
+        required: false
+        default: "6443"
+        description: Control-plane port kube-vip advertises the VIP on.
+
       rke2_kubevip_svc_enable:
         type: bool
         required: false

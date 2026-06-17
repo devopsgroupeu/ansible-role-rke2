@@ -33,6 +33,10 @@ spec:
               value: "{{ rke2_vip_address }}"
             - name: vip_interface
               value: "{{ rke2_vip_interface }}"
+            - name: port
+              value: "{{ rke2_kubevip_port | default('6443') }}"
+            - name: vip_subnet
+              value: "32"
             - name: vip_leaderelection
               value: "true"
             - name: vip_leaseduration

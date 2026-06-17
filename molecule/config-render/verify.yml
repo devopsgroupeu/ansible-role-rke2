@@ -102,3 +102,10 @@
       ansible.builtin.assert:
         that: "'kube-vip:v1.' in (kubevip_ds_raw.content | b64decode)"
         fail_msg: "kube-vip DaemonSet not pinned to a v1.x image"
+
+    - name: Assert kube-vip DaemonSet sets port and vip_subnet
+      ansible.builtin.assert:
+        that:
+          - "'name: port' in (kubevip_ds_raw.content | b64decode)"
+          - "'name: vip_subnet' in (kubevip_ds_raw.content | b64decode)"
+        fail_msg: "kube-vip DaemonSet missing port / vip_subnet env vars"
