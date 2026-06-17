@@ -2,7 +2,7 @@
 
 [![Lint](https://github.com/devopsgroupeu/ansible-role-rke2/actions/workflows/lint.yml/badge.svg)](https://github.com/devopsgroupeu/ansible-role-rke2/actions/workflows/lint.yml)
 [![Molecule](https://github.com/devopsgroupeu/ansible-role-rke2/actions/workflows/molecule.yml/badge.svg)](https://github.com/devopsgroupeu/ansible-role-rke2/actions/workflows/molecule.yml)
-[![Ansible Galaxy](https://img.shields.io/badge/Ansible%20Galaxy-devopsgroup.rke2-blue?logo=ansible)](https://galaxy.ansible.com/devopsgroup/rke2)
+[![Ansible Galaxy](https://img.shields.io/badge/Ansible%20Galaxy-devopsgroupeu.rke2-blue?logo=ansible)](https://galaxy.ansible.com/ui/standalone/roles/devopsgroupeu/rke2/)
 ![GitHub License](https://img.shields.io/github/license/devopsgroupeu/ansible-role-rke2)
 ![GitHub Forks](https://img.shields.io/github/forks/devopsgroupeu/ansible-role-rke2)
 ![GitHub Stars](https://img.shields.io/github/stars/devopsgroupeu/ansible-role-rke2)
