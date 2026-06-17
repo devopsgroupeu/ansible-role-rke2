@@ -72,13 +72,19 @@ for CERT in "$TLS_DIR"/*.crt; do
             else
                 HEALTH_PORT=10250
             fi
+            HEALTH_OK=false
             for i in $(seq 1 30); do
                 if (exec 3<>"/dev/tcp/127.0.0.1/${HEALTH_PORT}") 2>/dev/null; then
                     log_message "Health check OK: ${RKE2_SERVICE} listening on 127.0.0.1:${HEALTH_PORT}"
+                    HEALTH_OK=true
                     break
                 fi
                 sleep 5
             done
+            if [[ "$HEALTH_OK" == "false" ]]; then
+                log_message "WARNING: health-check timed out after 150s; ${RKE2_SERVICE} may not be healthy"
+                exit 1
+            fi
             ROTATED=true
             break
         fi
