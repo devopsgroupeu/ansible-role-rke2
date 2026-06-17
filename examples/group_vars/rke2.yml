@@ -1,0 +1,80 @@
+---
+# ============================================================================
+# ansible-role-rke2 — example group_vars/all.yml
+# ============================================================================
+# Copy this file to your inventory's group_vars/ directory and adjust values.
+# All variables are optional — only set what you need to change from defaults.
+# Full reference: docs/CONFIGURATION.md
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# RKE2 version
+# ----------------------------------------------------------------------------
+rke2_version: "v1.28.15+rke2r1"
+
+# ----------------------------------------------------------------------------
+# VIP / HA — choose kubevip OR keepalived
+# ----------------------------------------------------------------------------
+rke2_vip_enabled: true
+rke2_vip_address: "10.0.0.100"
+rke2_vip_interface: "ens3"
+rke2_vip_manager: "kubevip"   # options: kubevip, keepalived
+
+# keepalived-specific (only used when rke2_vip_manager=keepalived)
+# rke2_keepalived_router_id: 51
+# rke2_keepalived_auth_pass: "changeme"
+
+# ----------------------------------------------------------------------------
+# Cluster networking
+# ----------------------------------------------------------------------------
+rke2_tls_san:
+  - "rke2.example.com"
+  # VIP is added automatically — no need to list it here
+
+# rke2_cluster_cidr: "10.42.0.0/16"
+# rke2_service_cidr: "10.43.0.0/16"
+
+# ----------------------------------------------------------------------------
+# Kubeconfig
+# ----------------------------------------------------------------------------
+rke2_kubeconfig_download: true
+rke2_kubeconfig_output_path: "{{ playbook_dir }}/rke2.yaml"
+
+# ----------------------------------------------------------------------------
+# Proxy (uncomment if your environment requires a proxy)
+# ----------------------------------------------------------------------------
+# rke2_http_proxy: "http://proxy.example.com:3128"
+# rke2_https_proxy: "http://proxy.example.com:3128"
+# rke2_no_proxy: "localhost,127.0.0.1,10.0.0.0/8,192.168.0.0/16"
+
+# ----------------------------------------------------------------------------
+# Air-gapped install (uncomment for offline environments)
+# ----------------------------------------------------------------------------
+# rke2_airgapped: true
+# rke2_airgapped_artifacts_dir: "{{ playbook_dir }}/rke2-artifacts"
+
+# ----------------------------------------------------------------------------
+# CNI plugin (default: canal)
+# ----------------------------------------------------------------------------
+# rke2_cni: "canal"
+
+# ----------------------------------------------------------------------------
+# Certificate rotation
+# ----------------------------------------------------------------------------
+# rke2_cert_rotation_enabled: true
+# rke2_cert_rotation_schedule_type: "weekly"
+# rke2_cert_rotation_expiry_threshold_days: 20
+
+# ----------------------------------------------------------------------------
+# Helm addons
+# ----------------------------------------------------------------------------
+# rke2_addons:
+#   - name: cert-manager
+#     enabled: true
+#     repo: "https://charts.jetstack.io"
+#     chart: cert-manager
+#     version: "v1.16.2"
+#     namespace: cert-manager
+#     values:
+#       crds:
+#         enabled: true

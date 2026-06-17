@@ -1,0 +1,385 @@
+---
+# ============================================================================
+# RKE2 Ansible Role - Default Variables
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# RKE2 Version
+# ----------------------------------------------------------------------------
+# Check available versions: https://github.com/rancher/rke2/releases
+rke2_version: v1.28.15+rke2r1
+
+# Pre-set cluster token. When empty the role reads the auto-generated token
+# from /var/lib/rancher/rke2/server/node-token on the first server and
+# distributes it to all other nodes. Set this to pin a known token (e.g. from
+# Vault) so the cluster token is fully declarative and version-controlled.
+rke2_cluster_token: ""
+
+# Optional separate token for agent nodes. When set, agents must use this token
+# instead of rke2_cluster_token, giving them less cluster access than server nodes.
+# Leave empty to use rke2_cluster_token for all nodes.
+rke2_agent_token: ""
+
+# Downgrade protection — refuses to install a version older than what is
+# already running. Set true only when a deliberate rollback is required.
+rke2_allow_downgrade: false
+
+# ----------------------------------------------------------------------------
+# Installation mode
+# ----------------------------------------------------------------------------
+# Set to true for air-gapped environments where outbound internet access is blocked
+rke2_airgapped: false
+
+# Path on the Ansible controller to a directory containing pre-downloaded RKE2 artifacts.
+# Required files: rke2-install.sh, rke2.linux-amd64.tar.gz, sha256sum-amd64.txt
+# Optional file:  rke2-images.linux-amd64.tar.zst  (for fully offline container image loading)
+# Download artifacts from: https://github.com/rancher/rke2/releases
+# Leave empty to download only the install script from the internet (partial air-gap).
+rke2_airgapped_artifacts_dir: ""  # e.g. "{{ playbook_dir }}/rke2-artifacts"
+
+# ----------------------------------------------------------------------------
+# Proxy settings
+# ----------------------------------------------------------------------------
+rke2_http_proxy: ""
+rke2_https_proxy: ""
+rke2_no_proxy: ""
+
+# Separate proxy settings for containerd (optional)
+rke2_containerd_http_proxy: ""
+rke2_containerd_https_proxy: ""
+rke2_containerd_no_proxy: ""
+
+# ----------------------------------------------------------------------------
+# CNI plugin
+# ----------------------------------------------------------------------------
+# Options: canal, cilium, calico, flannel, or default (canal)
+rke2_cni: "default"
+
+# CNI-specific configuration (only used when rke2_cni != 'default')
+rke2_cni_configs: {}
+  # calico:
+  #   installation:
+  #     calicoNetwork:
+  #       mtu: 9000
+
+# ----------------------------------------------------------------------------
+# VIP / High Availability
+# ----------------------------------------------------------------------------
+# Set rke2_vip_enabled: true to configure a stable API endpoint across control plane nodes.
+#
+# rke2_vip_manager options:
+#   - kubevip    — deploys kube-vip as a static pod on each server node (recommended for on-prem/bare-metal)
+#   - keepalived — VIP is managed externally by the ansible-role-haproxy-keepalived role;
+#                  this role only adds the VIP to tls-san
+#
+# The VIP address is automatically added to rke2_tls_san.
+
+rke2_vip_enabled: false
+rke2_vip_address: ""         # e.g. "10.0.0.100"
+rke2_vip_interface: "eth0"   # network interface on control plane nodes
+rke2_vip_manager: "kubevip"  # options: kubevip, keepalived
+
+# Override the server address used in the agent config.
+# Defaults to rke2_vip_address (when VIP enabled) or the first server's ansible_host.
+# Useful on cloud SDN environments (e.g. Hetzner private networks) where gratuitous
+# ARP-based VIPs are not routable — set this to a load balancer address or a
+# directly reachable server IP instead.
+rke2_agent_server_address: ""
+
+# kube-vip version (only used when rke2_vip_manager=kubevip)
+rke2_kubevip_version: "v0.8.0"
+
+# Enable kube-vip watching of LoadBalancer-type Services (svc_enable).
+# Automatically set to true when rke2_kubevip_cloud_provider_enabled is true.
+rke2_kubevip_svc_enable: false
+
+# Enable per-service leader election (svc_election).
+rke2_kubevip_service_election_enable: false
+
+# Expose kube-vip Prometheus metrics on this port. Set to 0 to disable.
+rke2_kubevip_metrics_port: 0
+
+# Deploy the kube-vip cloud provider (enables LoadBalancer-type Services).
+# Requires rke2_vip_manager=kubevip and rke2_kubevip_load_balancer_ip_range to be set.
+rke2_kubevip_cloud_provider_enabled: false
+rke2_kubevip_cloud_provider_image: "ghcr.io/kube-vip/kube-vip-cloud-provider:v0.0.12"
+
+# IP pool for LoadBalancer-type Services assigned by the cloud provider.
+# Accepts CIDR notation (e.g. "192.168.0.200/29") or a range (e.g. "192.168.0.200-192.168.0.250").
+rke2_kubevip_load_balancer_ip_range: ""
+
+# keepalived settings (only used when rke2_vip_manager=keepalived)
+# Unicast VRRP is used automatically — works on cloud SDN networks (Hetzner, AWS VPC, etc.)
+# where multicast (224.0.0.18) is filtered. Each host must have a 'private_ip' inventory
+# variable set to its private/LAN IP so peers can be resolved for unicast peer list.
+rke2_keepalived_router_id: 51          # Virtual router ID — must be unique per VRRP group on the subnet (1-255)
+rke2_keepalived_priority_master: 101   # Priority for the first server node (MASTER)
+rke2_keepalived_priority_backup: 100   # Priority for additional server nodes (BACKUP)
+rke2_keepalived_auth_pass: "rke2vip"  # VRRP authentication password (max 8 chars)
+
+# Floating IP failover hook — runs a script when this node becomes keepalived MASTER.
+# Use this to reassign a cloud floating IP to the current active node.
+# Provider-agnostic: supply your own script content and env vars.
+# The role deploys the script + env file and wires it into keepalived notify_master.
+rke2_keepalived_failover_enabled: false
+
+# Path on target nodes where the notify script will be deployed.
+rke2_keepalived_failover_script: "/etc/keepalived/notify-master.sh"
+
+# Shell script body executed when this node becomes MASTER.
+# The script sources rke2_keepalived_failover_env_file automatically.
+# Example (cloud floating IP via API):
+#   rke2_keepalived_failover_script_content: |
+#     #!/bin/bash
+#     SERVER_ID=$(curl -sf http://169.254.169.254/.../instance-id)
+#     curl -sf -X POST "https://api.example.com/floating_ips/${FLOATING_IP_ID}/assign" \
+#       -H "Authorization: Bearer ${API_TOKEN}" \
+#       -d "{\"server\": ${SERVER_ID}}"
+rke2_keepalived_failover_script_content: ""
+
+# Environment variables written to a protected file sourced by the notify script.
+# Put API tokens and IDs here — file is deployed mode 0600 owned by root.
+rke2_keepalived_failover_env: {}
+  # API_TOKEN: "secret"
+  # FLOATING_IP_ID: "12345"
+
+# ----------------------------------------------------------------------------
+# Cluster networking
+# ----------------------------------------------------------------------------
+rke2_tls_san: []
+  # - "rke2.example.com"
+  # - "10.0.0.100"  # VIP address — added automatically when rke2_vip_enabled: true
+
+rke2_cluster_cidr: ""   # Default: 10.42.0.0/16
+rke2_service_cidr: ""   # Default: 10.43.0.0/16
+rke2_cluster_domain: "" # Default: cluster.local
+
+# ----------------------------------------------------------------------------
+# etcd snapshots
+# ----------------------------------------------------------------------------
+rke2_etcd_snapshot: false
+rke2_etcd_snapshot_schedule: ""  # cron format, e.g. "0 */6 * * *"
+
+# ----------------------------------------------------------------------------
+# Data and kubeconfig
+# ----------------------------------------------------------------------------
+rke2_data_dir: "/var/lib/rancher/rke2"
+rke2_write_kubeconfig_mode: "0600"
+
+# Download kubeconfig to the Ansible controller after install
+rke2_kubeconfig_download: false
+rke2_kubeconfig_output_path: "{{ playbook_dir }}/rke2.yaml"  # local path on controller
+
+# ----------------------------------------------------------------------------
+# Server nodes configuration (control plane)
+# ----------------------------------------------------------------------------
+# Per-node labels and taints. Match nodes by their ansible_host IP.
+rke2_server_nodes: []
+  # - host: 10.0.0.1
+  #   node-taint:
+  #     - "CriticalAddonsOnly=true:NoExecute"
+  # - host: 10.0.0.2
+  #   node-taint:
+  #     - "CriticalAddonsOnly=true:NoExecute"
+
+# ----------------------------------------------------------------------------
+# Agent nodes configuration (worker nodes)
+# ----------------------------------------------------------------------------
+rke2_agent_nodes: []
+  # - host: 10.0.0.10
+  #   node-label:
+  #     - infra=true
+  #     - app=true
+
+# ----------------------------------------------------------------------------
+# Custom CA certificates
+# ----------------------------------------------------------------------------
+rke2_custom_root_ca_cert: ""       # vault_rke2_root_ca_cert
+rke2_custom_root_ca_key: ""        # vault_rke2_root_ca_key
+rke2_custom_intermediate_ca_cert: ""
+rke2_custom_intermediate_ca_key: ""
+
+# ----------------------------------------------------------------------------
+# Certificate rotation
+# ----------------------------------------------------------------------------
+rke2_cert_rotation_enabled: false
+rke2_cert_rotation_expiry_threshold_days: 20  # Rotate when cert expires within N days
+
+rke2_cert_rotation_schedule_type: "weekly"    # Options: daily, weekly, monthly
+rke2_cert_rotation_schedule_hour: "20"        # 0-23
+rke2_cert_rotation_schedule_minute: "0"       # 0-59
+rke2_cert_rotation_schedule_day_of_week: "1"  # 1-7 (1=Monday), used when type=weekly
+rke2_cert_rotation_schedule_day_of_month: "1" # 1-31, used when type=monthly
+rke2_cert_rotation_log_retention_days: 7
+
+# ----------------------------------------------------------------------------
+# Additional packages
+# ----------------------------------------------------------------------------
+rke2_additional_packages:
+  - curl      # required
+  - iptables  # required
+  # - jq
+  # - htop
+
+# ----------------------------------------------------------------------------
+# Ingress nginx configuration (optional)
+# ----------------------------------------------------------------------------
+rke2_ingress_nginx_config: |
+#  controller:
+#    extraArgs:
+#      enable-ssl-passthrough: "true"
+#    config:
+#      use-forwarded-headers: "true"
+#    allowSnippetAnnotations: "true"
+#    ingressClassResource:
+#      name: nginx
+#      default: true
+#    service:
+#      externalTrafficPolicy: Local
+
+# ----------------------------------------------------------------------------
+# Helm addons (optional)
+# ----------------------------------------------------------------------------
+# Deploy addons via RKE2's built-in HelmChart CRD.
+# RKE2 automatically applies manifests placed in /var/lib/rancher/rke2/server/manifests/.
+# Only runs on the first server node.
+#
+# Each addon requires: name, enabled, repo, chart (optional, defaults to name),
+#                      version, namespace, values (optional dict)
+#
+# Examples — uncomment and adjust to enable:
+
+rke2_addons: []
+# rke2_addons:
+#   - name: argocd
+#     enabled: false
+#     repo: "https://argoproj.github.io/argo-helm"
+#     chart: argo-cd
+#     version: "7.7.11"
+#     namespace: argocd
+#     values:
+#       server:
+#         service:
+#           type: ClusterIP
+#
+#   - name: cert-manager
+#     enabled: false
+#     repo: "https://charts.jetstack.io"
+#     chart: cert-manager
+#     version: "v1.16.2"
+#     namespace: cert-manager
+#     values:
+#       crds:
+#         enabled: true
+
+# ----------------------------------------------------------------------------
+# Private registry configuration (optional)
+# ----------------------------------------------------------------------------
+rke2_private_registries_config: |
+#   mirrors:
+#     docker.io:
+#       endpoint:
+#         - "https://registry.example.com:5000"
+#   configs:
+#     "registry.example.com:5000":
+#       auth:
+#         username: xxxxxx
+#         password: xxxxxx
+#       tls:
+#         insecure_skip_verify: true
+
+# ----------------------------------------------------------------------------
+# Built-in component management
+# ----------------------------------------------------------------------------
+# Disable RKE2 built-in components. Useful when you want to replace the
+# default ingress controller, metrics server, or DNS with your own.
+# Disable kube-proxy entirely (e.g. when using Cilium in kube-proxy replacement mode).
+rke2_disable_kube_proxy: false
+
+rke2_disable: []
+  # - rke2-ingress-nginx
+  # - rke2-metrics-server
+  # - rke2-coredns
+  # - rke2-snapshot-controller
+  # - rke2-snapshot-validation-webhook
+
+# ----------------------------------------------------------------------------
+# Kubernetes component arguments
+# ----------------------------------------------------------------------------
+# Pass extra flags to individual Kubernetes components.
+# Each entry is a string in "key=value" or "--flag" format.
+rke2_kube_apiserver_args: []
+  # - "audit-log-maxage=30"
+  # - "audit-log-maxbackup=10"
+  # - "audit-log-maxsize=100"
+
+rke2_kube_scheduler_args: []
+
+rke2_kube_controller_manager_args: []
+  # - "node-cidr-mask-size=24"
+
+rke2_kubelet_args: []
+  # - "max-pods=200"
+  # - "eviction-hard=memory.available<200Mi"
+
+rke2_kube_proxy_args: []
+
+# ----------------------------------------------------------------------------
+# Cloud provider
+# ----------------------------------------------------------------------------
+# Set to true to disable RKE2's built-in cloud controller manager.
+# Required when using an external cloud controller (e.g. kube-vip cloud provider,
+# AWS CCM, Azure CCM). For on-prem bare-metal leave false.
+rke2_disable_cloud_controller: false
+
+# Cloud provider name passed to kubelet/API server.
+# Set to "external" when using any external cloud controller manager.
+# Leave empty for default RKE2 behaviour.
+rke2_cloud_provider_name: ""
+
+# ----------------------------------------------------------------------------
+# Hardening
+# ----------------------------------------------------------------------------
+# CIS Kubernetes benchmark hardening profile.
+# Activates RKE2's built-in CIS hardening — sets secure defaults for
+# API server, controller-manager, scheduler, etcd and kubelet.
+# Options: "cis" (RKE2 >= 1.25) or "cis-1.23" (legacy)
+rke2_cis_profile: ""
+
+# Pass selinux: true to the RKE2 config so that RKE2 and containerd run
+# in SELinux-enforcing mode. Requires container-selinux installed on the node.
+rke2_selinux: false
+
+# ----------------------------------------------------------------------------
+# Runtime options
+# ----------------------------------------------------------------------------
+# Override the node name registered in Kubernetes. Defaults to the system
+# hostname when empty. Useful when hostnames are not unique or DNS-resolvable.
+rke2_node_name: ""
+
+# Enable RKE2 debug logging (very verbose — use only for troubleshooting).
+rke2_debug: false
+
+# ----------------------------------------------------------------------------
+# Rolling restart
+# ----------------------------------------------------------------------------
+# When true, server nodes are cordoned and drained before restarting during
+# upgrades. Requires the play to run with serial: 1.
+rke2_drain_node_during_upgrade: false
+
+# Additional arguments passed to kubectl drain (e.g. "--timeout=180s").
+rke2_drain_additional_args: "--timeout=120s"
+
+# When true, wait for all pods to reach Running/Succeeded phase after uncordon.
+rke2_wait_for_all_pods_to_be_ready: false
+
+# ----------------------------------------------------------------------------
+# Extra configuration (catch-all)
+# ----------------------------------------------------------------------------
+# Any key/value pairs here are merged into config.yaml after all other
+# settings. Use this for RKE2 options not yet exposed as role variables.
+# Values here take precedence over everything above.
+rke2_extra_config: {}
+  # protect-kernel-defaults: true
+  # snapshotter: "overlayfs"
+  # container-runtime-endpoint: "unix:///run/containerd/containerd.sock"

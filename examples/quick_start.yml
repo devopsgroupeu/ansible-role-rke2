@@ -1,0 +1,121 @@
+---
+# =============================================================================
+# RKE2 Quick Start Examples
+# =============================================================================
+# Copy the relevant example into your playbook and adjust variables.
+# Full variable reference: defaults/main.yml
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Example 1: Single Node (development / testing)
+# -----------------------------------------------------------------------------
+# Inventory (inventory/hosts.yaml):
+#
+#   all:
+#     children:
+#       server_nodes:
+#         hosts:
+#           rke2-server:
+#             ansible_host: 10.0.0.10
+#
+# Run: ansible-playbook -i inventory/hosts.yaml examples/quick_start.yml
+
+- name: Install RKE2 - single node
+  hosts: all
+  become: true
+  vars:
+    rke2_version: v1.28.15+rke2r1
+    rke2_tls_san:
+      - "10.0.0.10"
+  roles:
+    - role: ansible-role-rke2
+
+# -----------------------------------------------------------------------------
+# Example 2: HA cluster (3 server nodes + worker nodes)
+# -----------------------------------------------------------------------------
+# Inventory (inventory/hosts.yaml):
+#
+#   all:
+#     children:
+#       server_nodes:
+#         hosts:
+#           rke2-server1:
+#             ansible_host: 10.0.0.11
+#           rke2-server2:
+#             ansible_host: 10.0.0.12
+#           rke2-server3:
+#             ansible_host: 10.0.0.13
+#       agent_nodes:
+#         hosts:
+#           rke2-worker1:
+#             ansible_host: 10.0.0.21
+#           rke2-worker2:
+#             ansible_host: 10.0.0.22
+#
+# Run: ansible-playbook -i inventory/hosts.yaml examples/quick_start.yml
+
+# - name: Install RKE2 - HA with kube-vip
+#   hosts: all
+#   become: true
+#   vars:
+#     rke2_version: v1.28.15+rke2r1
+#     rke2_vip_enabled: true
+#     rke2_vip_address: "10.0.0.100"
+#     rke2_vip_interface: "eth0"
+#     rke2_vip_manager: "kubevip"
+#     rke2_tls_san:
+#       - "10.0.0.100"     # VIP — also added automatically when rke2_vip_enabled: true
+#       - "rke2.example.com"
+#   roles:
+#     - role: ansible-role-rke2
+
+# -----------------------------------------------------------------------------
+# Example 3: HA cluster with keepalived (external VIP)
+# -----------------------------------------------------------------------------
+# Run ansible-role-haproxy-keepalived first to set up the VIP,
+# then run this role with rke2_vip_manager: keepalived.
+# The role will add the VIP to tls-san but will NOT deploy kube-vip.
+
+# - name: Install RKE2 - HA with keepalived VIP
+#   hosts: all
+#   become: true
+#   vars:
+#     rke2_version: v1.28.15+rke2r1
+#     rke2_vip_enabled: true
+#     rke2_vip_address: "10.0.0.100"
+#     rke2_vip_manager: "keepalived"
+#     rke2_tls_san:
+#       - "10.0.0.100"
+#   roles:
+#     - role: ansible-role-rke2
+
+# -----------------------------------------------------------------------------
+# Example 4: Air-gapped install
+# -----------------------------------------------------------------------------
+# Place rke2-install.sh in the role's files directory before running.
+# See docs/CONFIGURATION.md for full air-gapped setup instructions.
+
+# - name: Install RKE2 - air-gapped
+#   hosts: all
+#   become: true
+#   vars:
+#     rke2_version: v1.28.15+rke2r1
+#     rke2_airgapped: true
+#     rke2_tls_san:
+#       - "10.0.0.10"
+#   roles:
+#     - role: ansible-role-rke2
+
+# -----------------------------------------------------------------------------
+# Example 5: Download kubeconfig to Ansible controller after install
+# -----------------------------------------------------------------------------
+
+# - name: Install RKE2 and fetch kubeconfig
+#   hosts: all
+#   become: true
+#   vars:
+#     rke2_version: v1.28.15+rke2r1
+#     rke2_kubeconfig_download: true
+#     rke2_kubeconfig_output_path: "~/.kube/rke2.yaml"
+#   roles:
+#     - role: ansible-role-rke2

@@ -1,0 +1,20 @@
+---
+- name: Converge
+  hosts: all
+  gather_facts: true
+  vars:
+    rke2_version: v1.28.15+rke2r1
+    rke2_airgapped: false
+    rke2_cni: default
+    rke2_tls_san:
+      - "rke2-server"
+    rke2_vip_enabled: false
+    rke2_cluster_domain: "cluster.test"
+    rke2_disable_kube_proxy: false
+    rke2_cert_rotation_enabled: false
+    # Skip actual installation — mock binary already present
+    rke2_additional_packages: []
+  tasks:
+    - name: Include rke2 role
+      ansible.builtin.include_role:
+        name: ansible-role-rke2

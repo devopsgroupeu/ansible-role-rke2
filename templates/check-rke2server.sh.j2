@@ -1,0 +1,20 @@
+#!/bin/sh
+# Managed by Ansible - ansible-role-rke2
+# Keepalived health check: verify the RKE2 registration API is responding
+
+errorExit() {
+    echo "*** $*" 1>&2
+    exit 1
+}
+
+curl --silent --max-time 5 --insecure \
+    https://localhost:9345/ \
+    -o /dev/null \
+    || errorExit "RKE2 registration API check failed on localhost:9345"
+
+if ip addr | grep -qw "{{ rke2_vip_address }}"; then
+    curl --silent --max-time 5 --insecure \
+        "https://{{ rke2_vip_address }}:9345/" \
+        -o /dev/null \
+        || errorExit "RKE2 registration API check failed on VIP {{ rke2_vip_address }}:9345"
+fi

@@ -1,0 +1,66 @@
+---
+- name: Ensure custom CA directory exists
+  ansible.builtin.file:
+    path: /var/lib/rancher/rke2/server/tls
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Decode and save root CA certificate
+  ansible.builtin.copy:
+    content: "{{ rke2_custom_root_ca_cert | b64decode }}"
+    dest: /var/lib/rancher/rke2/server/tls/root-ca.pem
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Decode and save root CA private key
+  ansible.builtin.copy:
+    content: "{{ rke2_custom_root_ca_key | b64decode }}"
+    dest: /var/lib/rancher/rke2/server/tls/root-ca.key
+    owner: root
+    group: root
+    mode: "0600"
+
+- name: Decode and save intermediate CA certificate
+  ansible.builtin.copy:
+    content: "{{ rke2_custom_intermediate_ca_cert | b64decode }}"
+    dest: /var/lib/rancher/rke2/server/tls/intermediate-ca.pem
+    owner: root
+    group: root
+    mode: "0644"
+  when: rke2_custom_intermediate_ca_cert is defined and rke2_custom_intermediate_ca_cert | length > 0
+
+- name: Decode and save intermediate CA private key
+  ansible.builtin.copy:
+    content: "{{ rke2_custom_intermediate_ca_key | b64decode }}"
+    dest: /var/lib/rancher/rke2/server/tls/intermediate-ca.key
+    owner: root
+    group: root
+    mode: "0600"
+  when: rke2_custom_intermediate_ca_key is defined and rke2_custom_intermediate_ca_key | length > 0
+
+- name: Copy CA generation script
+  ansible.builtin.copy:
+    src: generate_ca.sh
+    dest: /etc/rancher/custom_ca/generate_ca.sh
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Run CA generation script
+  ansible.builtin.command: "/etc/rancher/custom_ca/generate_ca.sh"
+  args:
+    chdir: "/var/lib/rancher/rke2/server/tls"
+  changed_when: true
+
+- name: Verify CA certificates were generated
+  ansible.builtin.stat:
+    path: "/var/lib/rancher/rke2/server/tls/server-ca.crt"
+  register: ca_cert_check
+
+- name: Fail if CA certificates were not generated
+  ansible.builtin.fail:
+    msg: "Custom CA certificates were not generated. Check the generate_ca.sh script."
+  when: not ca_cert_check.stat.exists

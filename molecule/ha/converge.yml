@@ -1,0 +1,25 @@
+---
+- name: Converge
+  hosts: all
+  gather_facts: true
+  vars:
+    rke2_version: v1.28.15+rke2r1
+    rke2_airgapped: false
+    rke2_cni: default
+    rke2_tls_san:
+      - "10.0.0.100"
+    rke2_vip_enabled: true
+    rke2_vip_address: "10.0.0.100"
+    rke2_vip_interface: "eth0"
+    rke2_vip_manager: "kubevip"
+    rke2_kubevip_svc_enable: true
+    rke2_kubevip_cloud_provider_enabled: true
+    rke2_kubevip_load_balancer_ip_range: "10.0.0.200-10.0.0.220"
+    rke2_agent_token: "mock-agent-token-ha"
+    rke2_agent_server_address: "rke2-server1"
+    rke2_cert_rotation_enabled: false
+    rke2_additional_packages: []
+  tasks:
+    - name: Include rke2 role
+      ansible.builtin.include_role:
+        name: ansible-role-rke2

@@ -1,0 +1,30 @@
+---
+- name: Converge
+  hosts: all
+  gather_facts: true
+  vars:
+    rke2_version: v1.28.15+rke2r1
+    rke2_airgapped: false
+    rke2_cni: default
+    rke2_tls_san:
+      - "10.0.0.100"
+    rke2_vip_enabled: true
+    rke2_vip_address: "10.0.0.100"
+    rke2_vip_interface: "eth0"
+    rke2_vip_manager: "keepalived"
+    rke2_keepalived_router_id: 51
+    rke2_keepalived_auth_pass: "rke2vip"
+    rke2_keepalived_failover_enabled: true
+    rke2_keepalived_failover_env:
+      API_TOKEN: "test-token"
+      FLOATING_IP_ID: "12345"
+    rke2_keepalived_failover_script_content: |
+      #!/bin/bash
+      source "$(dirname "$0")/failover.env"
+      echo "failover: API_TOKEN=${API_TOKEN} FLOATING_IP_ID=${FLOATING_IP_ID}"
+    rke2_cert_rotation_enabled: false
+    rke2_additional_packages: []
+  tasks:
+    - name: Include rke2 role
+      ansible.builtin.include_role:
+        name: ansible-role-rke2

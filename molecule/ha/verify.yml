@@ -1,0 +1,223 @@
+---
+- name: Verify server nodes
+  hosts: server_nodes
+  gather_facts: false
+  tasks:
+    - name: Check RKE2 binary exists
+      ansible.builtin.stat:
+        path: /usr/local/bin/rke2
+      register: rke2_binary
+
+    - name: Assert RKE2 binary exists
+      ansible.builtin.assert:
+        that: rke2_binary.stat.exists
+        fail_msg: "/usr/local/bin/rke2 binary was not found"
+
+    - name: Check rke2-server service is active
+      ansible.builtin.command: systemctl is-active rke2-server
+      register: rke2_service_status
+      changed_when: false
+      failed_when: false
+
+    - name: Assert rke2-server service is active
+      ansible.builtin.assert:
+        that: rke2_service_status.stdout == 'active'
+        fail_msg: "rke2-server service is not active (status: {{ rke2_service_status.stdout }})"
+
+    - name: Check RKE2 server config exists
+      ansible.builtin.stat:
+        path: /etc/rancher/rke2/config.yaml
+      register: rke2_config
+
+    - name: Assert RKE2 server config exists
+      ansible.builtin.assert:
+        that: rke2_config.stat.exists
+        fail_msg: "/etc/rancher/rke2/config.yaml was not created on server node"
+
+    - name: Read RKE2 server config
+      ansible.builtin.slurp:
+        src: /etc/rancher/rke2/config.yaml
+      register: rke2_config_raw
+
+    - name: Parse RKE2 server config as YAML
+      ansible.builtin.set_fact:
+        rke2_config_parsed: "{{ rke2_config_raw.content | b64decode | from_yaml }}"
+
+    - name: Assert VIP is in tls-san on first server
+      ansible.builtin.assert:
+        that: "'10.0.0.100' in rke2_config_parsed['tls-san']"
+        fail_msg: "VIP address 10.0.0.100 not found in tls-san: {{ rke2_config_parsed.get('tls-san', []) }}"
+      when: inventory_hostname == groups['server_nodes'][0]
+
+    - name: Assert additional server config has token key
+      ansible.builtin.assert:
+        that: "'token' in rke2_config_parsed"
+        fail_msg: "token key missing from additional server config"
+      when: inventory_hostname != groups['server_nodes'][0]
+
+    - name: Assert additional server config has server key
+      ansible.builtin.assert:
+        that: "'server' in rke2_config_parsed"
+        fail_msg: "server key missing from additional server config"
+      when: inventory_hostname != groups['server_nodes'][0]
+
+    - name: Check kube-vip DaemonSet manifest exists in server/manifests
+      ansible.builtin.stat:
+        path: /var/lib/rancher/rke2/server/manifests/kube-vip.yml
+      register: kubevip_manifest
+
+    - name: Assert kube-vip DaemonSet manifest exists
+      ansible.builtin.assert:
+        that: kubevip_manifest.stat.exists
+        fail_msg: "kube-vip DaemonSet manifest not found at server/manifests/kube-vip.yml on {{ inventory_hostname }}"
+
+    - name: Check kube-vip RBAC manifest exists in server/manifests
+      ansible.builtin.stat:
+        path: /var/lib/rancher/rke2/server/manifests/kube-vip-rbac.yml
+      register: kubevip_rbac_manifest
+
+    - name: Assert kube-vip RBAC manifest exists
+      ansible.builtin.assert:
+        that: kubevip_rbac_manifest.stat.exists
+        fail_msg: "kube-vip RBAC manifest not found at server/manifests/kube-vip-rbac.yml on {{ inventory_hostname }}"
+
+    - name: Read kube-vip DaemonSet manifest
+      ansible.builtin.slurp:
+        src: /var/lib/rancher/rke2/server/manifests/kube-vip.yml
+      register: kubevip_manifest_raw
+
+    - name: Parse kube-vip manifest as YAML
+      ansible.builtin.set_fact:
+        kubevip_parsed: "{{ kubevip_manifest_raw.content | b64decode | from_yaml }}"
+
+    - name: Assert kube-vip manifest is a DaemonSet
+      ansible.builtin.assert:
+        that: kubevip_parsed.kind == 'DaemonSet'
+        fail_msg: "kube-vip manifest kind is '{{ kubevip_parsed.kind }}', expected 'DaemonSet'"
+
+    - name: Assert kube-vip svc_enable env var is set
+      ansible.builtin.assert:
+        that: >
+          kubevip_parsed.spec.template.spec.containers[0].env
+          | selectattr('name', 'equalto', 'svc_enable')
+          | list | length > 0
+        fail_msg: "svc_enable env var not found in kube-vip DaemonSet"
+
+    - name: Assert legacy kube-vip static pod manifest does NOT exist
+      ansible.builtin.stat:
+        path: /var/lib/rancher/rke2/agent/pod-manifests/kube-vip.yml
+      register: kubevip_legacy
+
+    - name: Assert legacy static pod manifest is absent
+      ansible.builtin.assert:
+        that: not kubevip_legacy.stat.exists
+        fail_msg: "Legacy kube-vip static pod manifest still exists at agent/pod-manifests/kube-vip.yml"
+
+    - name: Check kube-vip cloud provider manifests exist when enabled
+      ansible.builtin.stat:
+        path: /var/lib/rancher/rke2/server/manifests/kube-vip-cloud-controller.yml
+      register: kubevip_cloud
+      when: rke2_kubevip_cloud_provider_enabled | default(false) | bool
+
+    - name: Assert kube-vip cloud provider manifest exists when enabled
+      ansible.builtin.assert:
+        that: kubevip_cloud.stat.exists
+        fail_msg: "kube-vip cloud provider manifest missing from server/manifests/"
+      when: rke2_kubevip_cloud_provider_enabled | default(false) | bool
+
+    - name: Check RKE2 kubeconfig exists on first server
+      ansible.builtin.stat:
+        path: /etc/rancher/rke2/rke2.yaml
+      register: rke2_kubeconfig
+      when: inventory_hostname == groups['server_nodes'][0]
+
+    - name: Assert RKE2 kubeconfig exists on first server
+      ansible.builtin.assert:
+        that: rke2_kubeconfig.stat.exists
+        fail_msg: "/etc/rancher/rke2/rke2.yaml was not created on first server"
+      when: inventory_hostname == groups['server_nodes'][0]
+
+    - name: Read kubeconfig on first server
+      ansible.builtin.slurp:
+        src: /etc/rancher/rke2/rke2.yaml
+      register: rke2_kubeconfig_raw
+      when: inventory_hostname == groups['server_nodes'][0]
+
+    - name: Parse kubeconfig as YAML
+      ansible.builtin.set_fact:
+        rke2_kubeconfig_parsed: "{{ rke2_kubeconfig_raw.content | b64decode | from_yaml }}"
+      when: inventory_hostname == groups['server_nodes'][0]
+
+    - name: Assert kubeconfig has clusters defined
+      ansible.builtin.assert:
+        that: rke2_kubeconfig_parsed.clusters | length > 0
+        fail_msg: "kubeconfig has no clusters defined"
+      when: inventory_hostname == groups['server_nodes'][0]
+
+- name: Verify agent nodes
+  hosts: agent_nodes
+  gather_facts: false
+  tasks:
+    - name: Check RKE2 binary exists on agent
+      ansible.builtin.stat:
+        path: /usr/local/bin/rke2
+      register: rke2_binary
+
+    - name: Assert RKE2 binary exists on agent
+      ansible.builtin.assert:
+        that: rke2_binary.stat.exists
+        fail_msg: "/usr/local/bin/rke2 binary was not found on agent"
+
+    - name: Check rke2-agent service is active
+      ansible.builtin.command: systemctl is-active rke2-agent
+      register: rke2_agent_status
+      changed_when: false
+      failed_when: false
+
+    - name: Assert rke2-agent service is active
+      ansible.builtin.assert:
+        that: rke2_agent_status.stdout == 'active'
+        fail_msg: "rke2-agent service is not active (status: {{ rke2_agent_status.stdout }})"
+
+    - name: Check RKE2 agent config exists
+      ansible.builtin.stat:
+        path: /etc/rancher/rke2/config.yaml
+      register: rke2_agent_config
+
+    - name: Assert RKE2 agent config exists
+      ansible.builtin.assert:
+        that: rke2_agent_config.stat.exists
+        fail_msg: "/etc/rancher/rke2/config.yaml was not created on agent node"
+
+    - name: Read RKE2 agent config
+      ansible.builtin.slurp:
+        src: /etc/rancher/rke2/config.yaml
+      register: rke2_agent_config_raw
+
+    - name: Parse RKE2 agent config as YAML
+      ansible.builtin.set_fact:
+        rke2_agent_config_parsed: "{{ rke2_agent_config_raw.content | b64decode | from_yaml }}"
+
+    - name: Assert agent config has token key
+      ansible.builtin.assert:
+        that: "'token' in rke2_agent_config_parsed"
+        fail_msg: "token key missing from agent config"
+
+    - name: Assert agent config uses agent token when set
+      ansible.builtin.assert:
+        that: rke2_agent_config_parsed['token'] == rke2_agent_token
+        fail_msg: "agent config token '{{ rke2_agent_config_parsed['token'] }}' does not match rke2_agent_token"
+      when: rke2_agent_token | default('') | length > 0
+
+    - name: Assert agent config has server key
+      ansible.builtin.assert:
+        that: "'server' in rke2_agent_config_parsed"
+        fail_msg: "server key missing from agent config"
+
+    - name: Assert agent config server points to VIP
+      ansible.builtin.assert:
+        that: rke2_vip_address in rke2_agent_config_parsed['server']
+        fail_msg: "agent server '{{ rke2_agent_config_parsed['server'] }}' does not contain VIP {{ rke2_vip_address }}"
+      when:
+        - rke2_vip_enabled | default(false) | bool
+        - rke2_agent_server_address | default('') | length == 0

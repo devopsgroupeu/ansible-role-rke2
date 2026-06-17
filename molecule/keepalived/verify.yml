@@ -1,0 +1,204 @@
+---
+- name: Verify keepalived deployment
+  hosts: server_nodes
+  gather_facts: false
+  tasks:
+    # ---- RKE2 base checks ---------------------------------------------------
+
+    - name: Check RKE2 binary exists
+      ansible.builtin.stat:
+        path: /usr/local/bin/rke2
+      register: rke2_binary
+
+    - name: Assert RKE2 binary exists
+      ansible.builtin.assert:
+        that: rke2_binary.stat.exists
+        fail_msg: "/usr/local/bin/rke2 binary was not found"
+
+    - name: Check rke2-server service is active
+      ansible.builtin.command: systemctl is-active rke2-server
+      register: rke2_service_status
+      changed_when: false
+      failed_when: false
+
+    - name: Assert rke2-server service is active
+      ansible.builtin.assert:
+        that: rke2_service_status.stdout == 'active'
+        fail_msg: "rke2-server service is not active (status: {{ rke2_service_status.stdout }})"
+
+    - name: Check RKE2 server config exists
+      ansible.builtin.stat:
+        path: /etc/rancher/rke2/config.yaml
+      register: rke2_config
+
+    - name: Assert RKE2 server config exists
+      ansible.builtin.assert:
+        that: rke2_config.stat.exists
+        fail_msg: "/etc/rancher/rke2/config.yaml was not created on server node"
+
+    - name: Read RKE2 server config
+      ansible.builtin.slurp:
+        src: /etc/rancher/rke2/config.yaml
+      register: rke2_config_raw
+
+    - name: Parse RKE2 server config as YAML
+      ansible.builtin.set_fact:
+        rke2_config_parsed: "{{ rke2_config_raw.content | b64decode | from_yaml }}"
+
+    - name: Assert VIP is in tls-san
+      ansible.builtin.assert:
+        that: "'10.0.0.100' in rke2_config_parsed['tls-san']"
+        fail_msg: "VIP 10.0.0.100 not found in tls-san: {{ rke2_config_parsed.get('tls-san', []) }}"
+      when: inventory_hostname == groups['server_nodes'][0]
+
+    # ---- keepalived package -------------------------------------------------
+
+    - name: Check keepalived is installed
+      ansible.builtin.command: keepalived --version
+      register: keepalived_version
+      changed_when: false
+      failed_when: false
+
+    - name: Assert keepalived is installed
+      ansible.builtin.assert:
+        that: keepalived_version.rc == 0 or keepalived_version.stderr | length > 0
+        fail_msg: "keepalived is not installed"
+
+    # ---- keepalived config --------------------------------------------------
+
+    - name: Check keepalived.conf exists
+      ansible.builtin.stat:
+        path: /etc/keepalived/keepalived.conf
+      register: keepalived_conf
+
+    - name: Assert keepalived.conf exists
+      ansible.builtin.assert:
+        that: keepalived_conf.stat.exists
+        fail_msg: "/etc/keepalived/keepalived.conf was not deployed"
+
+    - name: Read keepalived.conf
+      ansible.builtin.slurp:
+        src: /etc/keepalived/keepalived.conf
+      register: keepalived_conf_raw
+
+    - name: Assert keepalived.conf contains VIP address
+      ansible.builtin.assert:
+        that: "'10.0.0.100' in (keepalived_conf_raw.content | b64decode)"
+        fail_msg: "VIP address 10.0.0.100 not found in keepalived.conf"
+
+    - name: Assert keepalived.conf uses unicast mode
+      ansible.builtin.assert:
+        that: "'unicast_src_ip' in (keepalived_conf_raw.content | b64decode)"
+        fail_msg: "unicast_src_ip not found in keepalived.conf — unicast VRRP not configured"
+
+    - name: Assert keepalived.conf has VRRP instance
+      ansible.builtin.assert:
+        that: "'vrrp_instance RKE2_VIP' in (keepalived_conf_raw.content | b64decode)"
+        fail_msg: "vrrp_instance RKE2_VIP not found in keepalived.conf"
+
+    # ---- health check scripts -----------------------------------------------
+    # Regression test: scripts must be deployed as .sh, NOT as .sh.j2
+
+    - name: Check check-apiserver.sh exists
+      ansible.builtin.stat:
+        path: /etc/keepalived/check-apiserver.sh
+      register: check_apiserver
+
+    - name: Assert check-apiserver.sh exists
+      ansible.builtin.assert:
+        that: check_apiserver.stat.exists
+        fail_msg: "/etc/keepalived/check-apiserver.sh was not deployed (check for .sh.j2 bug)"
+
+    - name: Assert check-apiserver.sh is executable
+      ansible.builtin.assert:
+        that: check_apiserver.stat.executable
+        fail_msg: "/etc/keepalived/check-apiserver.sh is not executable"
+
+    - name: Check check-rke2server.sh exists
+      ansible.builtin.stat:
+        path: /etc/keepalived/check-rke2server.sh
+      register: check_rke2server
+
+    - name: Assert check-rke2server.sh exists
+      ansible.builtin.assert:
+        that: check_rke2server.stat.exists
+        fail_msg: "/etc/keepalived/check-rke2server.sh was not deployed (check for .sh.j2 bug)"
+
+    - name: Assert check-rke2server.sh is executable
+      ansible.builtin.assert:
+        that: check_rke2server.stat.executable
+        fail_msg: "/etc/keepalived/check-rke2server.sh is not executable"
+
+    - name: Assert .j2 leftover files are NOT present
+      ansible.builtin.stat:
+        path: /etc/keepalived/check-apiserver.sh.j2
+      register: check_j2_leftover
+
+    - name: Assert check-apiserver.sh.j2 does not exist
+      ansible.builtin.assert:
+        that: not check_j2_leftover.stat.exists
+        fail_msg: "/etc/keepalived/check-apiserver.sh.j2 leftover found — scripts deployed with wrong extension"
+
+    # ---- failover hook ------------------------------------------------------
+
+    - name: Check notify-master.sh exists
+      ansible.builtin.stat:
+        path: /etc/keepalived/notify-master.sh
+      register: notify_script
+
+    - name: Assert notify-master.sh exists when failover enabled
+      ansible.builtin.assert:
+        that: notify_script.stat.exists
+        fail_msg: "/etc/keepalived/notify-master.sh was not deployed (rke2_keepalived_failover_enabled=true)"
+
+    - name: Assert notify-master.sh is executable
+      ansible.builtin.assert:
+        that: notify_script.stat.executable
+        fail_msg: "/etc/keepalived/notify-master.sh is not executable"
+
+    - name: Assert keepalived.conf references notify_master script
+      ansible.builtin.assert:
+        that: "'notify_master' in (keepalived_conf_raw.content | b64decode)"
+        fail_msg: "notify_master directive not found in keepalived.conf"
+
+    - name: Check failover.env exists
+      ansible.builtin.stat:
+        path: /etc/keepalived/failover.env
+      register: failover_env
+
+    - name: Assert failover.env exists
+      ansible.builtin.assert:
+        that: failover_env.stat.exists
+        fail_msg: "/etc/keepalived/failover.env was not deployed"
+
+    - name: Assert failover.env is mode 0600
+      ansible.builtin.assert:
+        that: failover_env.stat.mode == '0600'
+        fail_msg: "failover.env has mode {{ failover_env.stat.mode }}, expected 0600"
+
+    - name: Read failover.env
+      ansible.builtin.slurp:
+        src: /etc/keepalived/failover.env
+      register: failover_env_raw
+
+    - name: Assert failover.env contains API_TOKEN key
+      ansible.builtin.assert:
+        that: "'API_TOKEN=' in (failover_env_raw.content | b64decode)"
+        fail_msg: "API_TOKEN not found in failover.env"
+
+    - name: Assert failover.env contains FLOATING_IP_ID key
+      ansible.builtin.assert:
+        that: "'FLOATING_IP_ID=' in (failover_env_raw.content | b64decode)"
+        fail_msg: "FLOATING_IP_ID not found in failover.env"
+
+    # ---- kube-vip cleanup ---------------------------------------------------
+
+    - name: Assert kube-vip manifests were removed when using keepalived
+      ansible.builtin.stat:
+        path: /var/lib/rancher/rke2/server/manifests/kube-vip.yml
+      register: kubevip_manifest
+
+    - name: Assert kube-vip manifest does not exist
+      ansible.builtin.assert:
+        that: not kubevip_manifest.stat.exists
+        fail_msg: "kube-vip manifest still present at server/manifests/kube-vip.yml when using keepalived"

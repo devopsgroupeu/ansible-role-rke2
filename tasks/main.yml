@@ -1,0 +1,43 @@
+---
+- name: Run setup tasks
+  ansible.builtin.import_tasks: setup.yml
+
+- name: Configure network environment (air-gapped)
+  ansible.builtin.import_tasks: network_environment.yml
+  when: rke2_airgapped | default(false) | bool
+
+- name: Configure proxy settings
+  ansible.builtin.include_tasks: proxy_setup.yml
+
+- name: Configure custom CA certificates
+  ansible.builtin.import_tasks: custom_ca_certs.yml
+  when:
+    - rke2_custom_root_ca_cert is defined and rke2_custom_root_ca_cert | length > 0
+    - rke2_custom_root_ca_key is defined and rke2_custom_root_ca_key | length > 0
+    - "'server_nodes' in group_names"
+
+- name: Configure VIP
+  ansible.builtin.import_tasks: vip.yml
+  when:
+    - rke2_vip_enabled | default(false) | bool
+    - "'server_nodes' in group_names"
+
+- name: Run server node installation
+  ansible.builtin.import_tasks: server.yml
+  when: "'server_nodes' in group_names"
+
+- name: Run agent node installation
+  ansible.builtin.import_tasks: agent.yml
+  when: "'agent_nodes' in group_names"
+
+- name: Configure certificate rotation
+  ansible.builtin.import_tasks: certs_rotation.yml
+  when:
+    - rke2_cert_rotation_enabled | default(false) | bool
+    - "'server_nodes' in group_names or 'agent_nodes' in group_names"
+
+- name: Deploy Helm addons
+  ansible.builtin.import_tasks: addons.yml
+  when:
+    - rke2_addons | default([]) | length > 0
+    - inventory_hostname == groups['server_nodes'][0]

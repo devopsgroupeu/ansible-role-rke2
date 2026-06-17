@@ -1,0 +1,53 @@
+token: {{ rke2_agent_token if rke2_agent_token | default('') | length > 0 else hostvars[groups['server_nodes'][0]]['secret_token'] }}
+{% if rke2_agent_server_address | default('') | length > 0 %}
+server: https://{{ rke2_agent_server_address }}:9345
+{% elif (rke2_vip_enabled | default(false) | bool) and rke2_vip_address | default('') | length > 0 %}
+server: https://{{ rke2_vip_address }}:9345
+{% else %}
+server: https://{{ hostvars[groups['server_nodes'][0]]['ansible_host'] | default(groups['server_nodes'][0]) }}:9345
+{% endif %}
+
+node-name: "{{ rke2_node_name if rke2_node_name | default('') | length > 0 else inventory_hostname }}"
+
+{% set agent_list = rke2_agent_nodes | selectattr('host', 'equalto', ansible_host) | list %}
+{% set agent = agent_list[0] if agent_list | length > 0 else {} %}
+
+{% if agent.get('node-label') %}
+node-label:
+{% for label in agent['node-label'] %}
+  - "{{ label }}"
+{% endfor %}
+{% endif %}
+
+{% if agent.get('node-taint') %}
+node-taint:
+{% for taint in agent['node-taint'] %}
+  - "{{ taint }}"
+{% endfor %}
+{% endif %}
+
+{% if rke2_debug | default(false) | bool %}
+debug: true
+{% endif %}
+
+{% if rke2_selinux | default(false) | bool %}
+selinux: true
+{% endif %}
+
+{% if rke2_kubelet_args | default([]) | length > 0 %}
+kubelet-arg:
+{% for arg in rke2_kubelet_args %}
+  - "{{ arg }}"
+{% endfor %}
+{% endif %}
+
+{% if rke2_kube_proxy_args | default([]) | length > 0 %}
+kube-proxy-arg:
+{% for arg in rke2_kube_proxy_args %}
+  - "{{ arg }}"
+{% endfor %}
+{% endif %}
+
+{% if rke2_extra_config | default({}) | length > 0 %}
+{{ rke2_extra_config | to_nice_yaml(indent=2) | trim }}
+{% endif %}

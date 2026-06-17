@@ -1,0 +1,137 @@
+{% if inventory_hostname != groups['server_nodes'][0] %}
+token: {{ hostvars[groups['server_nodes'][0]]['secret_token'] }}
+server: https://{{ hostvars[groups['server_nodes'][0]]['ansible_host'] | default(groups['server_nodes'][0]) }}:9345
+{% endif %}
+
+{% if rke2_cni is defined and rke2_cni != 'default' %}
+cni: {{ rke2_cni }}
+{% endif %}
+
+{% set _tls_san = rke2_tls_san | list %}
+{% if rke2_vip_enabled | default(false) and rke2_vip_address | default('') | length > 0 %}
+{% set _tls_san = (_tls_san + [rke2_vip_address]) | unique %}
+{% endif %}
+{% if _tls_san | length > 0 %}
+tls-san:
+{% for san in _tls_san %}
+  - {{ san }}
+{% endfor %}
+{% endif %}
+
+{% if rke2_cluster_cidr is defined and rke2_cluster_cidr | length > 0 %}
+cluster-cidr: "{{ rke2_cluster_cidr }}"
+{% endif %}
+
+{% if rke2_service_cidr is defined and rke2_service_cidr | length > 0 %}
+service-cidr: "{{ rke2_service_cidr }}"
+{% endif %}
+
+{% if rke2_cluster_domain | default('') | length > 0 %}
+cluster-domain: "{{ rke2_cluster_domain }}"
+{% endif %}
+
+{% if rke2_agent_token | default('') | length > 0 %}
+agent-token: "{{ rke2_agent_token }}"
+{% endif %}
+
+{% if rke2_etcd_snapshot is defined and rke2_etcd_snapshot %}
+etcd-snapshot: {{ rke2_etcd_snapshot | lower }}
+{% endif %}
+
+{% if rke2_etcd_snapshot_schedule is defined and rke2_etcd_snapshot_schedule | length > 0 %}
+etcd-snapshot-schedule: "{{ rke2_etcd_snapshot_schedule }}"
+{% endif %}
+
+{% set server_list = rke2_server_nodes | selectattr('host', 'equalto', ansible_host) | list %}
+{% set server = server_list[0] if server_list | length > 0 else {} %}
+
+{% if server.get('node-label') %}
+node-label:
+{% for label in server['node-label'] %}
+  - "{{ label }}"
+{% endfor %}
+{% endif %}
+
+{% if server.get('node-taint') %}
+node-taint:
+{% for taint in server['node-taint'] %}
+  - "{{ taint }}"
+{% endfor %}
+{% endif %}
+
+data-dir: "{{ rke2_data_dir }}"
+write-kubeconfig-mode: "{{ rke2_write_kubeconfig_mode }}"
+
+{% if rke2_node_name | default('') | length > 0 %}
+node-name: "{{ rke2_node_name }}"
+{% endif %}
+
+{% if rke2_debug | default(false) | bool %}
+debug: true
+{% endif %}
+
+{% if rke2_cis_profile | default('') | length > 0 %}
+profile: "{{ rke2_cis_profile }}"
+{% endif %}
+
+{% if rke2_disable_cloud_controller | default(false) | bool %}
+disable-cloud-controller: true
+{% endif %}
+
+{% if rke2_cloud_provider_name | default('') | length > 0 %}
+cloud-provider-name: "{{ rke2_cloud_provider_name }}"
+{% endif %}
+
+{% if rke2_selinux | default(false) | bool %}
+selinux: true
+{% endif %}
+
+{% if rke2_disable | default([]) | length > 0 %}
+disable:
+{% for item in rke2_disable %}
+  - {{ item }}
+{% endfor %}
+{% endif %}
+
+{% if rke2_disable_kube_proxy | default(false) | bool %}
+disable-kube-proxy: true
+{% endif %}
+
+{% if rke2_kube_apiserver_args | default([]) | length > 0 %}
+kube-apiserver-arg:
+{% for arg in rke2_kube_apiserver_args %}
+  - "{{ arg }}"
+{% endfor %}
+{% endif %}
+
+{% if rke2_kube_scheduler_args | default([]) | length > 0 %}
+kube-scheduler-arg:
+{% for arg in rke2_kube_scheduler_args %}
+  - "{{ arg }}"
+{% endfor %}
+{% endif %}
+
+{% if rke2_kube_controller_manager_args | default([]) | length > 0 %}
+kube-controller-manager-arg:
+{% for arg in rke2_kube_controller_manager_args %}
+  - "{{ arg }}"
+{% endfor %}
+{% endif %}
+
+{% if rke2_kubelet_args | default([]) | length > 0 %}
+kubelet-arg:
+{% for arg in rke2_kubelet_args %}
+  - "{{ arg }}"
+{% endfor %}
+{% endif %}
+
+{% if rke2_kube_proxy_args | default([]) | length > 0 %}
+kube-proxy-arg:
+{% for arg in rke2_kube_proxy_args %}
+  - "{{ arg }}"
+{% endfor %}
+{% endif %}
+
+{% if rke2_extra_config | default({}) | length > 0 %}
+{{ rke2_extra_config | to_nice_yaml(indent=2) | trim }}
+{% endif %}

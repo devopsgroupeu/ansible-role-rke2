@@ -1,0 +1,12 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kubevip
+  namespace: kube-system
+data:
+{% if '/' in rke2_kubevip_load_balancer_ip_range %}
+  cidr-global: "{{ rke2_kubevip_load_balancer_ip_range }}"
+{% else %}
+  range-global: "{{ rke2_kubevip_load_balancer_ip_range }}"
+{% endif %}

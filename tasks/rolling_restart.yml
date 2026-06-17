@@ -1,0 +1,88 @@
+---
+# Rolling restart for RKE2 server nodes during upgrades.
+# Must be used with serial: 1 at the play level to restart one node at a time.
+#
+# Usage in your playbook:
+#   - hosts: server_nodes
+#     serial: 1
+#     tasks:
+#       - ansible.builtin.import_role:
+#           name: ansible-role-rke2
+#           tasks_from: rolling_restart
+
+- name: Determine node name for drain/uncordon
+  ansible.builtin.set_fact:
+    _rke2_node_name: "{{ rke2_node_name if rke2_node_name | default('') | length > 0 else ansible_nodename }}"
+
+- name: Cordon the node
+  ansible.builtin.command: >
+    {{ rke2_data_dir }}/bin/kubectl
+    --kubeconfig /etc/rancher/rke2/rke2.yaml
+    cordon {{ _rke2_node_name }}
+  changed_when: false
+  delegate_to: "{{ groups['server_nodes'][0] }}"
+  run_once: true
+  when: rke2_drain_node_during_upgrade | default(false) | bool
+
+- name: Drain the node
+  ansible.builtin.command: >
+    {{ rke2_data_dir }}/bin/kubectl
+    --kubeconfig /etc/rancher/rke2/rke2.yaml
+    drain {{ _rke2_node_name }}
+    --ignore-daemonsets
+    --delete-emptydir-data
+    {{ rke2_drain_additional_args | default('--timeout=120s') }}
+  register: _drain_result
+  until: _drain_result.stdout is search('drained')
+  retries: 20
+  delay: 15
+  changed_when: false
+  delegate_to: "{{ groups['server_nodes'][0] }}"
+  run_once: true
+  when: rke2_drain_node_during_upgrade | default(false) | bool
+
+- name: Restart RKE2 server service
+  ansible.builtin.systemd_service:
+    name: rke2-server
+    state: restarted
+
+- name: Wait for node to rejoin the cluster
+  ansible.builtin.command: >
+    {{ rke2_data_dir }}/bin/kubectl
+    --kubeconfig /etc/rancher/rke2/rke2.yaml
+    get node {{ _rke2_node_name }}
+    --no-headers
+  register: _node_status
+  until: _node_status.stdout is search('Ready')
+  retries: 40
+  delay: 15
+  changed_when: false
+  delegate_to: "{{ groups['server_nodes'][0] }}"
+  run_once: true
+
+- name: Uncordon the node
+  ansible.builtin.command: >
+    {{ rke2_data_dir }}/bin/kubectl
+    --kubeconfig /etc/rancher/rke2/rke2.yaml
+    uncordon {{ _rke2_node_name }}
+  changed_when: false
+  delegate_to: "{{ groups['server_nodes'][0] }}"
+  run_once: true
+  when: rke2_drain_node_during_upgrade | default(false) | bool
+
+- name: Wait for all pods to be running after uncordon
+  ansible.builtin.command: >
+    {{ rke2_data_dir }}/bin/kubectl
+    --kubeconfig /etc/rancher/rke2/rke2.yaml
+    get pods -A
+    --field-selector=status.phase!=Running,status.phase!=Succeeded
+    --ignore-not-found
+    --no-headers
+  register: _pods_not_ready
+  until: _pods_not_ready.stdout | trim == ''
+  retries: 40
+  delay: 15
+  changed_when: false
+  delegate_to: "{{ groups['server_nodes'][0] }}"
+  run_once: true
+  when: rke2_wait_for_all_pods_to_be_ready | default(false) | bool

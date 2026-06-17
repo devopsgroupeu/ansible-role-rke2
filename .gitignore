@@ -1,0 +1,14 @@
+# IDE / Editor specific files
+.idea/
+.vscode/
+*.swp
+*~
+.cache
+
+# macOS specific files
+.DS_Store
+
+.ansible
+
+# Local test inventory and kubeconfigs (contain real IPs/keys — never commit)
+tests/

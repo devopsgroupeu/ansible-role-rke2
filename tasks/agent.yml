@@ -1,0 +1,116 @@
+---
+- name: Check if RKE2 is installed
+  ansible.builtin.stat:
+    path: /usr/local/bin/rke2
+  register: rke2_binary
+
+- name: Check current RKE2 agent version
+  ansible.builtin.command: rke2 --version
+  register: rke2_version_output
+  when: rke2_binary.stat.exists
+  changed_when: false
+
+- name: Set current RKE2 agent version fact
+  ansible.builtin.set_fact:
+    current_rke2_agent_version: "{{ rke2_version_output.stdout | regex_search('v[0-9]+\\.[0-9]+\\.[0-9]+\\+rke2r[0-9]+') }}"
+  when: rke2_binary.stat.exists and rke2_version_output.stdout is defined and rke2_version_output.stdout | length > 0
+
+- name: Set RKE2 agent version as not installed
+  ansible.builtin.set_fact:
+    current_rke2_agent_version: "not_installed"
+  when: not rke2_binary.stat.exists or current_rke2_agent_version is not defined
+
+- name: Prevent accidental downgrade
+  ansible.builtin.fail:
+    msg: >-
+      Downgrade blocked: {{ current_rke2_agent_version }} is installed but
+      {{ rke2_version }} was requested. Set rke2_allow_downgrade: true to override.
+  when:
+    - not rke2_allow_downgrade | default(false) | bool
+    - current_rke2_agent_version != "not_installed"
+    - current_rke2_agent_version != rke2_version
+    - current_rke2_agent_version is version(rke2_version, '>', version_type='loose')
+
+- name: Compare RKE2 agent version
+  ansible.builtin.set_fact:
+    rke2_agent_version_changed: "{{ current_rke2_agent_version != rke2_version }}"
+
+- name: Download RKE2 agent install script (internet)
+  ansible.builtin.get_url:
+    url: "https://get.rke2.io"
+    dest: "/tmp/rke2_install.sh"
+    mode: "0755"
+  when:
+    - not (rke2_airgapped | default(false) | bool)
+    - rke2_agent_version_changed | bool or current_rke2_agent_version == "not_installed"
+
+- name: Install or upgrade RKE2 agent (internet)
+  ansible.builtin.command: sh /tmp/rke2_install.sh
+  environment:
+    INSTALL_RKE2_VERSION: "{{ rke2_version }}"
+    INSTALL_RKE2_TYPE: "agent"
+  changed_when: true
+  notify: Restart rke2-agent
+  when:
+    - not (rke2_airgapped | default(false) | bool)
+    - rke2_agent_version_changed or current_rke2_agent_version == "not_installed"
+
+- name: Install or upgrade RKE2 agent (air-gapped)
+  ansible.builtin.command: sh /tmp/rke2-install.sh
+  environment:
+    INSTALL_RKE2_VERSION: "{{ rke2_version }}"
+    INSTALL_RKE2_TYPE: "agent"
+    INSTALL_RKE2_ARTIFACT_PATH: "{{ '/tmp/rke2-artifacts' if rke2_airgapped_artifacts_dir | length > 0 else '' }}"
+  changed_when: true
+  notify: Restart rke2-agent
+  when:
+    - rke2_airgapped | default(false) | bool
+    - rke2_agent_version_changed or current_rke2_agent_version == "not_installed"
+
+- name: Ensure /etc/rancher/rke2 directory exists
+  ansible.builtin.file:
+    path: /etc/rancher/rke2
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Generate RKE2 agent configuration
+  ansible.builtin.template:
+    src: agent-config.yml.j2
+    dest: /etc/rancher/rke2/config.yaml
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart rke2-agent
+
+- name: Deploy private registry configuration
+  ansible.builtin.template:
+    src: registries.yml.j2
+    dest: /etc/rancher/rke2/registries.yaml
+    owner: root
+    group: root
+    mode: "0644"
+  when:
+    - rke2_private_registries_config is defined
+    - rke2_private_registries_config | trim | length > 0
+    - not rke2_private_registries_config | trim | regex_search('^#')
+
+- name: Wait for VIP to be reachable before starting agent
+  ansible.builtin.wait_for:
+    host: "{{ rke2_vip_address }}"
+    port: 9345
+    delay: 5
+    timeout: 300
+    msg: "Timed out waiting for kube-vip VIP {{ rke2_vip_address }}:9345 to become reachable"
+  when:
+    - rke2_vip_enabled | default(false) | bool
+    - rke2_vip_address | default('') | length > 0
+    - rke2_agent_server_address | default('') | length == 0
+
+- name: Enable and start RKE2 agent service
+  ansible.builtin.systemd_service:
+    name: rke2-agent
+    state: started
+    enabled: true
+    daemon_reload: true

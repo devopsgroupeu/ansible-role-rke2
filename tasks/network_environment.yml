@@ -1,0 +1,92 @@
+---
+# network_environment.yml - Handle air-gapped environment setup
+#
+# For a full air-gapped install, place the following files in rke2_airgapped_artifacts_dir
+# on the Ansible controller before running the playbook:
+#   - rke2-install.sh          (from https://get.rke2.io)
+#   - rke2.linux-amd64.tar.gz  (from GitHub releases)
+#   - sha256sum-amd64.txt      (from GitHub releases)
+#   - rke2-images.linux-amd64.tar.zst  (optional, for truly offline image loading)
+#
+# If rke2_airgapped_artifacts_dir is not set, this role will attempt to download
+# the install script from the internet (partial air-gap — only binaries are local).
+
+- name: Check that local artifacts directory exists
+  ansible.builtin.stat:
+    path: "{{ rke2_airgapped_artifacts_dir }}"
+  register: airgap_dir_stat
+  delegate_to: localhost
+  run_once: true
+  become: false
+  when: rke2_airgapped_artifacts_dir | length > 0
+
+- name: Fail if artifacts directory does not exist
+  ansible.builtin.fail:
+    msg: >
+      rke2_airgapped_artifacts_dir is set to '{{ rke2_airgapped_artifacts_dir }}'
+      but that directory does not exist on the Ansible controller.
+      Please download the RKE2 artifacts and place them there before running this playbook.
+  when:
+    - rke2_airgapped_artifacts_dir | length > 0
+    - not airgap_dir_stat.stat.exists
+  run_once: true
+
+- name: Download RKE2 installer script (when artifacts dir not provided)
+  ansible.builtin.get_url:
+    url: "https://get.rke2.io"
+    dest: "/tmp/rke2-install.sh"
+    mode: "0755"
+  when: rke2_airgapped_artifacts_dir | length == 0
+
+- name: Copy RKE2 install script to target nodes
+  ansible.builtin.copy:
+    src: "{{ rke2_airgapped_artifacts_dir }}/rke2-install.sh"
+    dest: "/tmp/rke2-install.sh"
+    owner: root
+    group: root
+    mode: "0755"
+  when: rke2_airgapped_artifacts_dir | length > 0
+
+- name: Create remote artifacts staging directory
+  ansible.builtin.file:
+    path: /tmp/rke2-artifacts
+    state: directory
+    mode: "0755"
+  when: rke2_airgapped_artifacts_dir | length > 0
+
+- name: Copy RKE2 binary tarball to target nodes
+  ansible.builtin.copy:
+    src: "{{ rke2_airgapped_artifacts_dir }}/rke2.linux-amd64.tar.gz"
+    dest: "/tmp/rke2-artifacts/rke2.linux-amd64.tar.gz"
+    owner: root
+    group: root
+    mode: "0644"
+  when: rke2_airgapped_artifacts_dir | length > 0
+
+- name: Copy RKE2 checksum file to target nodes
+  ansible.builtin.copy:
+    src: "{{ rke2_airgapped_artifacts_dir }}/sha256sum-amd64.txt"
+    dest: "/tmp/rke2-artifacts/sha256sum-amd64.txt"
+    owner: root
+    group: root
+    mode: "0644"
+  when: rke2_airgapped_artifacts_dir | length > 0
+
+- name: Check if RKE2 images tarball exists locally
+  ansible.builtin.stat:
+    path: "{{ rke2_airgapped_artifacts_dir }}/rke2-images.linux-amd64.tar.zst"
+  register: rke2_images_tarball
+  delegate_to: localhost
+  become: false
+  when: rke2_airgapped_artifacts_dir | length > 0
+
+- name: Copy RKE2 images tarball to target nodes (optional)
+  ansible.builtin.copy:
+    src: "{{ rke2_airgapped_artifacts_dir }}/rke2-images.linux-amd64.tar.zst"
+    dest: "/tmp/rke2-artifacts/rke2-images.linux-amd64.tar.zst"
+    owner: root
+    group: root
+    mode: "0644"
+  when:
+    - rke2_airgapped_artifacts_dir | length > 0
+    - rke2_images_tarball.stat.exists

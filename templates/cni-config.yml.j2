@@ -1,0 +1,12 @@
+# templates/cni-config.yml.j2
+---
+apiVersion: helm.cattle.io/v1
+kind: HelmChartConfig
+metadata:
+  name: rke2-{{ rke2.cni }}
+  namespace: kube-system
+spec:
+  valuesContent: |-
+{% if rke2.cni_configs[rke2.cni] is defined %}
+{{ rke2.cni_configs[rke2.cni] | to_nice_yaml(indent=4) | indent(4) }}
+{% endif %}

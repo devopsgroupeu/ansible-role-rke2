@@ -1,0 +1,14 @@
+exclude_paths:
+  - .github/
+  - molecule/
+  - .ansible-lint
+  - examples/
+  - tests/
+  - venv/
+  - .cache/
+warn_list:
+  - var-spacing
+  - yaml[comments-indentation]
+skip_list:
+  - experimental
+  - yaml[line-length]

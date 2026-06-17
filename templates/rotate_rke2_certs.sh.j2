@@ -1,0 +1,79 @@
+#!/usr/bin/env bash
+export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+
+EXPIRY_THRESHOLD_DAYS={{ rke2_cert_rotation_expiry_threshold_days | default(7) }}
+LOG_RETENTION_DAYS={{ rke2_cert_rotation_log_retention_days | default(7) }}
+
+CERTS_ROTATION_DIR="/etc/rancher/certs_rotation"
+LOG_BACKUP_DIR="$CERTS_ROTATION_DIR/logs"
+LOG_FILE="$LOG_BACKUP_DIR/rke2_cert_rotation.log"
+
+mkdir -p "$LOG_BACKUP_DIR"
+
+if [ -f "$LOG_FILE" ]; then
+    CURRENT_DATE=$(date +%Y-%m-%d)
+    if ! grep -q "$CURRENT_DATE" "$LOG_FILE"; then
+        mv "$LOG_FILE" "$LOG_BACKUP_DIR/${CURRENT_DATE}_rke2_cert_rotation.log"
+    fi
+fi
+
+find "$LOG_BACKUP_DIR" -type f -name "*_rke2_cert_rotation.log" -mtime +${LOG_RETENTION_DAYS} -delete
+
+log_message() {
+    echo "$(date) - $1" >> "$LOG_FILE"
+}
+
+log_message "Starting RKE2 certificate check (expiry threshold: ${EXPIRY_THRESHOLD_DAYS} days)"
+
+for cmd in openssl rke2 systemctl; do
+    if ! command -v "$cmd" &>/dev/null; then
+        log_message "ERROR: $cmd not found. Exiting."
+        exit 1
+    fi
+done
+
+if [[ -d "/var/lib/rancher/rke2/server/tls" ]]; then
+    TLS_DIR="/var/lib/rancher/rke2/server/tls"
+    RKE2_SERVICE="rke2-server"
+elif [[ -d "/var/lib/rancher/rke2/agent" ]]; then
+    TLS_DIR="/var/lib/rancher/rke2/agent"
+    RKE2_SERVICE="rke2-agent"
+else
+    log_message "ERROR: Could not find RKE2 TLS directory."
+    exit 1
+fi
+
+log_message "Using TLS directory: $TLS_DIR"
+log_message "RKE2 Service: $RKE2_SERVICE"
+
+ROTATED=false
+
+for CERT in "$TLS_DIR"/*.crt; do
+    if [[ -f "$CERT" ]]; then
+        EXPIRY_DATE=$(openssl x509 -enddate -noout -in "$CERT" | cut -d= -f2-)
+        EXPIRY_TIMESTAMP=$(date -d "$EXPIRY_DATE" +%s 2>/dev/null || date -j -f "%b %d %T %Y GMT" "$EXPIRY_DATE" "+%s")
+        CURRENT_TIMESTAMP=$(date +%s)
+        DAYS_LEFT=$(( (EXPIRY_TIMESTAMP - CURRENT_TIMESTAMP) / 86400 ))
+        log_message "Checking certificate: $CERT (expires in $DAYS_LEFT days)"
+        if [[ $DAYS_LEFT -le ${EXPIRY_THRESHOLD_DAYS} ]]; then
+            log_message "Certificate $CERT expires in $DAYS_LEFT days. Initiating rotation..."
+            rke2 certificate rotate >> "$LOG_FILE" 2>&1
+            if [[ $? -eq 0 ]]; then
+                log_message "Rotation successful. Restarting $RKE2_SERVICE..."
+                systemctl restart "$RKE2_SERVICE"
+                ROTATED=true
+            else
+                log_message "ERROR: Failed to rotate certificates."
+                exit 1
+            fi
+            break
+        fi
+    fi
+done
+
+if [[ "$ROTATED" == "false" ]]; then
+    log_message "No certificates needed rotation."
+fi
+
+log_message "Certificate check completed."
+exit 0

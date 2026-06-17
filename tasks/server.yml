@@ -1,0 +1,214 @@
+---
+- name: Check if RKE2 server binary exists
+  ansible.builtin.stat:
+    path: /usr/local/bin/rke2
+  register: rke2_server_binary
+
+- name: Check current RKE2 server installed version
+  ansible.builtin.command: rke2 --version
+  register: rke2_installed_version_output
+  when: rke2_server_binary.stat.exists
+  changed_when: false
+
+- name: Set current RKE2 server version fact
+  ansible.builtin.set_fact:
+    current_rke2_server_version: "{{ rke2_installed_version_output.stdout | regex_search('v[0-9]+\\.[0-9]+\\.[0-9]+\\+rke2r[0-9]+') }}"
+  when: rke2_server_binary.stat.exists
+
+- name: Set RKE2 server version as not installed
+  ansible.builtin.set_fact:
+    current_rke2_server_version: "not_installed"
+  when: not rke2_server_binary.stat.exists
+
+- name: Prevent accidental downgrade
+  ansible.builtin.fail:
+    msg: >-
+      Downgrade blocked: {{ current_rke2_server_version }} is installed but
+      {{ rke2_version }} was requested. Set rke2_allow_downgrade: true to override.
+  when:
+    - not rke2_allow_downgrade | default(false) | bool
+    - current_rke2_server_version != "not_installed"
+    - current_rke2_server_version != rke2_version
+    - current_rke2_server_version is version(rke2_version, '>', version_type='loose')
+
+- name: Install RKE2 server (internet)
+  ansible.builtin.shell: |
+    set -o pipefail
+    curl -sfL https://get.rke2.io | sh -
+  args:
+    executable: /bin/bash
+  environment:
+    INSTALL_RKE2_VERSION: "{{ rke2_version }}"
+    INSTALL_RKE2_TYPE: "server"
+  changed_when: true
+  notify: Restart rke2-server
+  when:
+    - not (rke2_airgapped | default(false) | bool)
+    - current_rke2_server_version != rke2_version
+
+- name: Install RKE2 server (air-gapped)
+  ansible.builtin.command: sh /tmp/rke2-install.sh
+  environment:
+    INSTALL_RKE2_VERSION: "{{ rke2_version }}"
+    INSTALL_RKE2_TYPE: "server"
+    INSTALL_RKE2_ARTIFACT_PATH: "{{ '/tmp/rke2-artifacts' if rke2_airgapped_artifacts_dir | length > 0 else '' }}"
+  changed_when: true
+  notify: Restart rke2-server
+  when:
+    - rke2_airgapped | default(false) | bool
+    - current_rke2_server_version != rke2_version
+
+- name: Ensure /etc/rancher/rke2 directory exists
+  ansible.builtin.file:
+    path: /etc/rancher/rke2
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Configure RKE2 server (first node)
+  ansible.builtin.template:
+    src: server-config.yml.j2
+    dest: /etc/rancher/rke2/config.yaml
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart rke2-server
+  when: inventory_hostname == groups['server_nodes'][0]
+
+- name: Enable and start RKE2 server (first node)
+  ansible.builtin.systemd_service:
+    name: rke2-server
+    state: started
+    enabled: true
+  when: inventory_hostname == groups['server_nodes'][0]
+
+- name: Use pre-set cluster token
+  ansible.builtin.set_fact:
+    secret_token: "{{ rke2_cluster_token }}"
+  when:
+    - inventory_hostname == groups['server_nodes'][0]
+    - rke2_cluster_token | default('') | length > 0
+
+- name: Wait for RKE2 server node-token to be created
+  ansible.builtin.wait_for:
+    path: /var/lib/rancher/rke2/server/node-token
+    timeout: 300
+  when:
+    - inventory_hostname == groups['server_nodes'][0]
+    - rke2_cluster_token | default('') | length == 0
+
+- name: Fetch cluster token from first node
+  ansible.builtin.slurp:
+    src: /var/lib/rancher/rke2/server/node-token
+  register: command_output
+  when:
+    - inventory_hostname == groups['server_nodes'][0]
+    - rke2_cluster_token | default('') | length == 0
+
+- name: Set cluster token fact from node-token file
+  ansible.builtin.set_fact:
+    secret_token: "{{ command_output.content | b64decode | trim }}"
+  when:
+    - inventory_hostname == groups['server_nodes'][0]
+    - rke2_cluster_token | default('') | length == 0
+
+- name: Wait for RKE2 first server registration API to be available
+  ansible.builtin.wait_for:
+    host: "{{ hostvars[groups['server_nodes'][0]]['ansible_host'] | default(groups['server_nodes'][0]) }}"
+    port: 9345
+    timeout: 300
+  when:
+    - inventory_hostname != groups['server_nodes'][0]
+    - groups['server_nodes'] | length > 1
+
+- name: Configure RKE2 server (additional nodes)
+  ansible.builtin.template:
+    src: server-config.yml.j2
+    dest: /etc/rancher/rke2/config.yaml
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart rke2-server
+  when: inventory_hostname != groups['server_nodes'][0]
+
+- name: Enable and start RKE2 server (additional nodes)
+  ansible.builtin.systemd_service:
+    name: rke2-server
+    state: started
+    enabled: true
+  retries: 3
+  delay: 10
+  register: rke2_server_status
+  until: not rke2_server_status.failed
+  when: inventory_hostname != groups['server_nodes'][0]
+
+- name: Apply custom ingress nginx configuration
+  ansible.builtin.template:
+    src: rke2-ingress-nginx-config.yml.j2
+    dest: /var/lib/rancher/rke2/server/manifests/rke2-ingress-nginx-config.yml
+    owner: root
+    group: root
+    mode: "0644"
+  when:
+    - rke2_ingress_nginx_config is defined
+    - rke2_ingress_nginx_config | trim | length > 0
+    - not rke2_ingress_nginx_config | trim | regex_search('^#')
+
+- name: Configure CNI-specific settings
+  ansible.builtin.template:
+    src: cni-config.yml.j2
+    dest: "/var/lib/rancher/rke2/server/manifests/rke2-{{ rke2_cni }}-config.yml"
+    owner: root
+    group: root
+    mode: "0644"
+  when:
+    - rke2_cni is defined
+    - rke2_cni != 'default'
+    - rke2_cni_configs is defined and rke2_cni_configs[rke2_cni] is defined
+    - inventory_hostname == groups['server_nodes'][0]
+
+- name: Deploy private registry configuration
+  ansible.builtin.template:
+    src: registries.yml.j2
+    dest: /etc/rancher/rke2/registries.yaml
+    owner: root
+    group: root
+    mode: "0644"
+  when:
+    - rke2_private_registries_config is defined
+    - rke2_private_registries_config | trim | length > 0
+    - not rke2_private_registries_config | trim | regex_search('^#')
+
+- name: Ensure .kube directory exists
+  ansible.builtin.file:
+    path: "{{ ansible_user_dir }}/.kube"
+    state: directory
+    mode: "0755"
+
+- name: Copy RKE2 kubeconfig to user home
+  ansible.builtin.copy:
+    src: /etc/rancher/rke2/rke2.yaml
+    dest: "{{ ansible_user_dir }}/.kube/config"
+    remote_src: true
+    mode: "0600"
+  when: inventory_hostname == groups['server_nodes'][0]
+
+- name: Fetch kubeconfig to Ansible controller
+  ansible.builtin.fetch:
+    src: /etc/rancher/rke2/rke2.yaml
+    dest: "{{ rke2_kubeconfig_output_path }}"
+    flat: true
+  when:
+    - inventory_hostname == groups['server_nodes'][0]
+    - rke2_kubeconfig_download | default(false) | bool
+
+- name: Fix kubeconfig server address
+  ansible.builtin.replace:
+    path: "{{ rke2_kubeconfig_output_path }}"
+    regexp: 'https://127\.0\.0\.1:6443'
+    replace: "https://{{ ansible_host }}:6443"
+  delegate_to: localhost
+  when:
+    - inventory_hostname == groups['server_nodes'][0]
+    - rke2_kubeconfig_download | default(false) | bool

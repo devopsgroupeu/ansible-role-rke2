@@ -1,0 +1,54 @@
+---
+- name: Remove certificate rotation cron job when disabled
+  ansible.builtin.cron:
+    name: "Rotate RKE2 certificates"
+    state: absent
+  when: not rke2_cert_rotation_enabled | default(false) | bool
+
+- name: Ensure cert rotation directory exists
+  ansible.builtin.file:
+    path: /etc/rancher/certs_rotation
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Deploy certificate rotation script
+  ansible.builtin.template:
+    src: rotate_rke2_certs.sh.j2
+    dest: /etc/rancher/certs_rotation/rotate_rke2_certs.sh
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Set up daily certificate rotation cron job
+  ansible.builtin.cron:
+    name: "Rotate RKE2 certificates"
+    job: "env -i SHELL=/bin/bash PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin /etc/rancher/certs_rotation/rotate_rke2_certs.sh"
+    minute: "{{ rke2_cert_rotation_schedule_minute | default('0') }}"
+    hour: "{{ rke2_cert_rotation_schedule_hour | default('23') }}"
+    user: root
+    state: present
+  when: rke2_cert_rotation_schedule_type | default('daily') == 'daily'
+
+- name: Set up weekly certificate rotation cron job
+  ansible.builtin.cron:
+    name: "Rotate RKE2 certificates"
+    job: "env -i SHELL=/bin/bash PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin /etc/rancher/certs_rotation/rotate_rke2_certs.sh"
+    minute: "{{ rke2_cert_rotation_schedule_minute | default('0') }}"
+    hour: "{{ rke2_cert_rotation_schedule_hour | default('23') }}"
+    weekday: "{{ rke2_cert_rotation_schedule_day_of_week | default('1') }}"
+    user: root
+    state: present
+  when: rke2_cert_rotation_schedule_type | default('daily') == 'weekly'
+
+- name: Set up monthly certificate rotation cron job
+  ansible.builtin.cron:
+    name: "Rotate RKE2 certificates"
+    job: "env -i SHELL=/bin/bash PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin /etc/rancher/certs_rotation/rotate_rke2_certs.sh"
+    minute: "{{ rke2_cert_rotation_schedule_minute | default('0') }}"
+    hour: "{{ rke2_cert_rotation_schedule_hour | default('23') }}"
+    day: "{{ rke2_cert_rotation_schedule_day_of_month | default('1') }}"
+    user: root
+    state: present
+  when: rke2_cert_rotation_schedule_type | default('daily') == 'monthly'

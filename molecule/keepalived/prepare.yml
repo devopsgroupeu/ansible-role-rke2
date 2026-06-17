@@ -1,0 +1,117 @@
+---
+- name: Prepare all nodes
+  hosts: all
+  gather_facts: true
+  tasks:
+    - name: Update apt cache (Debian/Ubuntu)
+      ansible.builtin.apt:
+        update_cache: true
+        cache_valid_time: 3600
+      when: ansible_os_family == 'Debian'
+
+    - name: Install required packages
+      ansible.builtin.package:
+        name:
+          - curl
+          - iptables
+          - python3
+        state: present
+
+    - name: Create rancher directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        mode: "0755"
+      loop:
+        - /etc/rancher/rke2
+        - /var/lib/rancher/rke2/server
+        - /var/lib/rancher/rke2/server/manifests
+        - /var/lib/rancher/rke2/agent/pod-manifests
+        - /usr/local/bin
+
+    - name: Create mock rke2 binary
+      ansible.builtin.copy:
+        dest: /usr/local/bin/rke2
+        mode: "0755"
+        content: |
+          #!/bin/bash
+          if [[ "$1" == "--version" ]]; then
+            echo "rke2 version v1.28.15+rke2r1 (abc123)"
+          fi
+
+    - name: Create mock kubeconfig
+      ansible.builtin.copy:
+        dest: /etc/rancher/rke2/rke2.yaml
+        mode: "0600"
+        content: |
+          apiVersion: v1
+          kind: Config
+          clusters:
+            - cluster:
+                server: https://127.0.0.1:6443
+              name: default
+          contexts:
+            - context:
+                cluster: default
+                user: default
+              name: default
+          current-context: default
+          users:
+            - name: default
+              user:
+                token: mock-token
+
+    - name: Create mock rke2-server systemd service
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/rke2-server.service
+        mode: "0644"
+        content: |
+          [Unit]
+          Description=RKE2 Kubernetes Server (mock)
+
+          [Service]
+          Type=oneshot
+          ExecStart=/usr/local/bin/rke2 server
+          RemainAfterExit=yes
+
+          [Install]
+          WantedBy=multi-user.target
+
+    - name: Reload systemd daemon
+      ansible.builtin.command: systemctl daemon-reload
+      changed_when: false
+
+- name: Prepare server nodes only
+  hosts: server_nodes
+  gather_facts: false
+  tasks:
+    - name: Create mock node token on all server nodes
+      ansible.builtin.copy:
+        dest: /var/lib/rancher/rke2/server/node-token
+        content: "mock-cluster-token-for-keepalived-testing"
+        mode: "0600"
+
+    - name: Enable and start mock rke2-server service
+      ansible.builtin.command: systemctl enable --now rke2-server
+      changed_when: false
+
+    - name: Start mock port 9345 listener on first server
+      ansible.builtin.shell: |
+        nohup python3 -c "
+        import socket, time
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        s.bind(('0.0.0.0', 9345))
+        s.listen(100)
+        time.sleep(3600)
+        " >/dev/null 2>&1 &
+      args:
+        executable: /bin/bash
+      changed_when: true
+      when: inventory_hostname == groups['server_nodes'][0]
+
+    - name: Wait for mock port 9345 to be ready
+      ansible.builtin.wait_for:
+        port: 9345
+        timeout: 15
+      when: inventory_hostname == groups['server_nodes'][0]

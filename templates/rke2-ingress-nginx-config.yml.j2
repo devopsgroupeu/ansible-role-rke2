@@ -1,0 +1,10 @@
+# rke2-ingress-nginx-config.j2
+
+apiVersion: helm.cattle.io/v1
+kind: HelmChartConfig
+metadata:
+  name: rke2-ingress-nginx
+  namespace: kube-system
+spec:
+  valuesContent: |-
+    {{ rke2_ingress_nginx_config | indent(6) }}

@@ -1,0 +1,145 @@
+---
+# VIP configuration for HA control plane
+# Supports kube-vip (DaemonSet via server/manifests) and keepalived (VRRP)
+
+- name: Validate VIP configuration
+  ansible.builtin.assert:
+    that:
+      - rke2_vip_address | length > 0
+      - rke2_vip_manager in ['kubevip', 'keepalived']
+    fail_msg: "rke2_vip_address must be set and rke2_vip_manager must be 'kubevip' or 'keepalived'"
+
+# ---- kube-vip ---------------------------------------------------------------
+# kube-vip runs as a DaemonSet on control-plane nodes, deployed via RKE2's
+# auto-manifest directory. This gives it a proper ServiceAccount with in-cluster
+# auth, avoiding the token issue that affects static pods.
+# RKE2 applies everything in server/manifests/ automatically at startup.
+
+- name: Ensure RKE2 server manifests directory exists
+  ansible.builtin.file:
+    path: /var/lib/rancher/rke2/server/manifests
+    state: directory
+    owner: root
+    group: root
+    mode: "0750"
+  when: rke2_vip_manager == 'kubevip'
+
+- name: Deploy kube-vip RBAC manifest
+  ansible.builtin.template:
+    src: kube-vip-rbac.yml.j2
+    dest: /var/lib/rancher/rke2/server/manifests/kube-vip-rbac.yml
+    owner: root
+    group: root
+    mode: "0640"
+  when: rke2_vip_manager == 'kubevip'
+
+- name: Deploy kube-vip DaemonSet manifest
+  ansible.builtin.template:
+    src: kube-vip.yml.j2
+    dest: /var/lib/rancher/rke2/server/manifests/kube-vip.yml
+    owner: root
+    group: root
+    mode: "0640"
+  when: rke2_vip_manager == 'kubevip'
+
+- name: Deploy kube-vip cloud provider manifests
+  ansible.builtin.template:
+    src: "{{ item.src }}"
+    dest: /var/lib/rancher/rke2/server/manifests/{{ item.dest }}
+    owner: root
+    group: root
+    mode: "0640"
+  loop:
+    - {src: kube-vip-cloud-controller.yml.j2, dest: kube-vip-cloud-controller.yml}
+    - {src: kube-vip-cloud-configmap.yml.j2, dest: kube-vip-cloud-configmap.yml}
+  when:
+    - rke2_vip_manager == 'kubevip'
+    - rke2_kubevip_cloud_provider_enabled | bool
+    - rke2_kubevip_load_balancer_ip_range | length > 0
+
+- name: Remove kube-vip cloud provider manifests if disabled
+  ansible.builtin.file:
+    path: /var/lib/rancher/rke2/server/manifests/{{ item }}
+    state: absent
+  loop:
+    - kube-vip-cloud-controller.yml
+    - kube-vip-cloud-configmap.yml
+  when: not (rke2_kubevip_cloud_provider_enabled | bool) or rke2_vip_manager != 'kubevip'
+
+- name: Remove kube-vip manifests if not using kubevip
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /var/lib/rancher/rke2/server/manifests/kube-vip-rbac.yml
+    - /var/lib/rancher/rke2/server/manifests/kube-vip.yml
+  when: rke2_vip_manager != 'kubevip'
+
+- name: Remove legacy kube-vip static pod manifest if present
+  ansible.builtin.file:
+    path: /var/lib/rancher/rke2/agent/pod-manifests/kube-vip.yml
+    state: absent
+
+# ---- keepalived -------------------------------------------------------------
+
+- name: Install keepalived
+  ansible.builtin.package:
+    name: keepalived
+    state: present
+  when: rke2_vip_manager == 'keepalived'
+
+- name: Deploy keepalived health check scripts
+  ansible.builtin.template:
+    src: "{{ item.src }}"
+    dest: /etc/keepalived/{{ item.dest }}
+    owner: root
+    group: root
+    mode: "0755"
+  loop:
+    - {src: check-apiserver.sh.j2, dest: check-apiserver.sh}
+    - {src: check-rke2server.sh.j2, dest: check-rke2server.sh}
+  when: rke2_vip_manager == 'keepalived'
+  notify: Restart keepalived
+
+- name: Deploy keepalived configuration
+  ansible.builtin.template:
+    src: keepalived.conf.j2
+    dest: /etc/keepalived/keepalived.conf
+    owner: root
+    group: root
+    mode: "0644"
+  when: rke2_vip_manager == 'keepalived'
+  notify: Restart keepalived
+
+- name: Deploy floating IP failover environment file
+  ansible.builtin.copy:
+    dest: "{{ rke2_keepalived_failover_script | dirname }}/failover.env"
+    content: "{{ rke2_keepalived_failover_env | dict2items | map(attribute='key') | zip(rke2_keepalived_failover_env | dict2items | map(attribute='value')) | map('join', '=') | join('\n') }}\n"
+    owner: root
+    group: root
+    mode: "0600"
+  when:
+    - rke2_vip_manager == 'keepalived'
+    - rke2_keepalived_failover_enabled | bool
+    - rke2_keepalived_failover_env | length > 0
+
+- name: Deploy floating IP failover notify script
+  ansible.builtin.copy:
+    dest: "{{ rke2_keepalived_failover_script }}"
+    content: "{{ rke2_keepalived_failover_script_content }}"
+    owner: root
+    group: root
+    mode: "0750"
+  when:
+    - rke2_vip_manager == 'keepalived'
+    - rke2_keepalived_failover_enabled | bool
+    - rke2_keepalived_failover_script_content | length > 0
+  notify: Restart keepalived
+
+- name: Enable and start keepalived
+  ansible.builtin.systemd_service:
+    name: keepalived
+    state: started
+    enabled: true
+    daemon_reload: true
+  when: rke2_vip_manager == 'keepalived'

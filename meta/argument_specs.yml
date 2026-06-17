@@ -1,0 +1,675 @@
+---
+argument_specs:
+  main:
+    short_description: Install and configure RKE2 Kubernetes (single-node and HA)
+    description: >
+      Installs RKE2 server and agent nodes, optionally configures a Virtual IP
+      (kube-vip or keepalived), manages proxy settings, custom CA certificates,
+      certificate rotation, and Helm addons.
+    author:
+      - DevOpsGroup
+
+    options:
+      # -----------------------------------------------------------------------
+      # Version
+      # -----------------------------------------------------------------------
+      rke2_version:
+        type: str
+        required: false
+        default: v1.28.15+rke2r1
+        description: RKE2 release version to install (e.g. v1.28.15+rke2r1).
+
+      rke2_agent_token:
+        type: str
+        required: false
+        default: ""
+        description: >
+          Optional separate token for agent nodes. When set, agents authenticate
+          with this token instead of rke2_cluster_token, giving them less cluster
+          access than server nodes.
+
+      rke2_cluster_token:
+        type: str
+        required: false
+        default: ""
+        description: >
+          Pre-set cluster token. When empty the role reads the auto-generated
+          token from /var/lib/rancher/rke2/server/node-token on the first server
+          and distributes it to all other nodes.
+
+      rke2_allow_downgrade:
+        type: bool
+        required: false
+        default: false
+        description: >
+          Allow installing a version older than what is currently installed.
+          Set true only when a deliberate rollback is required.
+
+      # -----------------------------------------------------------------------
+      # Installation mode
+      # -----------------------------------------------------------------------
+      rke2_airgapped:
+        type: bool
+        required: false
+        default: false
+        description: >
+          Set true for air-gapped environments where outbound internet access
+          is blocked.
+
+      rke2_airgapped_artifacts_dir:
+        type: str
+        required: false
+        default: ""
+        description: >
+          Path on the Ansible controller to a directory containing
+          pre-downloaded RKE2 artifacts (rke2-install.sh,
+          rke2.linux-amd64.tar.gz, sha256sum-amd64.txt). Leave empty to
+          download only the install script from the internet.
+
+      # -----------------------------------------------------------------------
+      # Proxy settings
+      # -----------------------------------------------------------------------
+      rke2_http_proxy:
+        type: str
+        required: false
+        default: ""
+        description: HTTP proxy URL for RKE2 and containerd (e.g. http://proxy.example.com:3128).
+
+      rke2_https_proxy:
+        type: str
+        required: false
+        default: ""
+        description: HTTPS proxy URL for RKE2 and containerd.
+
+      rke2_no_proxy:
+        type: str
+        required: false
+        default: ""
+        description: Comma-separated list of hosts/CIDRs that bypass the proxy.
+
+      rke2_containerd_http_proxy:
+        type: str
+        required: false
+        default: ""
+        description: Override HTTP proxy for containerd only (falls back to rke2_http_proxy when empty).
+
+      rke2_containerd_https_proxy:
+        type: str
+        required: false
+        default: ""
+        description: Override HTTPS proxy for containerd only.
+
+      rke2_containerd_no_proxy:
+        type: str
+        required: false
+        default: ""
+        description: Override no-proxy list for containerd only.
+
+      # -----------------------------------------------------------------------
+      # CNI plugin
+      # -----------------------------------------------------------------------
+      rke2_cni:
+        type: str
+        required: false
+        default: default
+        description: >
+          CNI plugin to use. Options: canal, cilium, calico, flannel, default
+          (canal). Setting a value other than 'default' deploys the corresponding
+          HelmChart config from templates/cni-config.yml.j2.
+
+      rke2_cni_configs:
+        type: dict
+        required: false
+        default: {}
+        description: >
+          CNI-specific configuration dict keyed by CNI name. Only used when
+          rke2_cni is not 'default'. Example key: calico with nested Helm values.
+
+      # -----------------------------------------------------------------------
+      # VIP / High Availability
+      # -----------------------------------------------------------------------
+      rke2_vip_enabled:
+        type: bool
+        required: false
+        default: false
+        description: >
+          Enable a Virtual IP for the control plane. When true, rke2_vip_address
+          is automatically added to tls-san.
+
+      rke2_vip_address:
+        type: str
+        required: false
+        default: ""
+        description: Virtual IP address (e.g. 10.0.0.100). Required when rke2_vip_enabled is true.
+
+      rke2_vip_interface:
+        type: str
+        required: false
+        default: eth0
+        description: Network interface on control-plane nodes used by the VIP.
+
+      rke2_vip_manager:
+        type: str
+        required: false
+        default: kubevip
+        description: >
+          VIP manager. Options: kubevip (deploys kube-vip as a static pod on
+          each server node), keepalived (VIP managed externally; role only adds
+          VIP to tls-san).
+
+      rke2_kubevip_version:
+        type: str
+        required: false
+        default: v0.8.0
+        description: kube-vip image tag. Only used when rke2_vip_manager is 'kubevip'.
+
+      rke2_kubevip_svc_enable:
+        type: bool
+        required: false
+        default: false
+        description: >
+          Enable kube-vip watching of LoadBalancer-type Services (sets svc_enable=true
+          in the DaemonSet). Automatically enabled when rke2_kubevip_cloud_provider_enabled
+          is true.
+
+      rke2_kubevip_service_election_enable:
+        type: bool
+        required: false
+        default: false
+        description: Enable per-service leader election in kube-vip (svc_election).
+
+      rke2_kubevip_metrics_port:
+        type: int
+        required: false
+        default: 0
+        description: >
+          Port on which kube-vip exposes Prometheus metrics. Set to 0 to disable
+          the metrics endpoint.
+
+      rke2_kubevip_cloud_provider_enabled:
+        type: bool
+        required: false
+        default: false
+        description: >
+          Deploy the kube-vip cloud provider, which assigns IPs from
+          rke2_kubevip_load_balancer_ip_range to LoadBalancer-type Services.
+          Requires rke2_vip_manager=kubevip.
+
+      rke2_kubevip_cloud_provider_image:
+        type: str
+        required: false
+        default: ghcr.io/kube-vip/kube-vip-cloud-provider:v0.0.12
+        description: Image for the kube-vip cloud provider StatefulSet.
+
+      rke2_kubevip_load_balancer_ip_range:
+        type: str
+        required: false
+        default: ""
+        description: >
+          IP pool for LoadBalancer-type Services. Accepts CIDR notation
+          (e.g. 192.168.0.200/29) or a range (e.g. 192.168.0.200-192.168.0.250).
+          Required when rke2_kubevip_cloud_provider_enabled is true.
+
+      rke2_agent_server_address:
+        type: str
+        required: false
+        default: ""
+        description: >
+          Override the server address written into the agent config.yaml 'server' field.
+          When empty, defaults to rke2_vip_address (if VIP enabled) or the first
+          server node's ansible_host. Set this on cloud SDN environments (e.g. Hetzner
+          private networks) where gratuitous-ARP VIPs are not directly routable.
+
+      rke2_keepalived_router_id:
+        type: int
+        required: false
+        default: 51
+        description: VRRP virtual router ID (1-255). Must be unique per VRRP group on the subnet.
+
+      rke2_keepalived_priority_master:
+        type: int
+        required: false
+        default: 101
+        description: VRRP priority for the first server node (MASTER state).
+
+      rke2_keepalived_priority_backup:
+        type: int
+        required: false
+        default: 100
+        description: VRRP priority for additional server nodes (BACKUP state).
+
+      rke2_keepalived_auth_pass:
+        type: str
+        required: false
+        default: rke2vip
+        description: VRRP authentication password (max 8 characters).
+
+      rke2_keepalived_failover_enabled:
+        type: bool
+        required: false
+        default: false
+        description: >
+          Enable cloud floating IP failover via keepalived notify_master hook.
+          When true, the role deploys a notify script and env file on each server
+          node. The script fires whenever a node transitions to MASTER state.
+
+      rke2_keepalived_failover_script:
+        type: str
+        required: false
+        default: /etc/keepalived/notify-master.sh
+        description: >
+          Absolute path on target nodes where the notify_master script is deployed.
+
+      rke2_keepalived_failover_script_content:
+        type: str
+        required: false
+        default: ""
+        description: >
+          Shell script body executed when this node becomes keepalived MASTER.
+          The script is deployed with mode 0750 and wired into notify_master.
+          It sources the env file (failover.env) from the same directory.
+
+      rke2_keepalived_failover_env:
+        type: dict
+        required: false
+        default: {}
+        description: >
+          Key/value pairs written to a protected env file (mode 0600) in the
+          same directory as the notify script. Use for API tokens and IDs that
+          must not be embedded in the script body.
+
+      # -----------------------------------------------------------------------
+      # Cluster networking
+      # -----------------------------------------------------------------------
+      rke2_tls_san:
+        type: list
+        elements: str
+        required: false
+        default: []
+        description: >
+          Additional Subject Alternative Names for the RKE2 API server TLS
+          certificate (hostnames or IP addresses). The VIP is added automatically
+          when rke2_vip_enabled is true.
+
+      rke2_cluster_domain:
+        type: str
+        required: false
+        default: ""
+        description: >
+          Cluster domain (e.g. cluster.example.net). Defaults to cluster.local
+          when empty.
+
+      rke2_cluster_cidr:
+        type: str
+        required: false
+        default: ""
+        description: >
+          Pod network CIDR. Defaults to 10.42.0.0/16 when empty (RKE2 default).
+
+      rke2_service_cidr:
+        type: str
+        required: false
+        default: ""
+        description: >
+          Service network CIDR. Defaults to 10.43.0.0/16 when empty (RKE2 default).
+
+      # -----------------------------------------------------------------------
+      # etcd snapshots
+      # -----------------------------------------------------------------------
+      rke2_etcd_snapshot:
+        type: bool
+        required: false
+        default: false
+        description: Enable scheduled etcd snapshots.
+
+      rke2_etcd_snapshot_schedule:
+        type: str
+        required: false
+        default: ""
+        description: >
+          Cron expression for etcd snapshot schedule (e.g. "0 */6 * * *").
+          Only used when rke2_etcd_snapshot is true.
+
+      # -----------------------------------------------------------------------
+      # Data and kubeconfig
+      # -----------------------------------------------------------------------
+      rke2_data_dir:
+        type: str
+        required: false
+        default: /var/lib/rancher/rke2
+        description: RKE2 data directory.
+
+      rke2_write_kubeconfig_mode:
+        type: str
+        required: false
+        default: "0600"
+        description: File mode for the kubeconfig written by RKE2.
+
+      rke2_kubeconfig_download:
+        type: bool
+        required: false
+        default: false
+        description: >
+          Fetch the kubeconfig to the Ansible controller after install
+          (first server node only).
+
+      rke2_kubeconfig_output_path:
+        type: str
+        required: false
+        default: "{{ playbook_dir }}/rke2.yaml"
+        description: >
+          Local path on the Ansible controller where the kubeconfig is saved.
+          Only used when rke2_kubeconfig_download is true.
+
+      # -----------------------------------------------------------------------
+      # Server nodes
+      # -----------------------------------------------------------------------
+      rke2_server_nodes:
+        type: list
+        elements: dict
+        required: false
+        default: []
+        description: >
+          Per-server-node labels and taints. Each entry is a dict with a 'host'
+          key (matching ansible_host) and optional 'node-label' / 'node-taint'
+          lists.
+
+      # -----------------------------------------------------------------------
+      # Agent nodes
+      # -----------------------------------------------------------------------
+      rke2_agent_nodes:
+        type: list
+        elements: dict
+        required: false
+        default: []
+        description: >
+          Per-agent-node labels and taints. Each entry is a dict with a 'host'
+          key (matching ansible_host) and optional 'node-label' / 'node-taint'
+          lists.
+
+      # -----------------------------------------------------------------------
+      # Custom CA certificates
+      # -----------------------------------------------------------------------
+      rke2_custom_root_ca_cert:
+        type: str
+        required: false
+        default: ""
+        description: >
+          PEM-encoded custom root CA certificate. When set together with
+          rke2_custom_root_ca_key, the role generates RKE2 cluster certificates
+          signed by this CA on the first server node.
+
+      rke2_custom_root_ca_key:
+        type: str
+        required: false
+        default: ""
+        description: PEM-encoded private key for the custom root CA certificate.
+
+      rke2_custom_intermediate_ca_cert:
+        type: str
+        required: false
+        default: ""
+        description: PEM-encoded custom intermediate CA certificate (optional).
+
+      rke2_custom_intermediate_ca_key:
+        type: str
+        required: false
+        default: ""
+        description: PEM-encoded private key for the custom intermediate CA certificate.
+
+      # -----------------------------------------------------------------------
+      # Certificate rotation
+      # -----------------------------------------------------------------------
+      rke2_cert_rotation_enabled:
+        type: bool
+        required: false
+        default: false
+        description: >
+          Enable automated certificate rotation via cron. Rotates when a cert
+          expires within rke2_cert_rotation_expiry_threshold_days.
+
+      rke2_cert_rotation_expiry_threshold_days:
+        type: int
+        required: false
+        default: 20
+        description: >
+          Number of days before expiry at which the rotation cron job triggers
+          a rotation.
+
+      rke2_cert_rotation_schedule_type:
+        type: str
+        required: false
+        default: weekly
+        description: >
+          Cron schedule type for certificate rotation. Options: daily, weekly,
+          monthly.
+
+      rke2_cert_rotation_schedule_hour:
+        type: str
+        required: false
+        default: "20"
+        description: Hour (0-23) at which the rotation cron job runs.
+
+      rke2_cert_rotation_schedule_minute:
+        type: str
+        required: false
+        default: "0"
+        description: Minute (0-59) at which the rotation cron job runs.
+
+      rke2_cert_rotation_schedule_day_of_week:
+        type: str
+        required: false
+        default: "1"
+        description: Day of week (1-7, 1=Monday) for weekly rotation schedule.
+
+      rke2_cert_rotation_schedule_day_of_month:
+        type: str
+        required: false
+        default: "1"
+        description: Day of month (1-31) for monthly rotation schedule.
+
+      rke2_cert_rotation_log_retention_days:
+        type: int
+        required: false
+        default: 7
+        description: Number of days to retain certificate rotation log files.
+
+      # -----------------------------------------------------------------------
+      # Additional packages
+      # -----------------------------------------------------------------------
+      rke2_additional_packages:
+        type: list
+        elements: str
+        required: false
+        default:
+          - curl
+          - iptables
+        description: >
+          OS packages to install before RKE2. curl and iptables are required.
+          Add extras such as jq or htop here.
+
+      # -----------------------------------------------------------------------
+      # Ingress nginx
+      # -----------------------------------------------------------------------
+      rke2_ingress_nginx_config:
+        type: str
+        required: false
+        default: ""
+        description: >
+          YAML string with Helm values for the rke2-ingress-nginx HelmChart
+          config. Deployed as a manifest on the first server node. Leave empty
+          or comment-only to skip.
+
+      # -----------------------------------------------------------------------
+      # Helm addons
+      # -----------------------------------------------------------------------
+      rke2_addons:
+        type: list
+        elements: dict
+        required: false
+        default: []
+        description: >
+          List of Helm addons to deploy via RKE2 HelmChart CRDs. Each entry
+          requires: name, enabled (bool), repo, version, namespace. Optional
+          keys: chart (defaults to name), values (dict).
+
+      # -----------------------------------------------------------------------
+      # Private registry
+      # -----------------------------------------------------------------------
+      rke2_private_registries_config:
+        type: str
+        required: false
+        default: ""
+        description: >
+          YAML string for /etc/rancher/rke2/registries.yaml (mirrors and auth
+          config). Leave empty or comment-only to skip.
+
+      # -----------------------------------------------------------------------
+      # Built-in component management
+      # -----------------------------------------------------------------------
+      rke2_disable_kube_proxy:
+        type: bool
+        required: false
+        default: false
+        description: >
+          Disable kube-proxy entirely. Use when replacing kube-proxy with a CNI
+          (e.g. Cilium in kube-proxy replacement mode).
+
+      rke2_disable:
+        type: list
+        elements: str
+        required: false
+        default: []
+        description: >
+          List of built-in RKE2 components to disable (e.g. rke2-ingress-nginx,
+          rke2-metrics-server, rke2-coredns).
+
+      # -----------------------------------------------------------------------
+      # Kubernetes component arguments
+      # -----------------------------------------------------------------------
+      rke2_kube_apiserver_args:
+        type: list
+        elements: str
+        required: false
+        default: []
+        description: Extra flags passed to kube-apiserver (key=value or --flag format).
+
+      rke2_kube_scheduler_args:
+        type: list
+        elements: str
+        required: false
+        default: []
+        description: Extra flags passed to kube-scheduler.
+
+      rke2_kube_controller_manager_args:
+        type: list
+        elements: str
+        required: false
+        default: []
+        description: Extra flags passed to kube-controller-manager.
+
+      rke2_kubelet_args:
+        type: list
+        elements: str
+        required: false
+        default: []
+        description: Extra flags passed to kubelet.
+
+      rke2_kube_proxy_args:
+        type: list
+        elements: str
+        required: false
+        default: []
+        description: Extra flags passed to kube-proxy.
+
+      # -----------------------------------------------------------------------
+      # Cloud provider
+      # -----------------------------------------------------------------------
+      rke2_disable_cloud_controller:
+        type: bool
+        required: false
+        default: false
+        description: >
+          Disable RKE2's built-in cloud controller manager. Required when using
+          an external cloud controller (e.g. kube-vip cloud provider, AWS CCM).
+
+      rke2_cloud_provider_name:
+        type: str
+        required: false
+        default: ""
+        description: >
+          Cloud provider name passed to kubelet and the API server. Set to
+          "external" when using any external cloud controller manager.
+
+      # -----------------------------------------------------------------------
+      # Rolling restart
+      # -----------------------------------------------------------------------
+      rke2_drain_node_during_upgrade:
+        type: bool
+        required: false
+        default: false
+        description: >
+          Cordon and drain each server node before restarting during upgrades.
+          Requires the play to use serial: 1.
+
+      rke2_drain_additional_args:
+        type: str
+        required: false
+        default: "--timeout=120s"
+        description: Additional arguments passed to kubectl drain.
+
+      rke2_wait_for_all_pods_to_be_ready:
+        type: bool
+        required: false
+        default: false
+        description: >
+          After uncordoning a node, wait for all pods to reach Running or
+          Succeeded phase before proceeding to the next node.
+
+      # -----------------------------------------------------------------------
+      # Hardening
+      # -----------------------------------------------------------------------
+      rke2_cis_profile:
+        type: str
+        required: false
+        default: ""
+        description: >
+          RKE2 CIS hardening profile. Options: cis (RKE2 >= 1.25), cis-1.23
+          (legacy). Leave empty to disable.
+
+      rke2_selinux:
+        type: bool
+        required: false
+        default: false
+        description: >
+          Set selinux: true in the RKE2 config. On RHEL-family nodes the role
+          installs container-selinux automatically.
+
+      # -----------------------------------------------------------------------
+      # Runtime options
+      # -----------------------------------------------------------------------
+      rke2_node_name:
+        type: str
+        required: false
+        default: ""
+        description: >
+          Override the Kubernetes node name. Defaults to the system hostname
+          when empty.
+
+      rke2_debug:
+        type: bool
+        required: false
+        default: false
+        description: Enable RKE2 debug logging (very verbose — for troubleshooting only).
+
+      # -----------------------------------------------------------------------
+      # Extra configuration
+      # -----------------------------------------------------------------------
+      rke2_extra_config:
+        type: dict
+        required: false
+        default: {}
+        description: >
+          Catch-all dict merged last into config.yaml. Any RKE2 option not
+          exposed by a dedicated variable can go here and will take precedence
+          over all other settings.
