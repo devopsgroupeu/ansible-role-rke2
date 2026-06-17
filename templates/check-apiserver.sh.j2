@@ -7,13 +7,13 @@ errorExit() {
     exit 1
 }
 
-curl --silent --max-time 5 --insecure \
+curl --silent --fail --max-time 5 --insecure \
     https://localhost:6443/healthz \
     -o /dev/null \
     || errorExit "API server healthz check failed on localhost:6443"
 
 if ip addr | grep -qw "{{ rke2_vip_address }}"; then
-    curl --silent --max-time 5 --insecure \
+    curl --silent --fail --max-time 5 --insecure \
         "https://{{ rke2_vip_address }}:6443/healthz" \
         -o /dev/null \
         || errorExit "API server healthz check failed on VIP {{ rke2_vip_address }}:6443"

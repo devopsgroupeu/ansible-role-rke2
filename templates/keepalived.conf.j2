@@ -30,7 +30,7 @@ vrrp_instance RKE2_VIP {
   state BACKUP
   interface {{ rke2_vip_interface }}
   virtual_router_id {{ rke2_keepalived_router_id }}
-  priority {{ rke2_keepalived_priority_master if inventory_hostname == groups['server_nodes'][0] else rke2_keepalived_priority_backup }}
+  priority {{ rke2_keepalived_priority_master if inventory_hostname == groups['server_nodes'][0] else (rke2_keepalived_priority_backup - groups['server_nodes'].index(inventory_hostname)) }}
   advert_int 1
   nopreempt
 

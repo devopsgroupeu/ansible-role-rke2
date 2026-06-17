@@ -7,7 +7,13 @@
     that:
       - rke2_vip_address | length > 0
       - rke2_vip_manager in ['kubevip', 'keepalived']
-    fail_msg: "rke2_vip_address must be set and rke2_vip_manager must be 'kubevip' or 'keepalived'"
+      - >-
+        rke2_kubevip_load_balancer_ip_range | length == 0
+        or '/' not in rke2_kubevip_load_balancer_ip_range
+        or not (rke2_vip_address | ansible.utils.ipaddr(rke2_kubevip_load_balancer_ip_range))
+    fail_msg: >-
+      rke2_vip_address must be set, rke2_vip_manager must be kubevip|keepalived,
+      and the VIP must NOT fall inside rke2_kubevip_load_balancer_ip_range.
 
 - name: Validate keepalived auth_pass length
   ansible.builtin.assert:
@@ -123,7 +129,9 @@
 - name: Deploy floating IP failover environment file
   ansible.builtin.copy:
     dest: "{{ rke2_keepalived_failover_script | dirname }}/failover.env"
-    content: "{{ rke2_keepalived_failover_env | dict2items | map(attribute='key') | zip(rke2_keepalived_failover_env | dict2items | map(attribute='value')) | map('join', '=') | join('\n') }}\n"
+    content: |
+      {% for k, v in rke2_keepalived_failover_env.items() %}{{ k }}={{ v }}
+      {% endfor %}
     owner: root
     group: root
     mode: "0600"

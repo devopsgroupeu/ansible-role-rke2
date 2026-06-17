@@ -13,6 +13,7 @@ spec:
         app.kubernetes.io/name: kube-vip
     spec:
       serviceAccountName: kube-vip
+      priorityClassName: system-node-critical
       hostNetwork: true
       nodeSelector:
         node-role.kubernetes.io/control-plane: "true"
@@ -24,6 +25,10 @@ spec:
       containers:
         - name: kube-vip
           image: ghcr.io/kube-vip/kube-vip:{{ rke2_kubevip_version }}
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
           args:
             - manager
           env:
@@ -34,7 +39,7 @@ spec:
             - name: vip_interface
               value: "{{ rke2_vip_interface }}"
             - name: port
-              value: "{{ rke2_kubevip_port | default('6443') }}"
+              value: "{{ rke2_kubevip_port }}"
             - name: vip_subnet
               value: "32"
             - name: vip_leaderelection
