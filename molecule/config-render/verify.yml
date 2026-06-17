@@ -178,3 +178,58 @@
         that:
           - server_config_parsed['system-default-registry'] == 'registry.example.com:5000'
         fail_msg: "system-default-registry not rendered in config.yaml (E6)"
+
+    # --- E7: cluster-dns override ---
+    - name: Assert cluster-dns renders in server config when set (E7)
+      ansible.builtin.assert:
+        that:
+          - server_config_parsed['cluster-dns'] == '10.43.0.10'
+        fail_msg: "cluster-dns not rendered in config.yaml (E7)"
+
+    # --- E9: ingress controller selector (traefik default) ---
+    - name: Read Traefik HelmChartConfig manifest (E9)
+      ansible.builtin.slurp:
+        src: /var/lib/rancher/rke2/server/manifests/rke2-traefik-config.yml
+      register: traefik_cfg_raw
+
+    - name: Assert Traefik HelmChartConfig renders name and valuesContent (E9)
+      ansible.builtin.assert:
+        that:
+          - "'rke2-traefik' in (traefik_cfg_raw.content | b64decode)"
+          - "'service' in (traefik_cfg_raw.content | b64decode)"
+        fail_msg: "Traefik HelmChartConfig not rendered at rke2-traefik-config.yml (E9)"
+
+    - name: Assert rke2-ingress-nginx is disabled in server config (E9 traefik disables nginx)
+      ansible.builtin.assert:
+        that:
+          - "'rke2-ingress-nginx' in server_config_parsed.get('disable', [])"
+        fail_msg: "rke2-ingress-nginx not in disable list when controller=traefik (E9)"
+
+    # --- E11: addon CRD fields (bootstrap/set/repoCA/authSecret/failurePolicy) ---
+    - name: Read rendered argocd addon manifest (E11)
+      ansible.builtin.slurp:
+        src: /var/lib/rancher/rke2/server/manifests/addon-argocd.yml
+      register: addon_argocd_raw
+
+    - name: Assert addon CRD fields render (E11)
+      ansible.builtin.assert:
+        that:
+          - "'bootstrap: true' in (addon_argocd_raw.content | b64decode)"
+          - "'failurePolicy: reinstall' in (addon_argocd_raw.content | b64decode)"
+          - "'repoCA: harbor-ca' in (addon_argocd_raw.content | b64decode)"
+          - "'name: nexus-pull' in (addon_argocd_raw.content | b64decode)"
+          - "'server.replicas' in (addon_argocd_raw.content | b64decode)"
+        fail_msg: "Addon CRD fields (bootstrap/failurePolicy/repoCA/authSecret/set) not rendered (E11)"
+
+    # --- E12: rke2_helmchartconfigs ---
+    - name: Read HelmChartConfig override manifest for rke2-coredns (E12)
+      ansible.builtin.slurp:
+        src: /var/lib/rancher/rke2/server/manifests/helmchartconfig-rke2-coredns.yml
+      register: hcc_coredns_raw
+
+    - name: Assert HelmChartConfig override renders name and valuesContent (E12)
+      ansible.builtin.assert:
+        that:
+          - "'rke2-coredns' in (hcc_coredns_raw.content | b64decode)"
+          - "'replicas: 2' in (hcc_coredns_raw.content | b64decode)"
+        fail_msg: "HelmChartConfig override for rke2-coredns not rendered (E12)"

@@ -44,6 +44,37 @@
     rke2_node_ip: "192.168.10.5"
     rke2_node_external_ip: "203.0.113.5"
     rke2_system_default_registry: "registry.example.com:5000"
+    rke2_cluster_dns: "10.43.0.10"
+    rke2_ingress_controller: "traefik"
+    rke2_traefik_config: |
+      service:
+        enabled: true
+    rke2_addons:
+      - name: argocd
+        enabled: true
+        repo: "https://argoproj.github.io/argo-helm"
+        chart: argo-cd
+        version: "7.7.11"
+        namespace: argocd
+        bootstrap: true
+        failurePolicy: reinstall
+        repoCA: harbor-ca
+        authSecret: nexus-pull
+        set:
+          server.replicas: "2"
+        values:
+          server:
+            service:
+              type: ClusterIP
+      - name: disabled-addon
+        enabled: false
+        repo: "https://example.com/helm"
+        version: "1.0.0"
+        namespace: disabled-addon
+    rke2_helmchartconfigs:
+      - name: rke2-coredns
+        valuesContent: |
+          replicas: 2
   tasks:
     - name: Include rke2 role
       ansible.builtin.include_role:
