@@ -20,7 +20,7 @@
 
     - name: Assert RKE2 version is correct
       ansible.builtin.assert:
-        that: "'v1.28.15+rke2r1' in rke2_version_check.stdout"
+        that: "'v1.36.1+rke2r2' in rke2_version_check.stdout"
         fail_msg: "RKE2 version mismatch: {{ rke2_version_check.stdout }}"
 
     - name: Check rke2-server service is active

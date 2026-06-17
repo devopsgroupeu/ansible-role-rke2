@@ -84,7 +84,7 @@ inventory/
 **`inventory/group_vars/all.yml`:**
 
 ```yaml
-rke2_version: "v1.28.15+rke2r1"
+rke2_version: "v1.36.1+rke2r2"
 
 rke2_vip_enabled: true
 rke2_vip_address: "10.0.0.100"
@@ -166,7 +166,7 @@ Add to your role's `meta/main.yml`:
 dependencies:
   - role: devopsgroup.rke2
     vars:
-      rke2_version: "v1.28.15+rke2r1"
+      rke2_version: "v1.36.1+rke2r2"
       rke2_vip_enabled: false
 ```
 

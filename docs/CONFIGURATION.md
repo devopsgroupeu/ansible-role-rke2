@@ -9,7 +9,7 @@ All variables are defined in `defaults/main.yml` and can be overridden in your p
 
 | Variable | Default | Description |
 |---|---|---|
-| `rke2_version` | `v1.28.15+rke2r1` | RKE2 version to install. See [GitHub releases](https://github.com/rancher/rke2/releases). |
+| `rke2_version` | `v1.36.1+rke2r2` | RKE2 version to install. See [GitHub releases](https://github.com/rancher/rke2/releases). |
 
 ---
 

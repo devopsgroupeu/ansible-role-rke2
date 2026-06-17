@@ -39,10 +39,12 @@
     executable: /bin/bash
   environment:
     INSTALL_RKE2_VERSION: "{{ rke2_version }}"
+    INSTALL_RKE2_CHANNEL: "{{ rke2_channel if (rke2_version | default('') | length == 0) else '' }}"
     INSTALL_RKE2_TYPE: "server"
   changed_when: true
   notify: Restart rke2-server
   when:
+    - rke2_version | default('') | length > 0 or rke2_channel | default('') | length > 0
     - not (rke2_airgapped | default(false) | bool)
     - current_rke2_server_version != rke2_version
 
@@ -50,11 +52,13 @@
   ansible.builtin.command: sh /tmp/rke2-install.sh
   environment:
     INSTALL_RKE2_VERSION: "{{ rke2_version }}"
+    INSTALL_RKE2_CHANNEL: "{{ rke2_channel if (rke2_version | default('') | length == 0) else '' }}"
     INSTALL_RKE2_TYPE: "server"
     INSTALL_RKE2_ARTIFACT_PATH: "{{ '/tmp/rke2-artifacts' if rke2_airgapped_artifacts_dir | length > 0 else '' }}"
   changed_when: true
   notify: Restart rke2-server
   when:
+    - rke2_version | default('') | length > 0 or rke2_channel | default('') | length > 0
     - rke2_airgapped | default(false) | bool
     - current_rke2_server_version != rke2_version
 

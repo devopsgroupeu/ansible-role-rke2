@@ -24,7 +24,7 @@
   hosts: all
   become: true
   vars:
-    rke2_version: v1.28.15+rke2r1
+    rke2_version: v1.36.1+rke2r2
     rke2_tls_san:
       - "10.0.0.10"
   roles:
@@ -58,7 +58,7 @@
 #   hosts: all
 #   become: true
 #   vars:
-#     rke2_version: v1.28.15+rke2r1
+#     rke2_version: v1.36.1+rke2r2
 #     rke2_vip_enabled: true
 #     rke2_vip_address: "10.0.0.100"
 #     rke2_vip_interface: "eth0"
@@ -80,7 +80,7 @@
 #   hosts: all
 #   become: true
 #   vars:
-#     rke2_version: v1.28.15+rke2r1
+#     rke2_version: v1.36.1+rke2r2
 #     rke2_vip_enabled: true
 #     rke2_vip_address: "10.0.0.100"
 #     rke2_vip_manager: "keepalived"
@@ -99,7 +99,7 @@
 #   hosts: all
 #   become: true
 #   vars:
-#     rke2_version: v1.28.15+rke2r1
+#     rke2_version: v1.36.1+rke2r2
 #     rke2_airgapped: true
 #     rke2_tls_san:
 #       - "10.0.0.10"
@@ -114,7 +114,7 @@
 #   hosts: all
 #   become: true
 #   vars:
-#     rke2_version: v1.28.15+rke2r1
+#     rke2_version: v1.36.1+rke2r2
 #     rke2_kubeconfig_download: true
 #     rke2_kubeconfig_output_path: "~/.kube/rke2.yaml"
 #   roles:

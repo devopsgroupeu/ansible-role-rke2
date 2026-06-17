@@ -43,7 +43,7 @@ Ansible role for installing and configuring [RKE2](https://docs.rke2.io/) — Ra
 
 ## Requirements
 
-- Ansible >= 2.18
+- ansible-core >= 2.19
 - Python >= 3.9
 - Target nodes: Ubuntu 22.04 / 24.04, Debian 12, Rocky Linux 9, Oracle Linux 9
 - `become: true` (root access required)
@@ -71,7 +71,7 @@ all:
   hosts: all
   become: true
   vars:
-    rke2_version: v1.28.15+rke2r1
+    rke2_version: v1.36.1+rke2r2
     rke2_tls_san:
       - "10.0.0.10"
   roles:
@@ -108,7 +108,7 @@ all:
   hosts: all
   become: true
   vars:
-    rke2_version: v1.28.15+rke2r1
+    rke2_version: v1.36.1+rke2r2
   roles:
     - role: ansible-role-rke2
 ```
@@ -143,7 +143,7 @@ all:
   hosts: all
   become: true
   vars:
-    rke2_version: v1.28.15+rke2r1
+    rke2_version: v1.36.1+rke2r2
     rke2_vip_enabled: true
     rke2_vip_address: "10.0.0.100"
     rke2_vip_interface: "eth0"
@@ -210,7 +210,7 @@ All variables are defined in [`defaults/main.yml`](defaults/main.yml) with inlin
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `rke2_version` | `v1.28.15+rke2r1` | RKE2 version to install |
+| `rke2_version` | `v1.36.1+rke2r2` | RKE2 version to install |
 | `rke2_cluster_token` | `""` | Pre-shared cluster token. Auto-generated when empty. |
 | `rke2_agent_token` | `""` | Separate token for agent nodes (less privileged than server token) |
 | `rke2_allow_downgrade` | `false` | Allow installing a version older than currently installed |

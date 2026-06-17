@@ -16,8 +16,18 @@ argument_specs:
       rke2_version:
         type: str
         required: false
-        default: v1.28.15+rke2r1
-        description: RKE2 release version to install (e.g. v1.28.15+rke2r1).
+        default: v1.36.1+rke2r2
+        description: >
+          RKE2 release version to install (e.g. v1.36.1+rke2r2). Takes
+          precedence over rke2_channel. Leave empty to use rke2_channel.
+
+      rke2_channel:
+        type: str
+        required: false
+        default: ""
+        description: >
+          RKE2 install channel used only when rke2_version is empty. Options:
+          stable, latest, or a per-minor channel like "v1.35".
 
       rke2_agent_token:
         type: str

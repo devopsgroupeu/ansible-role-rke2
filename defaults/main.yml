@@ -7,7 +7,12 @@
 # RKE2 Version
 # ----------------------------------------------------------------------------
 # Check available versions: https://github.com/rancher/rke2/releases
-rke2_version: v1.28.15+rke2r1
+# Explicit version wins. Leave empty and set rke2_channel to track a channel.
+rke2_version: v1.36.1+rke2r2
+
+# Install channel used ONLY when rke2_version is empty.
+# Options: stable, latest, or a per-minor channel like "v1.35".
+rke2_channel: ""
 
 # Pre-set cluster token. When empty the role reads the auto-generated token
 # from /var/lib/rancher/rke2/server/node-token on the first server and
