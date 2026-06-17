@@ -316,19 +316,81 @@ argument_specs:
       # -----------------------------------------------------------------------
       # etcd snapshots
       # -----------------------------------------------------------------------
-      rke2_etcd_snapshot:
+      rke2_etcd_disable_snapshots:
         type: bool
         required: false
         default: false
-        description: Enable scheduled etcd snapshots.
+        description: >
+          Disable RKE2's built-in etcd snapshots. Snapshots are ON by default
+          in RKE2 (every 12h). Set true to disable them entirely.
 
       rke2_etcd_snapshot_schedule:
         type: str
         required: false
         default: ""
         description: >
-          Cron expression for etcd snapshot schedule (e.g. "0 */6 * * *").
-          Only used when rke2_etcd_snapshot is true.
+          Cron expression overriding the etcd snapshot schedule
+          (e.g. "0 */6 * * *"). Ignored when rke2_etcd_disable_snapshots is true.
+
+      rke2_etcd_snapshot_retention:
+        type: int
+        required: false
+        default: 5
+        description: Number of local etcd snapshots to retain.
+
+      rke2_etcd_s3_enabled:
+        type: bool
+        required: false
+        default: false
+        description: Enable off-cluster S3-compatible etcd snapshot upload.
+
+      rke2_etcd_s3_endpoint:
+        type: str
+        required: false
+        default: ""
+        description: S3 endpoint host (e.g. s3.amazonaws.com or minio.example.com:9000).
+
+      rke2_etcd_s3_bucket:
+        type: str
+        required: false
+        default: ""
+        description: S3 bucket name for etcd snapshots.
+
+      rke2_etcd_s3_region:
+        type: str
+        required: false
+        default: ""
+        description: S3 region (defaults to us-east-1 in RKE2 when empty).
+
+      rke2_etcd_s3_folder:
+        type: str
+        required: false
+        default: ""
+        description: Optional path prefix inside the S3 bucket.
+
+      rke2_etcd_s3_access_key:
+        type: str
+        required: false
+        default: ""
+        description: S3 access key. Source from Vault; rendered with no_log.
+
+      rke2_etcd_s3_secret_key:
+        type: str
+        required: false
+        default: ""
+        description: S3 secret key. Source from Vault; rendered with no_log.
+
+      rke2_etcd_s3_endpoint_ca:
+        type: str
+        required: false
+        default: ""
+        description: Optional PEM CA bundle for a private S3 endpoint.
+
+      rke2_etcd_s3_skip_ssl_verify:
+        type: bool
+        required: false
+        default: false
+        description: Skip TLS verification of the S3 endpoint (lab/self-signed only).
 
       # -----------------------------------------------------------------------
       # Data and kubeconfig

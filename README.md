@@ -293,10 +293,12 @@ All variables are defined in [`defaults/main.yml`](defaults/main.yml) with inlin
 
 ### etcd Snapshots
 
+RKE2 takes local etcd snapshots by default; set `rke2_etcd_disable_snapshots: true` to turn them off.
+
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `rke2_etcd_snapshot` | `false` | Enable periodic etcd snapshots |
-| `rke2_etcd_snapshot_schedule` | `""` | Cron expression, e.g. `"0 */6 * * *"` |
+| `rke2_etcd_disable_snapshots` | `false` | Disable RKE2's built-in etcd snapshots (snapshots are ON by default) |
+| `rke2_etcd_snapshot_schedule` | `""` | Cron expression, e.g. `"0 */6 * * *"`. Ignored when snapshots are disabled |
 
 ### Hardening
 

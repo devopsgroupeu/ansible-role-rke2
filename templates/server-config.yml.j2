@@ -34,12 +34,42 @@ cluster-domain: "{{ rke2_cluster_domain }}"
 agent-token: "{{ rke2_agent_token }}"
 {% endif %}
 
-{% if rke2_etcd_snapshot is defined and rke2_etcd_snapshot %}
-etcd-snapshot: {{ rke2_etcd_snapshot | lower }}
+{% if rke2_etcd_disable_snapshots | default(false) | bool %}
+etcd-disable-snapshots: true
 {% endif %}
 
-{% if rke2_etcd_snapshot_schedule is defined and rke2_etcd_snapshot_schedule | length > 0 %}
-etcd-snapshot-schedule: "{{ rke2_etcd_snapshot_schedule }}"
+{% if not (rke2_etcd_disable_snapshots | default(false) | bool) and rke2_etcd_snapshot_schedule | default('') | length > 0 %}
+etcd-snapshot-schedule-cron: "{{ rke2_etcd_snapshot_schedule }}"
+{% endif %}
+
+{% if rke2_etcd_snapshot_retention | default(5) | int != 5 %}
+etcd-snapshot-retention: {{ rke2_etcd_snapshot_retention | int }}
+{% endif %}
+
+{% if rke2_etcd_s3_enabled | default(false) | bool %}
+etcd-s3: true
+{% if rke2_etcd_s3_endpoint | default('') | length > 0 %}
+etcd-s3-endpoint: "{{ rke2_etcd_s3_endpoint }}"
+{% endif %}
+etcd-s3-bucket: "{{ rke2_etcd_s3_bucket }}"
+{% if rke2_etcd_s3_region | default('') | length > 0 %}
+etcd-s3-region: "{{ rke2_etcd_s3_region }}"
+{% endif %}
+{% if rke2_etcd_s3_folder | default('') | length > 0 %}
+etcd-s3-folder: "{{ rke2_etcd_s3_folder }}"
+{% endif %}
+{% if rke2_etcd_s3_access_key | default('') | length > 0 %}
+etcd-s3-access-key: "{{ rke2_etcd_s3_access_key }}"
+{% endif %}
+{% if rke2_etcd_s3_secret_key | default('') | length > 0 %}
+etcd-s3-secret-key: "{{ rke2_etcd_s3_secret_key }}"
+{% endif %}
+{% if rke2_etcd_s3_endpoint_ca | default('') | length > 0 %}
+etcd-s3-endpoint-ca: "{{ rke2_etcd_s3_endpoint_ca }}"
+{% endif %}
+{% if rke2_etcd_s3_skip_ssl_verify | default(false) | bool %}
+etcd-s3-skip-ssl-verify: true
+{% endif %}
 {% endif %}
 
 {% set server_list = rke2_server_nodes | selectattr('host', 'equalto', ansible_host) | list %}

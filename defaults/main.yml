@@ -157,8 +157,25 @@ rke2_cluster_domain: "" # Default: cluster.local
 # ----------------------------------------------------------------------------
 # etcd snapshots
 # ----------------------------------------------------------------------------
-rke2_etcd_snapshot: false
+# RKE2 takes local etcd snapshots ON BY DEFAULT (every 12h, retention 5).
+# Set rke2_etcd_disable_snapshots: true to turn them off entirely.
+rke2_etcd_disable_snapshots: false
 rke2_etcd_snapshot_schedule: ""  # cron format, e.g. "0 */6 * * *"
+
+# etcd snapshot retention (number of local snapshots to keep). RKE2 default is 5.
+rke2_etcd_snapshot_retention: 5
+
+# Off-cluster (S3-compatible) etcd snapshot target — DR-grade backup.
+# Source the access/secret keys from Vault; this role marks the rendering task no_log.
+rke2_etcd_s3_enabled: false
+rke2_etcd_s3_endpoint: ""          # e.g. "s3.amazonaws.com" or "minio.example.com:9000"
+rke2_etcd_s3_bucket: ""
+rke2_etcd_s3_region: ""             # optional; defaults to us-east-1 in RKE2
+rke2_etcd_s3_folder: ""            # optional path prefix inside the bucket
+rke2_etcd_s3_access_key: ""        # vault_rke2_etcd_s3_access_key
+rke2_etcd_s3_secret_key: ""        # vault_rke2_etcd_s3_secret_key
+rke2_etcd_s3_endpoint_ca: ""       # optional PEM CA bundle for a private S3 endpoint
+rke2_etcd_s3_skip_ssl_verify: false
 
 # ----------------------------------------------------------------------------
 # Data and kubeconfig
