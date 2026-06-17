@@ -14,7 +14,10 @@
           - "'HTTP_PROXY=' in (proxy_env_raw.content | b64decode)"
           - "'HTTPS_PROXY=' in (proxy_env_raw.content | b64decode)"
           - "'NO_PROXY=' in (proxy_env_raw.content | b64decode)"
-        fail_msg: "proxy env file does not contain UPPERCASE proxy keys"
+          - "'CONTAINERD_HTTP_PROXY=' in (proxy_env_raw.content | b64decode)"
+          - "'CONTAINERD_HTTPS_PROXY=' in (proxy_env_raw.content | b64decode)"
+          - "'CONTAINERD_NO_PROXY=' in (proxy_env_raw.content | b64decode)"
+        fail_msg: "proxy env file does not contain UPPERCASE proxy keys (including CONTAINERD_* variants)"
 
     - name: Read CNI HelmChartConfig manifest
       ansible.builtin.slurp:

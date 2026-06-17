@@ -299,6 +299,16 @@ RKE2 takes local etcd snapshots by default; set `rke2_etcd_disable_snapshots: tr
 |----------|---------|-------------|
 | `rke2_etcd_disable_snapshots` | `false` | Disable RKE2's built-in etcd snapshots (snapshots are ON by default) |
 | `rke2_etcd_snapshot_schedule` | `""` | Cron expression, e.g. `"0 */6 * * *"`. Ignored when snapshots are disabled |
+| `rke2_etcd_snapshot_retention` | `5` | Number of local etcd snapshots to retain |
+| `rke2_etcd_s3_enabled` | `false` | Enable off-cluster S3-compatible etcd snapshot upload |
+| `rke2_etcd_s3_endpoint` | `""` | S3 endpoint host (e.g. `s3.amazonaws.com` or `minio.example.com:9000`) |
+| `rke2_etcd_s3_bucket` | `""` | S3 bucket name for etcd snapshots |
+| `rke2_etcd_s3_region` | `""` | S3 region (defaults to `us-east-1` in RKE2 when empty) |
+| `rke2_etcd_s3_folder` | `""` | Optional path prefix inside the S3 bucket |
+| `rke2_etcd_s3_access_key` | `""` | S3 access key. Source from Vault; rendered with `no_log` |
+| `rke2_etcd_s3_secret_key` | `""` | S3 secret key. Source from Vault; rendered with `no_log` |
+| `rke2_etcd_s3_endpoint_ca` | `""` | Optional PEM CA bundle for a private S3 endpoint |
+| `rke2_etcd_s3_skip_ssl_verify` | `false` | Skip TLS verification of the S3 endpoint (lab/self-signed only) |
 
 ### Hardening
 

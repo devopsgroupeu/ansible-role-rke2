@@ -123,8 +123,8 @@ rke2_keepalived_auth_pass: "s3cur3pw"
 
 | Variable | Default | Description |
 |---|---|---|
-| `rke2_etcd_snapshot` | `false` | Enable scheduled etcd snapshots. |
-| `rke2_etcd_snapshot_schedule` | `""` | Cron expression for snapshot schedule (e.g. `"0 */6 * * *"`). |
+| `rke2_etcd_disable_snapshots` | `false` | Disable RKE2's built-in etcd snapshots. Snapshots are ON by default (every 12h); set `true` to turn them off entirely. |
+| `rke2_etcd_snapshot_schedule` | `""` | Cron expression overriding the snapshot schedule (e.g. `"0 */6 * * *"`). Ignored when `rke2_etcd_disable_snapshots` is true. |
 
 ---
 

@@ -6,6 +6,7 @@
     name: etcd
     system: true
     state: present
+  tags: [rke2_setup]
 
 - name: Create etcd system user
   ansible.builtin.user:
@@ -15,6 +16,7 @@
     shell: /sbin/nologin
     create_home: false
     state: present
+  tags: [rke2_setup]
 
 - name: Deploy RKE2 CIS sysctl configuration
   ansible.builtin.template:
@@ -24,3 +26,4 @@
     group: root
     mode: "0644"
   notify: Apply CIS sysctl
+  tags: [rke2_setup]

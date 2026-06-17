@@ -9,6 +9,9 @@
     rke2_http_proxy: "http://proxy.example.com:3128"
     rke2_https_proxy: "http://proxy.example.com:3128"
     rke2_no_proxy: "127.0.0.1,localhost,.svc,.cluster.local"
+    rke2_containerd_http_proxy: "http://proxy.example.com:3128"
+    rke2_containerd_https_proxy: "http://proxy.example.com:3128"
+    rke2_containerd_no_proxy: "127.0.0.1,localhost,.svc,.cluster.local"
     rke2_cni: calico
     rke2_cni_configs:
       calico:

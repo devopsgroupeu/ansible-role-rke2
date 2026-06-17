@@ -72,7 +72,7 @@
     dest: /etc/rancher/rke2/config.yaml
     owner: root
     group: root
-    mode: "0644"
+    mode: "0600"
   notify: Restart rke2-server
   no_log: true
   when: inventory_hostname == groups['server_nodes'][0]
@@ -129,7 +129,7 @@
     dest: /etc/rancher/rke2/config.yaml
     owner: root
     group: root
-    mode: "0644"
+    mode: "0600"
   notify: Restart rke2-server
   no_log: true
   when: inventory_hostname != groups['server_nodes'][0]
