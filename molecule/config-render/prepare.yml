@@ -107,7 +107,7 @@
           - "3650"
         creates: "{{ playbook_dir }}/test-root-ca.pem"
       delegate_to: localhost
-      run_once: true
+      run_once: true # noqa: run-once
       become: false
 
     - name: Restrict permissions on root CA private key
@@ -115,5 +115,5 @@
         path: "{{ playbook_dir }}/test-root-ca.key"
         mode: "0600"
       delegate_to: localhost
-      run_once: true
+      run_once: true # noqa: run-once
       become: false

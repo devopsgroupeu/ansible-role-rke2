@@ -1,6 +1,5 @@
 exclude_paths:
   - .github/
-  - molecule/
   - .ansible-lint
   - examples/
   - tests/
@@ -9,6 +8,6 @@ exclude_paths:
 warn_list:
   - var-spacing
   - yaml[comments-indentation]
+  - yaml[line-length]
 skip_list:
   - experimental
-  - yaml[line-length]

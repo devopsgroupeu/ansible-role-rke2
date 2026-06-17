@@ -24,7 +24,7 @@
         fail_msg: "RKE2 version mismatch: {{ rke2_version_check.stdout }}"
 
     - name: Check rke2-server service is active
-      ansible.builtin.command: systemctl is-active rke2-server
+      ansible.builtin.command: systemctl is-active rke2-server # noqa: command-instead-of-module
       register: rke2_service_status
       changed_when: false
       failed_when: false

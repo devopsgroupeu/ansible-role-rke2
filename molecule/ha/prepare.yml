@@ -94,7 +94,7 @@
           WantedBy=multi-user.target
 
     - name: Reload systemd daemon
-      ansible.builtin.command: systemctl daemon-reload
+      ansible.builtin.command: systemctl daemon-reload # noqa: command-instead-of-module
       changed_when: false
 
 - name: Prepare server nodes only
@@ -108,7 +108,7 @@
         mode: "0600"
 
     - name: Enable and start mock rke2-server service
-      ansible.builtin.command: systemctl enable --now rke2-server
+      ansible.builtin.command: systemctl enable --now rke2-server # noqa: command-instead-of-module
       changed_when: false
 
     - name: Start mock port 9345 listener on first server (simulates cluster join API)
@@ -137,5 +137,5 @@
   gather_facts: false
   tasks:
     - name: Enable and start mock rke2-agent service
-      ansible.builtin.command: systemctl enable --now rke2-agent
+      ansible.builtin.command: systemctl enable --now rke2-agent # noqa: command-instead-of-module
       changed_when: false
