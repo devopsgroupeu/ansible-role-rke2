@@ -332,6 +332,9 @@ RKE2 takes local etcd snapshots by default; set `rke2_etcd_disable_snapshots: tr
 | `rke2_cis_profile` | `""` | CIS hardening profile: `cis` (RKE2 ≥ 1.25) or `cis-1.23` |
 | `rke2_selinux` | `false` | Enable SELinux mode for RKE2 and containerd |
 
+> **Secrets encryption at rest:** RKE2 enables secrets encryption (aescbc) by
+> default; no role variable is needed to turn it on.
+
 ---
 
 ## Cloud Floating IP Failover
@@ -519,6 +522,39 @@ the node type and restarts `rke2-agent`; cordon/drain still run when
         name: ansible-role-rke2
         tasks_from: rolling_restart
 ```
+
+> `rolling_restart` always restarts the node's RKE2 service — it is a
+> deliberate force-restart entry point, not gated on a version change. Run it
+> only when you intend to restart (upgrade, cert change, config change).
+
+---
+
+## Disaster recovery / etcd restore
+
+RKE2 stores etcd snapshots on each server under
+`{{ rke2_data_dir }}/server/db/snapshots/` (default-on; tune with
+`rke2_etcd_disable_snapshots`, `rke2_etcd_snapshot_schedule`,
+`rke2_etcd_snapshot_retention`). For off-cluster durability, enable the S3
+target (`rke2_etcd_s3_*`).
+
+**Take an on-demand snapshot:**
+
+```bash
+rke2 etcd-snapshot save --name pre-upgrade
+```
+
+**Restore on the FIRST server node (cluster down):**
+
+```bash
+systemctl stop rke2-server                 # on ALL servers
+rke2 server \
+  --cluster-reset \
+  --cluster-reset-restore-path=/var/lib/rancher/rke2/server/db/snapshots/<snapshot>
+# then on the OTHER servers: delete their db dir and restart rke2-server to rejoin
+```
+
+See the upstream RKE2 backup/restore docs for the full multi-server procedure.
+Restoring from S3 uses the same flags plus `--etcd-s3` and the S3 flags.
 
 ---
 

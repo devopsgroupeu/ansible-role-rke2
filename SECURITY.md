@@ -35,6 +35,22 @@ When using this role, please be aware of the following:
 - The kubeconfig file (`rke2.yaml`) provides cluster-admin access — protect it accordingly.
 - RKE2 node token (`/var/lib/rancher/rke2/server/node-token`) grants cluster join access — restrict file permissions.
 
+## Install trust model
+
+This role obtains the RKE2 installer and binaries via two paths:
+
+- **Internet install:** the installer is fetched over **TLS** from
+  `https://get.rke2.io`; the installer itself downloads the RKE2 tarball and
+  verifies it against the upstream `sha256sum-<arch>.txt`. The role does not add
+  GPG/cosign signature verification — TLS + the upstream sha256 are the trust
+  anchors. Set `rke2_airgapped_artifacts_dir` to pin locally vetted artifacts.
+- **Air-gap install:** you stage `rke2.linux-<arch>.tar.gz` +
+  `sha256sum-<arch>.txt` yourself; the installer verifies the tarball checksum
+  before extraction. Verify the checksum file's provenance out of band.
+
+There is intentionally **no** binary signature (GPG/cosign) check; supply-chain
+trust rests on TLS, the upstream sha256 manifest, and your air-gap staging.
+
 ## Ansible Vault
 
 All sensitive variables should be encrypted using Ansible Vault:
