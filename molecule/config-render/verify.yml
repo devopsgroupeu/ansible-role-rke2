@@ -119,3 +119,26 @@
       ansible.builtin.assert:
         that: cfg_stat.stat.mode == '0600'
         fail_msg: "config.yaml mode is {{ cfg_stat.stat.mode }}, expected 0600 (holds join token)"
+
+    - name: Stat root CA private key after generation
+      ansible.builtin.stat:
+        path: /var/lib/rancher/rke2/server/tls/root-ca.key
+      register: rootca_key
+
+    - name: Assert root CA private key was removed
+      ansible.builtin.assert:
+        that: not rootca_key.stat.exists
+        fail_msg: "root-ca.key was left on the node despite remove_signing_keys=true"
+
+    - name: Stat audit policy file
+      ansible.builtin.stat:
+        path: /etc/rancher/rke2/audit-policy.yaml
+      register: audit_policy_stat
+
+    - name: Assert audit policy deployed 0600 and referenced
+      ansible.builtin.assert:
+        that:
+          - audit_policy_stat.stat.exists
+          - audit_policy_stat.stat.mode == '0600'
+          - server_config_parsed['audit-policy-file'] == '/etc/rancher/rke2/audit-policy.yaml'
+        fail_msg: "audit policy file not deployed/referenced correctly"

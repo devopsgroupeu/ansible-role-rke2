@@ -12,3 +12,6 @@
 
 # Local test inventory and kubeconfigs (contain real IPs/keys — never commit)
 tests/
+
+# Test CA PEMs generated for molecule scenarios — private keys, never commit
+molecule/config-render/test-root-ca.*

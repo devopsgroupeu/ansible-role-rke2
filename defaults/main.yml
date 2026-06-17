@@ -227,6 +227,12 @@ rke2_custom_root_ca_key: ""        # vault_rke2_root_ca_key
 rke2_custom_intermediate_ca_cert: ""
 rke2_custom_intermediate_ca_key: ""
 
+# Remove the root/intermediate CA PRIVATE keys from nodes after the cluster CA
+# chain is generated and verified. Strongly recommended: a compromised node can
+# otherwise mint trusted certs cluster-wide. Re-supply keys from Vault if you
+# later need to rotate the CA.
+rke2_custom_ca_remove_signing_keys: true
+
 # ----------------------------------------------------------------------------
 # Certificate rotation
 # ----------------------------------------------------------------------------
@@ -373,6 +379,11 @@ rke2_cloud_provider_name: ""
 # API server, controller-manager, scheduler, etcd and kubelet.
 # Options: "cis" (RKE2 >= 1.25) or "cis-1.23" (legacy)
 rke2_cis_profile: ""
+
+# Kubernetes audit policy. When set (full YAML body), the role writes it to
+# /etc/rancher/rke2/audit-policy.yaml (mode 0600) and sets audit-policy-file.
+# RKE2's default audit policy is "level: None" (logs nothing).
+rke2_audit_policy: ""
 
 # Pass selinux: true to the RKE2 config so that RKE2 and containerd run
 # in SELinux-enforcing mode. Requires container-selinux installed on the node.

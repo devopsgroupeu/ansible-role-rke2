@@ -41,6 +41,14 @@
     mode: "0600"
   when: rke2_custom_intermediate_ca_key is defined and rke2_custom_intermediate_ca_key | length > 0
 
+- name: Ensure CA script directory exists
+  ansible.builtin.file:
+    path: /etc/rancher/custom_ca
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+
 - name: Copy CA generation script
   ansible.builtin.copy:
     src: generate_ca.sh
@@ -53,7 +61,7 @@
   ansible.builtin.command: "/etc/rancher/custom_ca/generate_ca.sh"
   args:
     chdir: "/var/lib/rancher/rke2/server/tls"
-  changed_when: true
+    creates: "/var/lib/rancher/rke2/server/tls/server-ca.crt"
 
 - name: Verify CA certificates were generated
   ansible.builtin.stat:
@@ -64,3 +72,14 @@
   ansible.builtin.fail:
     msg: "Custom CA certificates were not generated. Check the generate_ca.sh script."
   when: not ca_cert_check.stat.exists
+
+- name: Remove CA signing private keys after generation
+  ansible.builtin.file:
+    path: "/var/lib/rancher/rke2/server/tls/{{ item }}"
+    state: absent
+  loop:
+    - root-ca.key
+    - intermediate-ca.key
+  when:
+    - rke2_custom_ca_remove_signing_keys | default(true) | bool
+    - ca_cert_check.stat.exists

@@ -33,6 +33,14 @@
     rke2_etcd_s3_secret_key: "secretexample"
     rke2_etcd_snapshot_retention: 10
     rke2_cis_profile: cis
+    rke2_custom_root_ca_cert: "{{ lookup('ansible.builtin.file', 'test-root-ca.pem') | b64encode }}"
+    rke2_custom_root_ca_key: "{{ lookup('ansible.builtin.file', 'test-root-ca.key') | b64encode }}"
+    rke2_custom_ca_remove_signing_keys: true
+    rke2_audit_policy: |
+      apiVersion: audit.k8s.io/v1
+      kind: Policy
+      rules:
+        - level: Metadata
   tasks:
     - name: Include rke2 role
       ansible.builtin.include_role:

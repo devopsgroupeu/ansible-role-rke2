@@ -122,6 +122,7 @@ argument_specs:
         type: str
         required: false
         default: default
+        choices: ["default", "canal", "cilium", "calico", "flannel", "none"]
         description: >
           CNI plugin to use. Options: canal, cilium, calico, flannel, default
           (canal). Setting a value other than 'default' deploys the corresponding
@@ -162,6 +163,7 @@ argument_specs:
         type: str
         required: false
         default: kubevip
+        choices: ["kubevip", "keepalived"]
         description: >
           VIP manager. Options: kubevip (deploys kube-vip as a DaemonSet via
           RKE2 server/manifests), keepalived (role installs and configures
@@ -495,6 +497,15 @@ argument_specs:
         default: ""
         description: PEM-encoded private key for the custom intermediate CA certificate.
 
+      rke2_custom_ca_remove_signing_keys:
+        type: bool
+        required: false
+        default: true
+        description: >
+          Remove root-ca.key and intermediate-ca.key from nodes after the
+          cluster CA chain is generated and verified. Re-supply from Vault if a
+          later CA rotation is required.
+
       # -----------------------------------------------------------------------
       # Certificate rotation
       # -----------------------------------------------------------------------
@@ -518,6 +529,7 @@ argument_specs:
         type: str
         required: false
         default: weekly
+        choices: ["daily", "weekly", "monthly"]
         description: >
           Cron schedule type for certificate rotation. Options: daily, weekly,
           monthly.
@@ -711,9 +723,19 @@ argument_specs:
         type: str
         required: false
         default: ""
+        choices: ["", "cis", "cis-1.23", "cis-1.6"]
         description: >
           RKE2 CIS hardening profile. Options: cis (RKE2 >= 1.25), cis-1.23
-          (legacy). Leave empty to disable.
+          (legacy), cis-1.6 (alias for older profiles). Leave empty to disable.
+
+      rke2_audit_policy:
+        type: str
+        required: false
+        default: ""
+        description: >
+          Full YAML body of a Kubernetes audit policy. When set, the role
+          deploys /etc/rancher/rke2/audit-policy.yaml (mode 0600) and emits
+          audit-policy-file in config.yaml.
 
       rke2_selinux:
         type: bool
