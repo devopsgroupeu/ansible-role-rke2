@@ -1,0 +1,24 @@
+---
+# Real cluster installation — no mocks, no binary stubs.
+# Set rke2_cluster_vip and rke2_cluster_vip_interface at run time, e.g.:
+#   molecule converge -s cluster -- -e rke2_cluster_vip=10.0.0.100 -e rke2_cluster_vip_interface=eth0
+- name: Converge real RKE2 cluster
+  hosts: all
+  become: true
+  gather_facts: true
+  vars:
+    rke2_version: v1.36.1+rke2r2
+    rke2_vip_enabled: true
+    rke2_vip_address: "{{ rke2_cluster_vip | default('10.0.0.100') }}"
+    rke2_vip_interface: "{{ rke2_cluster_vip_interface | default('eth0') }}"
+    rke2_vip_manager: kubevip
+    rke2_kubevip_svc_enable: true
+    rke2_tls_san:
+      - "{{ rke2_cluster_vip | default('10.0.0.100') }}"
+    rke2_etcd_disable_snapshots: false
+    rke2_etcd_snapshot_schedule: "0 */6 * * *"
+    rke2_cert_rotation_enabled: false
+  tasks:
+    - name: Include rke2 role
+      ansible.builtin.include_role:
+        name: ansible-role-rke2

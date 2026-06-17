@@ -1,0 +1,74 @@
+---
+# Real cluster verification — asserts a running RKE2 cluster, not rendered files.
+# Runs only against the first server node to avoid parallel kubectl races.
+- name: Verify real RKE2 cluster
+  hosts: server_nodes[0]
+  become: true
+  gather_facts: false
+  vars:
+    _kubectl: "/var/lib/rancher/rke2/bin/kubectl --kubeconfig /etc/rancher/rke2/rke2.yaml"
+    _cluster_vip: "{{ rke2_cluster_vip | default('10.0.0.100') }}"
+  tasks:
+    - name: Get all nodes (no-headers)
+      ansible.builtin.command: "{{ _kubectl }} get nodes --no-headers"
+      register: _nodes
+      changed_when: false
+
+    - name: Assert all nodes are Ready
+      ansible.builtin.assert:
+        that:
+          - _nodes.stdout_lines | length == (groups['server_nodes'] | length + groups['agent_nodes'] | length)
+          - _nodes.stdout_lines | select('search', 'NotReady') | list | length == 0
+        fail_msg: "Not all nodes Ready:\n{{ _nodes.stdout }}"
+
+    - name: Check apiserver /healthz endpoint
+      ansible.builtin.command: "{{ _kubectl }} get --raw /healthz"
+      register: _healthz
+      changed_when: false
+
+    - name: Assert apiserver /healthz returns ok
+      ansible.builtin.assert:
+        that: _healthz.stdout | trim == 'ok'
+        fail_msg: "apiserver /healthz returned: {{ _healthz.stdout }}"
+
+    - name: Get nodes with etcd role label
+      ansible.builtin.command: >
+        {{ _kubectl }} get nodes
+        -l node-role.kubernetes.io/etcd=true --no-headers
+      register: _etcd_members
+      changed_when: false
+
+    - name: Assert etcd member count equals server node count
+      ansible.builtin.assert:
+        that: _etcd_members.stdout_lines | length == groups['server_nodes'] | length
+        fail_msg: >
+          etcd member count {{ _etcd_members.stdout_lines | length }}
+          does not match server count {{ groups['server_nodes'] | length }}
+
+    - name: Probe kube-vip VIP on apiserver port 6443
+      ansible.builtin.wait_for:
+        host: "{{ _cluster_vip }}"
+        port: 6443
+        timeout: 60
+
+    - name: Probe kube-vip VIP on registration port 9345
+      ansible.builtin.wait_for:
+        host: "{{ _cluster_vip }}"
+        port: 9345
+        timeout: 60
+
+    - name: Check etcd-snapshot-schedule-cron in server config
+      ansible.builtin.slurp:
+        src: /etc/rancher/rke2/config.yaml
+      register: _cfg_raw
+
+    - name: Parse server config
+      ansible.builtin.set_fact:
+        _cfg: "{{ _cfg_raw.content | b64decode | from_yaml }}"
+
+    - name: Assert etcd snapshot cron key is correct
+      ansible.builtin.assert:
+        that:
+          - "'etcd-snapshot-schedule-cron' in _cfg"
+          - _cfg['etcd-snapshot-schedule-cron'] == '0 */6 * * *'
+        fail_msg: "etcd-snapshot-schedule-cron not set correctly in config.yaml"

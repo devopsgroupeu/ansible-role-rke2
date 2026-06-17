@@ -630,23 +630,43 @@ rke2_addons:
 
 ## Testing
 
-The role includes two [Molecule](https://molecule.readthedocs.io/) scenarios using Docker containers:
+The role ships four [Molecule](https://molecule.readthedocs.io/) scenarios:
 
-| Scenario | Nodes | Tests |
-|----------|-------|-------|
-| `default` | 1 server | Binary, service, config, tls-san, cluster-domain, kubeconfig |
-| `ha` | 3 servers + 1 agent | HA config, VIP tls-san, kube-vip DaemonSet, RBAC, cloud provider manifests, agent token |
+| Scenario | Driver | Validates |
+|----------|--------|-----------|
+| `config-render` | docker | Single-node config/template rendering (proxy, CNI, etcd, CIS, kube-vip, audit, addons, HelmChartConfigs). NOT a running cluster. |
+| `config-render-ha` | docker | HA kube-vip manifest rendering — DaemonSet kind, svc_enable, RBAC endpointslices, cloud provider, agent token. NOT a running cluster. |
+| `config-render-keepalived` | docker | keepalived.conf VRRP path — unicast, state BACKUP, nopreempt, health scripts, failover.env, kube-vip cleanup. NOT a running cluster. |
+| `cluster` | VM (delegated) | Real RKE2 cluster end-to-end — all nodes Ready, /healthz ok, etcd member count, VIP ports, etcd snapshot key. |
+
+The `config-render*` scenarios use a mock rke2 binary and only assert that the
+role generates correct files. They run on every PR across 5 distros.
+The `cluster` scenario installs a real cluster and is run manually or nightly with dedicated VMs.
 
 ```bash
 # Install dependencies
 pip install -r requirements.txt
 
-# Run single-node scenario
-molecule test -s default
+# Run comprehensive render scenario (fast, Docker)
+molecule test -s config-render
 
-# Run HA scenario
-molecule test -s ha
+# Run HA kube-vip render scenario
+molecule test -s config-render-ha
+
+# Run keepalived render scenario
+molecule test -s config-render-keepalived
+
+# Run real cluster scenario (requires VMs — NOT run in PR CI)
+# Provide hosts via delegated inventory and set cluster variables:
+#   MOLECULE_CLUSTER_VIP=10.0.0.100 \
+#   MOLECULE_CLUSTER_VIP_IFACE=eth0 \
+#   molecule test -s cluster
 ```
+
+> The `cluster` scenario uses Molecule's `delegated` driver and runs a real
+> install. Provide reachable hosts via a delegated inventory (Hetzner Cloud or
+> local libvirt/vagrant) and set `rke2_cluster_vip` / `rke2_cluster_vip_interface`.
+> It is NOT run on every PR — it requires dedicated infrastructure.
 
 ---
 

@@ -1,0 +1,19 @@
+---
+# Real cluster preparation — no mocks.
+# Requires reachable hosts provided via the delegated driver inventory.
+- name: Prepare cluster hosts
+  hosts: all
+  gather_facts: true
+  tasks:
+    - name: Update apt cache (Debian/Ubuntu)
+      ansible.builtin.apt:
+        update_cache: true
+        cache_valid_time: 3600
+      when: ansible_os_family == 'Debian'
+
+    - name: Install base prerequisites
+      ansible.builtin.package:
+        name:
+          - curl
+          - iptables
+        state: present

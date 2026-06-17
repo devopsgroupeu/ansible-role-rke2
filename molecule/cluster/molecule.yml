@@ -1,0 +1,43 @@
+---
+# This scenario requires real VMs or a cloud provider.
+# It is NOT run in PR CI (no managed infrastructure available in CI).
+# Run manually or in a nightly pipeline with dedicated hosts:
+#
+#   MOLECULE_CLUSTER_VIP=10.0.0.100 \
+#   MOLECULE_CLUSTER_VIP_IFACE=eth0 \
+#   molecule test -s cluster
+#
+# Provide hosts via delegated inventory or set MOLECULE_DELEGATED_HOSTS_FILE
+# to a path containing the inventory for the delegated driver.
+
+dependency:
+  name: galaxy
+
+driver:
+  name: default
+
+platforms:
+  - name: rke2-cluster-server1
+    groups:
+      - server_nodes
+  - name: rke2-cluster-server2
+    groups:
+      - server_nodes
+  - name: rke2-cluster-server3
+    groups:
+      - server_nodes
+  - name: rke2-cluster-agent1
+    groups:
+      - agent_nodes
+
+provisioner:
+  name: ansible
+  env:
+    ANSIBLE_ROLES_PATH: "${MOLECULE_PROJECT_DIRECTORY}/.."
+  inventory:
+    group_vars:
+      all:
+        ansible_user: root
+
+verifier:
+  name: ansible
