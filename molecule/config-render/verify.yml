@@ -109,3 +109,13 @@
           - "'name: port' in (kubevip_ds_raw.content | b64decode)"
           - "'name: vip_subnet' in (kubevip_ds_raw.content | b64decode)"
         fail_msg: "kube-vip DaemonSet missing port / vip_subnet env vars"
+
+    - name: Stat rke2 config.yaml
+      ansible.builtin.stat:
+        path: /etc/rancher/rke2/config.yaml
+      register: cfg_stat
+
+    - name: Assert config.yaml is mode 0600
+      ansible.builtin.assert:
+        that: cfg_stat.stat.mode == '0600'
+        fail_msg: "config.yaml mode is {{ cfg_stat.stat.mode }}, expected 0600 (holds join token)"

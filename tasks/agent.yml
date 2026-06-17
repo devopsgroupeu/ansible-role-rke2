@@ -94,7 +94,7 @@
     dest: /etc/rancher/rke2/registries.yaml
     owner: root
     group: root
-    mode: "0644"
+    mode: "0600"
   when:
     - rke2_private_registries_config is defined
     - rke2_private_registries_config | trim | length > 0
