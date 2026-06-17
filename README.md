@@ -225,7 +225,7 @@ All variables are defined in [`defaults/main.yml`](defaults/main.yml) with inlin
 | `rke2_vip_address` | `""` | The VIP IP address |
 | `rke2_vip_interface` | `eth0` | Network interface for VIP |
 | `rke2_vip_manager` | `kubevip` | VIP manager: `kubevip` or `keepalived` |
-| `rke2_kubevip_version` | `v0.8.0` | kube-vip image tag |
+| `rke2_kubevip_version` | `v1.2.0` | kube-vip image tag |
 | `rke2_kubevip_svc_enable` | `false` | Enable kube-vip watching of LoadBalancer Services |
 | `rke2_kubevip_service_election_enable` | `false` | Per-service leader election |
 | `rke2_kubevip_metrics_port` | `0` | Prometheus metrics port (0 = disabled) |

@@ -170,7 +170,7 @@ argument_specs:
       rke2_kubevip_version:
         type: str
         required: false
-        default: v0.8.0
+        default: v1.2.0
         description: kube-vip image tag. Only used when rke2_vip_manager is 'kubevip'.
 
       rke2_kubevip_svc_enable:

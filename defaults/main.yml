@@ -91,8 +91,10 @@ rke2_vip_manager: "kubevip"  # options: kubevip, keepalived
 # directly reachable server IP instead.
 rke2_agent_server_address: ""
 
-# kube-vip version (only used when rke2_vip_manager=kubevip)
-rke2_kubevip_version: "v0.8.0"
+# kube-vip version (only used when rke2_vip_manager=kubevip).
+# v1.x defaults to EndpointSlices for service watch — the kube-vip RBAC in this
+# role grants discovery.k8s.io/endpointslices accordingly.
+rke2_kubevip_version: "v1.2.0"
 
 # Enable kube-vip watching of LoadBalancer-type Services (svc_enable).
 # Automatically set to true when rke2_kubevip_cloud_provider_enabled is true.

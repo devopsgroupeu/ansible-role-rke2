@@ -80,7 +80,7 @@ rke2_cni_configs:
 | `rke2_vip_address` | `""` | The virtual IP address (e.g. `10.0.0.100`). Added to `tls-san` automatically. |
 | `rke2_vip_interface` | `"eth0"` | Network interface for the VIP on control plane nodes. |
 | `rke2_vip_manager` | `"kubevip"` | VIP manager: `kubevip` or `keepalived`. |
-| `rke2_kubevip_version` | `"v0.8.0"` | kube-vip image tag (only when `rke2_vip_manager=kubevip`). |
+| `rke2_kubevip_version` | `"v1.2.0"` | kube-vip image tag (only when `rke2_vip_manager=kubevip`). |
 | `rke2_keepalived_router_id` | `51` | VRRP virtual router ID — must be unique per subnet (1-255). |
 | `rke2_keepalived_priority_master` | `101` | VRRP priority for the first server node (MASTER). |
 | `rke2_keepalived_priority_backup` | `100` | VRRP priority for additional server nodes (BACKUP). |
@@ -93,7 +93,7 @@ rke2_vip_enabled: true
 rke2_vip_address: "10.0.0.100"
 rke2_vip_interface: "ens3"
 rke2_vip_manager: kubevip
-rke2_kubevip_version: "v0.8.0"
+rke2_kubevip_version: "v1.2.0"
 ```
 
 **keepalived example:**
