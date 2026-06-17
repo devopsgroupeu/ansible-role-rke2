@@ -233,3 +233,65 @@
           - "'rke2-coredns' in (hcc_coredns_raw.content | b64decode)"
           - "'replicas: 2' in (hcc_coredns_raw.content | b64decode)"
         fail_msg: "HelmChartConfig override for rke2-coredns not rendered (E12)"
+
+    # --- Folded from default scenario: binary, service, kubeconfig, cluster-domain ---
+
+    - name: Check rke2-server service is active
+      ansible.builtin.command: systemctl is-active rke2-server # noqa: command-instead-of-module
+      register: rke2_service_status
+      changed_when: false
+      failed_when: false
+
+    - name: Assert rke2-server service is active
+      ansible.builtin.assert:
+        that: rke2_service_status.stdout == 'active'
+        fail_msg: "rke2-server service is not active (status: {{ rke2_service_status.stdout }})"
+
+    - name: Check RKE2 version output
+      ansible.builtin.command: rke2 --version
+      register: rke2_version_check
+      changed_when: false
+
+    - name: Assert RKE2 version matches rke2_version
+      ansible.builtin.assert:
+        that: "'v1.36.1+rke2r2' in rke2_version_check.stdout"
+        fail_msg: "RKE2 version mismatch: {{ rke2_version_check.stdout }}"
+
+    - name: Check kubeconfig exists in user home
+      ansible.builtin.stat:
+        path: "/root/.kube/config"
+      register: kubeconfig_home
+
+    - name: Assert kubeconfig exists in user home
+      ansible.builtin.assert:
+        that: kubeconfig_home.stat.exists
+        fail_msg: "/root/.kube/config was not created"
+
+    - name: Parse kubeconfig from /etc/rancher/rke2/rke2.yaml
+      ansible.builtin.slurp:
+        src: /etc/rancher/rke2/rke2.yaml
+      register: rke2_kubeconfig_raw
+
+    - name: Parse kubeconfig as YAML
+      ansible.builtin.set_fact:
+        rke2_kubeconfig_parsed: "{{ rke2_kubeconfig_raw.content | b64decode | from_yaml }}"
+
+    - name: Assert kubeconfig has clusters defined
+      ansible.builtin.assert:
+        that: rke2_kubeconfig_parsed.clusters | length > 0
+        fail_msg: "kubeconfig has no clusters defined"
+
+    - name: Assert kubeconfig has contexts defined
+      ansible.builtin.assert:
+        that: rke2_kubeconfig_parsed.contexts | length > 0
+        fail_msg: "kubeconfig has no contexts defined"
+
+    - name: Assert cluster-domain is set in config
+      ansible.builtin.assert:
+        that: server_config_parsed.get('cluster-domain') == 'cluster.test'
+        fail_msg: "cluster-domain not set correctly in config.yaml, got: {{ server_config_parsed.get('cluster-domain') }}"
+
+    - name: Assert disable-kube-proxy is absent when false
+      ansible.builtin.assert:
+        that: "'disable-kube-proxy' not in server_config_parsed"
+        fail_msg: "disable-kube-proxy should not be present when rke2_disable_kube_proxy is false"

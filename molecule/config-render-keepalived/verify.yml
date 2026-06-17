@@ -209,3 +209,15 @@
       ansible.builtin.assert:
         that: not kubevip_manifest.stat.exists
         fail_msg: "kube-vip manifest still present at server/manifests/kube-vip.yml when using keepalived"
+
+    # --- Keepalived VRRP path completeness assertions ---
+
+    - name: Assert keepalived.conf has virtual_ipaddress block with VIP
+      ansible.builtin.assert:
+        that: "'virtual_ipaddress' in (keepalived_conf_raw.content | b64decode)"
+        fail_msg: "virtual_ipaddress block not found in keepalived.conf VRRP path"
+
+    - name: Assert keepalived.conf VRRP instance has nopreempt
+      ansible.builtin.assert:
+        that: "'nopreempt' in (keepalived_conf_raw.content | b64decode)"
+        fail_msg: "nopreempt directive not found in keepalived.conf VRRP instance"

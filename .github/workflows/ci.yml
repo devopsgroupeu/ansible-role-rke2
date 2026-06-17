@@ -38,7 +38,7 @@ jobs:
       fail-fast: false
       matrix:
         scenario:
-          - config-render-default
+          - config-render
           - config-render-ha
           - config-render-keepalived
         distro:

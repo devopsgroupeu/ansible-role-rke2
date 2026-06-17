@@ -154,6 +154,20 @@
         fail_msg: "kubeconfig has no clusters defined"
       when: inventory_hostname == groups['server_nodes'][0]
 
+    # --- VIP-1/VIP-2: kube-vip RBAC grants endpointslices + image pinned to v1.x ---
+
+    - name: Read kube-vip RBAC manifest (VIP-1)
+      ansible.builtin.slurp:
+        src: /var/lib/rancher/rke2/server/manifests/kube-vip-rbac.yml
+      register: kubevip_rbac_raw
+
+    - name: Assert kube-vip RBAC grants endpointslices and image is v1.x (VIP-1/VIP-2)
+      ansible.builtin.assert:
+        that:
+          - "'endpointslices' in (kubevip_rbac_raw.content | b64decode)"
+          - "'kube-vip:v1.' in (kubevip_manifest_raw.content | b64decode)"
+        fail_msg: "kube-vip RBAC missing endpointslices or image is not v1.x"
+
 - name: Verify agent nodes
   hosts: agent_nodes
   gather_facts: false

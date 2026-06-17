@@ -75,6 +75,8 @@
       - name: rke2-coredns
         valuesContent: |
           replicas: 2
+    rke2_cluster_domain: "cluster.test"
+    rke2_disable_kube_proxy: false
   tasks:
     - name: Include rke2 role
       ansible.builtin.include_role:
