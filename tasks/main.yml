@@ -2,6 +2,10 @@
 - name: Run setup tasks
   ansible.builtin.import_tasks: setup.yml
 
+- name: Apply CIS hardening prerequisites
+  ansible.builtin.import_tasks: cis_prep.yml
+  when: rke2_cis_profile | default('') | length > 0
+
 - name: Configure network environment (air-gapped)
   ansible.builtin.import_tasks: network_environment.yml
   when: rke2_airgapped | default(false) | bool

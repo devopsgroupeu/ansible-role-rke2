@@ -19,3 +19,7 @@
 - name: Reload systemd
   ansible.builtin.systemd_service:
     daemon_reload: true
+
+- name: Apply CIS sysctl
+  ansible.builtin.command: sysctl -p /etc/sysctl.d/60-rke2-cis.conf
+  changed_when: true
