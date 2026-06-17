@@ -41,6 +41,9 @@
       kind: Policy
       rules:
         - level: Metadata
+    rke2_node_ip: "192.168.10.5"
+    rke2_node_external_ip: "203.0.113.5"
+    rke2_system_default_registry: "registry.example.com:5000"
   tasks:
     - name: Include rke2 role
       ansible.builtin.include_role:

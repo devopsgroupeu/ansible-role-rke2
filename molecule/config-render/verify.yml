@@ -142,3 +142,39 @@
           - audit_policy_stat.stat.mode == '0600'
           - server_config_parsed['audit-policy-file'] == '/etc/rancher/rke2/audit-policy.yaml'
         fail_msg: "audit policy file not deployed/referenced correctly"
+
+    # --- E3: data_dir parametrisation ---
+    - name: Stat CNI manifest using rke2_data_dir path (E3)
+      ansible.builtin.stat:
+        path: /var/lib/rancher/rke2/server/manifests/rke2-calico-config.yml
+      register: e3_cni_stat
+
+    - name: Assert CNI manifest exists at rke2_data_dir-derived path (E3)
+      ansible.builtin.assert:
+        that: e3_cni_stat.stat.exists
+        fail_msg: "CNI manifest not found at rke2_data_dir/server/manifests (E3 data_dir fix)"
+
+    - name: Stat kube-vip RBAC manifest using rke2_data_dir path (E3)
+      ansible.builtin.stat:
+        path: /var/lib/rancher/rke2/server/manifests/kube-vip-rbac.yml
+      register: e3_rbac_stat
+
+    - name: Assert kube-vip RBAC manifest exists at rke2_data_dir-derived path (E3)
+      ansible.builtin.assert:
+        that: e3_rbac_stat.stat.exists
+        fail_msg: "kube-vip RBAC manifest not found at rke2_data_dir/server/manifests (E3 data_dir fix)"
+
+    # --- E5: node-ip / node-external-ip ---
+    - name: Assert node-ip renders in server config when rke2_node_ip is set (E5)
+      ansible.builtin.assert:
+        that:
+          - server_config_parsed['node-ip'] == '192.168.10.5'
+          - server_config_parsed['node-external-ip'] == '203.0.113.5'
+        fail_msg: "node-ip / node-external-ip not rendered in config.yaml (E5)"
+
+    # --- E6: system-default-registry ---
+    - name: Assert system-default-registry renders in server config when set (E6)
+      ansible.builtin.assert:
+        that:
+          - server_config_parsed['system-default-registry'] == 'registry.example.com:5000'
+        fail_msg: "system-default-registry not rendered in config.yaml (E6)"
