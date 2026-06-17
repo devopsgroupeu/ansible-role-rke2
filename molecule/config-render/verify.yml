@@ -1,0 +1,91 @@
+---
+- name: Verify rendered config
+  hosts: server_nodes
+  gather_facts: false
+  tasks:
+    - name: Read rke2-server proxy env file
+      ansible.builtin.slurp:
+        src: /etc/default/rke2-server
+      register: proxy_env_raw
+
+    - name: Assert proxy env uses UPPERCASE keys
+      ansible.builtin.assert:
+        that:
+          - "'HTTP_PROXY=' in (proxy_env_raw.content | b64decode)"
+          - "'HTTPS_PROXY=' in (proxy_env_raw.content | b64decode)"
+          - "'NO_PROXY=' in (proxy_env_raw.content | b64decode)"
+        fail_msg: "proxy env file does not contain UPPERCASE proxy keys"
+
+    - name: Read CNI HelmChartConfig manifest
+      ansible.builtin.slurp:
+        src: /var/lib/rancher/rke2/server/manifests/rke2-calico-config.yml
+      register: cni_raw
+
+    - name: Parse CNI manifest as YAML
+      ansible.builtin.set_fact:
+        cni_parsed: "{{ cni_raw.content | b64decode | from_yaml }}"
+
+    - name: Assert CNI manifest names rke2-calico and renders values
+      ansible.builtin.assert:
+        that:
+          - cni_parsed.metadata.name == 'rke2-calico'
+          - "'mtu: 9000' in cni_parsed.spec.valuesContent"
+        fail_msg: "cni-config did not render rke2_cni_configs correctly"
+
+    - name: Read RKE2 server config
+      ansible.builtin.slurp:
+        src: /etc/rancher/rke2/config.yaml
+      register: server_config_raw
+
+    - name: Parse server config as YAML
+      ansible.builtin.set_fact:
+        server_config_parsed: "{{ server_config_raw.content | b64decode | from_yaml }}"
+
+    - name: Assert valid etcd snapshot schedule key is present
+      ansible.builtin.assert:
+        that:
+          - "'etcd-snapshot-schedule-cron' in server_config_parsed"
+          - server_config_parsed['etcd-snapshot-schedule-cron'] == '0 */6 * * *'
+          - "'etcd-snapshot' not in server_config_parsed"
+          - "'etcd-snapshot-schedule' not in server_config_parsed"
+        fail_msg: "config.yaml does not use valid etcd-snapshot-schedule-cron key"
+
+    - name: Assert etcd S3 keys render
+      ansible.builtin.assert:
+        that:
+          - server_config_parsed['etcd-s3'] | bool
+          - server_config_parsed['etcd-s3-bucket'] == 'rke2-backups'
+          - server_config_parsed['etcd-s3-access-key'] == 'AKIAEXAMPLE'
+          - server_config_parsed['etcd-snapshot-retention'] == 10
+        fail_msg: "etcd S3 / retention keys not rendered in config.yaml"
+
+    - name: Read kube-vip RBAC manifest
+      ansible.builtin.slurp:
+        src: /var/lib/rancher/rke2/server/manifests/kube-vip-rbac.yml
+      register: rbac_raw
+
+    - name: Assert kube-vip RBAC grants endpointslices
+      ansible.builtin.assert:
+        that: "'endpointslices' in (rbac_raw.content | b64decode)"
+        fail_msg: "kube-vip RBAC missing discovery.k8s.io/endpointslices"
+
+    - name: Check etcd user exists
+      ansible.builtin.command: id etcd
+      register: etcd_user_check
+      changed_when: false
+      failed_when: false
+
+    - name: Assert etcd system user was created for CIS
+      ansible.builtin.assert:
+        that: etcd_user_check.rc == 0
+        fail_msg: "etcd system user not created despite rke2_cis_profile set"
+
+    - name: Stat CIS sysctl drop-in
+      ansible.builtin.stat:
+        path: /etc/sysctl.d/60-rke2-cis.conf
+      register: cis_sysctl
+
+    - name: Assert CIS sysctl drop-in deployed
+      ansible.builtin.assert:
+        that: cis_sysctl.stat.exists
+        fail_msg: "/etc/sysctl.d/60-rke2-cis.conf not deployed for CIS profile"

@@ -1,0 +1,85 @@
+---
+- name: Prepare
+  hosts: all
+  gather_facts: true
+  tasks:
+    - name: Update apt cache (Debian/Ubuntu)
+      ansible.builtin.apt:
+        update_cache: true
+        cache_valid_time: 3600
+      when: ansible_os_family == 'Debian'
+
+    - name: Install required packages
+      ansible.builtin.package:
+        name:
+          - curl
+          - iptables
+          - python3
+        state: present
+
+    - name: Create rancher directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        mode: "0755"
+      loop:
+        - /etc/rancher/rke2
+        - /etc/default
+        - /var/lib/rancher/rke2/server
+        - /var/lib/rancher/rke2/server/manifests
+        - /var/lib/rancher/rke2/server/tls
+        - /usr/local/bin
+
+    - name: Create mock rke2 binary
+      ansible.builtin.copy:
+        dest: /usr/local/bin/rke2
+        mode: "0755"
+        content: |
+          #!/bin/bash
+          if [[ "$1" == "--version" ]]; then
+            echo "rke2 version v1.36.1+rke2r2 (abc123)"
+          fi
+
+    - name: Create mock node token
+      ansible.builtin.copy:
+        dest: /var/lib/rancher/rke2/server/node-token
+        content: "mock-cluster-token-for-testing"
+        mode: "0600"
+
+    - name: Create mock kubeconfig
+      ansible.builtin.copy:
+        dest: /etc/rancher/rke2/rke2.yaml
+        mode: "0600"
+        content: |
+          apiVersion: v1
+          kind: Config
+          clusters:
+            - cluster:
+                server: https://127.0.0.1:6443
+              name: default
+          contexts:
+            - context:
+                cluster: default
+                user: default
+              name: default
+          current-context: default
+          users:
+            - name: default
+              user:
+                token: mock-token
+
+    - name: Create mock rke2-server systemd service
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/rke2-server.service
+        mode: "0644"
+        content: |
+          [Unit]
+          Description=RKE2 Kubernetes Server (mock)
+
+          [Service]
+          Type=oneshot
+          ExecStart=/usr/local/bin/rke2 server
+          RemainAfterExit=yes
+
+          [Install]
+          WantedBy=multi-user.target

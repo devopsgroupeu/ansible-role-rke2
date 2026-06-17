@@ -1,0 +1,36 @@
+---
+- name: Converge
+  hosts: all
+  gather_facts: true
+  vars:
+    rke2_version: v1.36.1+rke2r2
+    rke2_airgapped: false
+    rke2_additional_packages: []
+    rke2_http_proxy: "http://proxy.example.com:3128"
+    rke2_https_proxy: "http://proxy.example.com:3128"
+    rke2_no_proxy: "127.0.0.1,localhost,.svc,.cluster.local"
+    rke2_cni: calico
+    rke2_cni_configs:
+      calico:
+        installation:
+          calicoNetwork:
+            mtu: 9000
+    rke2_etcd_disable_snapshots: false
+    rke2_etcd_snapshot_schedule: "0 */6 * * *"
+    rke2_vip_enabled: true
+    rke2_vip_address: "10.0.0.100"
+    rke2_vip_manager: kubevip
+    rke2_tls_san:
+      - "rke2-render"
+    rke2_etcd_s3_enabled: true
+    rke2_etcd_s3_endpoint: "s3.example.com"
+    rke2_etcd_s3_bucket: "rke2-backups"
+    rke2_etcd_s3_region: "eu-central-1"
+    rke2_etcd_s3_access_key: "AKIAEXAMPLE"
+    rke2_etcd_s3_secret_key: "secretexample"
+    rke2_etcd_snapshot_retention: 10
+    rke2_cis_profile: cis
+  tasks:
+    - name: Include rke2 role
+      ansible.builtin.include_role:
+        name: ansible-role-rke2
