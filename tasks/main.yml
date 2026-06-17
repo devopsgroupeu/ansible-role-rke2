@@ -43,5 +43,5 @@
 - name: Deploy Helm addons
   ansible.builtin.import_tasks: addons.yml
   when:
-    - rke2_addons | default([]) | length > 0
+    - rke2_addons | default([]) | length > 0 or rke2_helmchartconfigs | default([]) | length > 0
     - inventory_hostname == groups['server_nodes'][0]
