@@ -86,6 +86,13 @@
         that: "'10.0.0.100' in (keepalived_conf_raw.content | b64decode)"
         fail_msg: "VIP address 10.0.0.100 not found in keepalived.conf"
 
+    - name: Assert keepalived uses BACKUP state on all nodes
+      ansible.builtin.assert:
+        that:
+          - "'state BACKUP' in (keepalived_conf_raw.content | b64decode)"
+          - "'state MASTER' not in (keepalived_conf_raw.content | b64decode)"
+        fail_msg: "keepalived must render state BACKUP on all nodes for nopreempt to work"
+
     - name: Assert keepalived.conf uses unicast mode
       ansible.builtin.assert:
         that: "'unicast_src_ip' in (keepalived_conf_raw.content | b64decode)"

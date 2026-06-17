@@ -27,7 +27,7 @@ vrrp_script chk_rke2server {
 }
 
 vrrp_instance RKE2_VIP {
-  state {{ 'MASTER' if inventory_hostname == groups['server_nodes'][0] else 'BACKUP' }}
+  state BACKUP
   interface {{ rke2_vip_interface }}
   virtual_router_id {{ rke2_keepalived_router_id }}
   priority {{ rke2_keepalived_priority_master if inventory_hostname == groups['server_nodes'][0] else rke2_keepalived_priority_backup }}
