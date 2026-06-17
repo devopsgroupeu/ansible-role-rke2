@@ -57,15 +57,29 @@ for CERT in "$TLS_DIR"/*.crt; do
         log_message "Checking certificate: $CERT (expires in $DAYS_LEFT days)"
         if [[ $DAYS_LEFT -le ${EXPIRY_THRESHOLD_DAYS} ]]; then
             log_message "Certificate $CERT expires in $DAYS_LEFT days. Initiating rotation..."
+            log_message "Stopping $RKE2_SERVICE before rotation..."
+            systemctl stop "$RKE2_SERVICE"
             rke2 certificate rotate >> "$LOG_FILE" 2>&1
-            if [[ $? -eq 0 ]]; then
-                log_message "Rotation successful. Restarting $RKE2_SERVICE..."
-                systemctl restart "$RKE2_SERVICE"
-                ROTATED=true
-            else
-                log_message "ERROR: Failed to rotate certificates."
+            ROTATE_RC=$?
+            log_message "Starting $RKE2_SERVICE after rotation (rotate rc=${ROTATE_RC})..."
+            systemctl start "$RKE2_SERVICE"
+            if [[ ${ROTATE_RC} -ne 0 ]]; then
+                log_message "ERROR: Certificate rotation failed (rc=${ROTATE_RC}); service restarted with existing certs."
                 exit 1
             fi
+            if [[ "$RKE2_SERVICE" == "rke2-server" ]]; then
+                HEALTH_PORT=9345
+            else
+                HEALTH_PORT=10250
+            fi
+            for i in $(seq 1 30); do
+                if (exec 3<>"/dev/tcp/127.0.0.1/${HEALTH_PORT}") 2>/dev/null; then
+                    log_message "Health check OK: ${RKE2_SERVICE} listening on 127.0.0.1:${HEALTH_PORT}"
+                    break
+                fi
+                sleep 5
+            done
+            ROTATED=true
             break
         fi
     fi
