@@ -168,6 +168,25 @@
           - "'kube-vip:v1.' in (kubevip_manifest_raw.content | b64decode)"
         fail_msg: "kube-vip RBAC missing endpointslices or image is not v1.x"
 
+    - name: Check audit policy file exists on ALL server nodes
+      ansible.builtin.stat:
+        path: /etc/rancher/rke2/audit-policy.yaml
+      register: audit_policy_stat
+
+    - name: Assert audit policy file exists on ALL server nodes
+      ansible.builtin.assert:
+        that: audit_policy_stat.stat.exists
+        fail_msg: >-
+          /etc/rancher/rke2/audit-policy.yaml was not created on {{ inventory_hostname }};
+          all server nodes must have the audit policy file when rke2_audit_policy is set
+
+    - name: Assert audit policy file has mode 0600 on ALL server nodes
+      ansible.builtin.assert:
+        that: audit_policy_stat.stat.mode == '0600'
+        fail_msg: >-
+          /etc/rancher/rke2/audit-policy.yaml on {{ inventory_hostname }} has mode
+          {{ audit_policy_stat.stat.mode }}, expected 0600
+
 - name: Verify agent nodes
   hosts: agent_nodes
   gather_facts: false

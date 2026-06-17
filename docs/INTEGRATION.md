@@ -48,7 +48,7 @@ The role requires two inventory groups:
   hosts: server_nodes:agent_nodes
   become: true
   roles:
-    - role: devopsgroup.rke2
+    - role: devopsgroupeu.rke2
 ```
 
 ---
@@ -113,13 +113,13 @@ control plane, combine with `ansible-role-haproxy-keepalived`:
   hosts: lb_nodes
   become: true
   roles:
-    - role: devopsgroup.haproxy-keepalived
+    - role: devopsgroupeu.haproxy-keepalived
 
 - name: Deploy RKE2
   hosts: server_nodes:agent_nodes
   become: true
   roles:
-    - role: devopsgroup.rke2
+    - role: devopsgroupeu.rke2
       vars:
         rke2_vip_enabled: true
         rke2_vip_address: "10.0.0.100"  # Must match HAProxy VIP
@@ -164,7 +164,7 @@ Add to your role's `meta/main.yml`:
 
 ```yaml
 dependencies:
-  - role: devopsgroup.rke2
+  - role: devopsgroupeu.rke2
     vars:
       rke2_version: "v1.36.1+rke2r2"
       rke2_vip_enabled: false
@@ -173,7 +173,7 @@ dependencies:
 Or install from Galaxy and import in a playbook:
 
 ```bash
-ansible-galaxy install devopsgroup.rke2
+ansible-galaxy install devopsgroupeu.rke2
 ```
 
 ```yaml
@@ -181,7 +181,7 @@ ansible-galaxy install devopsgroup.rke2
   hosts: server_nodes:agent_nodes
   become: true
   roles:
-    - devopsgroup.rke2
+    - devopsgroupeu.rke2
 ```
 
 ---

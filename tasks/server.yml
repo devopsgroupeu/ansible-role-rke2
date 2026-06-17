@@ -100,7 +100,6 @@
   notify: Restart rke2-server
   when:
     - rke2_audit_policy | default('') | length > 0
-    - inventory_hostname == groups['server_nodes'][0]
 
 - name: Configure RKE2 server (first node)
   ansible.builtin.template:

@@ -19,6 +19,11 @@
     rke2_agent_server_address: "rke2-server1"
     rke2_cert_rotation_enabled: false
     rke2_additional_packages: []
+    rke2_audit_policy: |
+      apiVersion: audit.k8s.io/v1
+      kind: Policy
+      rules:
+        - level: Metadata
   tasks:
     - name: Include rke2 role
       ansible.builtin.include_role:

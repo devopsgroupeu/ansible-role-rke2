@@ -1,7 +1,6 @@
 # Ansible Role - RKE2
 
-[![Lint](https://github.com/devopsgroupeu/ansible-role-rke2/actions/workflows/lint.yml/badge.svg)](https://github.com/devopsgroupeu/ansible-role-rke2/actions/workflows/lint.yml)
-[![Molecule](https://github.com/devopsgroupeu/ansible-role-rke2/actions/workflows/molecule.yml/badge.svg)](https://github.com/devopsgroupeu/ansible-role-rke2/actions/workflows/molecule.yml)
+[![CI](https://github.com/devopsgroupeu/ansible-role-rke2/actions/workflows/ci.yml/badge.svg)](https://github.com/devopsgroupeu/ansible-role-rke2/actions/workflows/ci.yml)
 [![Ansible Galaxy](https://img.shields.io/badge/Ansible%20Galaxy-devopsgroupeu.rke2-blue?logo=ansible)](https://galaxy.ansible.com/ui/standalone/roles/devopsgroupeu/rke2/)
 ![GitHub License](https://img.shields.io/github/license/devopsgroupeu/ansible-role-rke2)
 ![GitHub Forks](https://img.shields.io/github/forks/devopsgroupeu/ansible-role-rke2)
@@ -46,7 +45,7 @@ Ansible role for installing and configuring [RKE2](https://docs.rke2.io/) — Ra
 
 - ansible-core >= 2.19
 - Python >= 3.9
-- Target nodes: Ubuntu 22.04 / 24.04, Debian 12, Rocky Linux 9, Oracle Linux 9
+- Target nodes: Ubuntu 22.04 / 24.04, Debian 12 / 13, Rocky Linux 9, Oracle Linux 9
 - `become: true` (root access required)
 - For HA: odd number of server nodes (3 recommended), reachable by each other on ports 9345 (join) and 6443 (API)
 
