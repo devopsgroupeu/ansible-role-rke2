@@ -165,6 +165,12 @@ rke2_cluster_cidr: ""   # Default: 10.42.0.0/16
 rke2_service_cidr: ""   # Default: 10.43.0.0/16
 rke2_cluster_domain: "" # Default: cluster.local
 
+# Advertise a specific node IP / external IP (multi-NIC / dual-homed bare-metal).
+# Leave empty to let RKE2 auto-detect. Per-node values in rke2_server_nodes /
+# rke2_agent_nodes (node-ip / node-external-ip keys) override these globals.
+rke2_node_ip: ""
+rke2_node_external_ip: ""
+
 # ----------------------------------------------------------------------------
 # etcd snapshots
 # ----------------------------------------------------------------------------

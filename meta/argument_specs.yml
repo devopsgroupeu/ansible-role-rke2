@@ -419,6 +419,22 @@ argument_specs:
         default: /var/lib/rancher/rke2
         description: RKE2 data directory.
 
+      rke2_node_ip:
+        type: str
+        required: false
+        default: ""
+        description: >
+          Global node-ip advertised to Kubernetes. Per-node node-ip in
+          rke2_server_nodes / rke2_agent_nodes overrides this. Empty = auto-detect.
+
+      rke2_node_external_ip:
+        type: str
+        required: false
+        default: ""
+        description: >
+          Global node-external-ip. Per-node node-external-ip overrides this.
+          Empty = not set.
+
       rke2_write_kubeconfig_mode:
         type: str
         required: false

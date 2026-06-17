@@ -30,6 +30,17 @@ service-cidr: "{{ rke2_service_cidr }}"
 cluster-domain: "{{ rke2_cluster_domain }}"
 {% endif %}
 
+{% set _server_match = rke2_server_nodes | selectattr('host', 'in', [inventory_hostname, ansible_host | default(inventory_hostname)]) | list %}
+{% set _node = _server_match[0] if _server_match | length > 0 else {} %}
+{% set _node_ip = _node.get('node-ip', rke2_node_ip) %}
+{% set _node_ext_ip = _node.get('node-external-ip', rke2_node_external_ip) %}
+{% if _node_ip | length > 0 %}
+node-ip: "{{ _node_ip }}"
+{% endif %}
+{% if _node_ext_ip | length > 0 %}
+node-external-ip: "{{ _node_ext_ip }}"
+{% endif %}
+
 {% if rke2_agent_token | default('') | length > 0 %}
 agent-token: "{{ rke2_agent_token }}"
 {% endif %}

@@ -11,6 +11,14 @@ node-name: "{{ rke2_node_name if rke2_node_name | default('') | length > 0 else 
 
 {% set agent_list = rke2_agent_nodes | selectattr('host', 'in', [inventory_hostname, ansible_host | default(inventory_hostname)]) | list %}
 {% set agent = agent_list[0] if agent_list | length > 0 else {} %}
+{% set _anode_ip = agent.get('node-ip', rke2_node_ip) %}
+{% set _anode_ext_ip = agent.get('node-external-ip', rke2_node_external_ip) %}
+{% if _anode_ip | length > 0 %}
+node-ip: "{{ _anode_ip }}"
+{% endif %}
+{% if _anode_ext_ip | length > 0 %}
+node-external-ip: "{{ _anode_ext_ip }}"
+{% endif %}
 
 {% if agent.get('node-label') %}
 node-label:
