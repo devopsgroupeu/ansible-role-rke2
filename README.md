@@ -595,12 +595,21 @@ rke2_addons:
 | Key | Required | Description |
 |-----|----------|-------------|
 | `name` | yes | Unique name — used for the manifest filename |
-| `enabled` | yes | Set `false` to skip without removing from the list |
+| `enabled` | yes | `false` removes the manifest file. The running release is NOT uninstalled unless `rke2_addons_delete_on_disable: true` |
 | `repo` | yes | Helm chart repository URL |
 | `version` | yes | Chart version to pin |
 | `namespace` | yes | Kubernetes namespace to deploy into |
 | `chart` | no | Chart name inside the repo (defaults to `name`) |
 | `values` | no | Dict of Helm values merged into the HelmChart spec |
+| `bootstrap` | no | Apply during cluster bootstrap (before kube-apiserver is ready) |
+| `set` | no | Dict of scalar Helm overrides rendered under `spec.set` |
+| `repoCA` | no | ConfigMap name holding a CA bundle for the chart repo (air-gap) |
+| `authSecret` | no | Name of an existing Secret with repo credentials (air-gap Nexus/Harbor) |
+| `failurePolicy` | no | `reinstall` or `abort` on chart failure |
+
+> **HelmChart vs HelmChartConfig:** use `rke2_addons` to deploy a **new** chart
+> (HelmChart CRD); use `rke2_helmchartconfigs` to override values of a chart
+> RKE2 already bundles (HelmChartConfig CRD), e.g. `rke2-coredns`, `rke2-traefik`.
 
 ---
 

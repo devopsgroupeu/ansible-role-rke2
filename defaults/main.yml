@@ -332,6 +332,20 @@ rke2_addons: []
 #       crds:
 #         enabled: true
 
+# When an addon has enabled: false, the role removes its manifest file. By
+# itself this does NOT uninstall the running release (the HelmChart CR + Helm
+# release persist). Set this true to additionally run
+# `kubectl delete helmchart <name> -n kube-system` — DATA-AFFECTING.
+rke2_addons_delete_on_disable: false
+
+# HelmChartConfig overrides for RKE2's BUNDLED charts (rke2-canal, rke2-coredns,
+# rke2-traefik, ...). Use this to tune chart values WITHOUT replacing the chart.
+# Each entry: { name: <bundled-chart-name>, valuesContent: <YAML string> }.
+rke2_helmchartconfigs: []
+  # - name: rke2-coredns
+  #   valuesContent: |
+  #     replicas: 2
+
 # ----------------------------------------------------------------------------
 # Private registry configuration (optional)
 # ----------------------------------------------------------------------------

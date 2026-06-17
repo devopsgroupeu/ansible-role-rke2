@@ -29,3 +29,29 @@
   loop: "{{ rke2_addons | selectattr('enabled', 'equalto', false) | list }}"
   loop_control:
     label: "{{ item.name }}"
+
+- name: Uninstall disabled addon HelmChart releases (data-affecting)
+  ansible.builtin.command: >
+    {{ rke2_data_dir }}/bin/kubectl
+    --kubeconfig /etc/rancher/rke2/rke2.yaml
+    delete helmchart {{ item.name }} -n kube-system --ignore-not-found
+  loop: "{{ rke2_addons | selectattr('enabled', 'equalto', false) | list }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: _addon_delete
+  changed_when: "'deleted' in _addon_delete.stdout"
+  delegate_to: "{{ groups['server_nodes'][0] }}"
+  run_once: true
+  when: rke2_addons_delete_on_disable | default(false) | bool
+
+- name: Deploy HelmChartConfig overrides for bundled charts
+  ansible.builtin.template:
+    src: helmchartconfig.yml.j2
+    dest: "{{ rke2_data_dir }}/server/manifests/helmchartconfig-{{ item.name }}.yml"
+    owner: root
+    group: root
+    mode: "0644"
+  loop: "{{ rke2_helmchartconfigs | default([]) }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when: rke2_helmchartconfigs | default([]) | length > 0

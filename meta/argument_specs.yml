@@ -655,6 +655,25 @@ argument_specs:
           requires: name, enabled (bool), repo, version, namespace. Optional
           keys: chart (defaults to name), values (dict).
 
+      rke2_addons_delete_on_disable:
+        type: bool
+        required: false
+        default: false
+        description: >
+          When true, disabling an addon (enabled: false) also runs
+          kubectl delete helmchart <name> -n kube-system, uninstalling the
+          running release. Default false only removes the manifest file.
+
+      rke2_helmchartconfigs:
+        type: list
+        elements: dict
+        required: false
+        default: []
+        description: >
+          HelmChartConfig overrides for RKE2 bundled charts. Each entry needs
+          name (bundled chart name) and valuesContent (YAML string of Helm
+          values). Applied on the first server node in kube-system.
+
       # -----------------------------------------------------------------------
       # Private registry
       # -----------------------------------------------------------------------
