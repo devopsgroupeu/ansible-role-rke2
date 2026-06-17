@@ -73,9 +73,10 @@ rke2_cni_configs: {}
 # Set rke2_vip_enabled: true to configure a stable API endpoint across control plane nodes.
 #
 # rke2_vip_manager options:
-#   - kubevip    — deploys kube-vip as a static pod on each server node (recommended for on-prem/bare-metal)
-#   - keepalived — VIP is managed externally by the ansible-role-haproxy-keepalived role;
-#                  this role only adds the VIP to tls-san
+#   - kubevip    — deploys kube-vip as a DaemonSet via RKE2 server/manifests on
+#                  control-plane nodes (recommended for on-prem/bare-metal)
+#   - keepalived — this role installs and configures keepalived directly on each
+#                  server node (unicast VRRP) and adds the VIP to tls-san
 #
 # The VIP address is automatically added to rke2_tls_san.
 

@@ -163,9 +163,9 @@ argument_specs:
         required: false
         default: kubevip
         description: >
-          VIP manager. Options: kubevip (deploys kube-vip as a static pod on
-          each server node), keepalived (VIP managed externally; role only adds
-          VIP to tls-san).
+          VIP manager. Options: kubevip (deploys kube-vip as a DaemonSet via
+          RKE2 server/manifests), keepalived (role installs and configures
+          keepalived directly with unicast VRRP and adds the VIP to tls-san).
 
       rke2_kubevip_version:
         type: str
