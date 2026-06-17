@@ -25,6 +25,7 @@ Ansible role for installing and configuring [RKE2](https://docs.rke2.io/) — Ra
   - [HA Cluster with kube-vip](#ha-cluster-with-kube-vip)
   - [HA Cluster with keepalived](#ha-cluster-with-keepalived)
 - [Inventory Structure](#inventory-structure)
+- [Task tags](#task-tags)
 - [Variables](#variables)
 - [VIP Architecture](#vip-architecture)
 - [Cloud Floating IP Failover](#cloud-floating-ip-failover)
@@ -199,6 +200,20 @@ The role uses two inventory groups:
 | `agent_nodes` | RKE2 worker nodes. Optional — omit for control-plane-only clusters. |
 
 The **first host** in `server_nodes` is the bootstrap node. All other server nodes and agents join through it.
+
+---
+
+## Task tags
+
+Run subsets with `--tags`:
+
+| Tag | Covers |
+|-----|--------|
+| `rke2_setup` | prereqs, air-gap staging, install, server/agent config |
+| `rke2_proxy` | `/etc/default/rke2-*` proxy env |
+| `rke2_certs` | custom CA + certificate rotation |
+| `rke2_vip` | kube-vip / keepalived VIP |
+| `rke2_addons` | HelmChart addons + HelmChartConfig overrides |
 
 ---
 

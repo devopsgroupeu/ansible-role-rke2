@@ -1,17 +1,25 @@
 ---
 - name: Run setup tasks
   ansible.builtin.import_tasks: setup.yml
+  tags:
+    - rke2_setup
 
 - name: Apply CIS hardening prerequisites
   ansible.builtin.import_tasks: cis_prep.yml
   when: rke2_cis_profile | default('') | length > 0
+  tags:
+    - rke2_setup
 
 - name: Configure network environment (air-gapped)
   ansible.builtin.import_tasks: network_environment.yml
   when: rke2_airgapped | default(false) | bool
+  tags:
+    - rke2_setup
 
 - name: Configure proxy settings
   ansible.builtin.include_tasks: proxy_setup.yml
+  tags:
+    - rke2_proxy
 
 - name: Configure custom CA certificates
   ansible.builtin.import_tasks: custom_ca_certs.yml
@@ -19,29 +27,41 @@
     - rke2_custom_root_ca_cert is defined and rke2_custom_root_ca_cert | length > 0
     - rke2_custom_root_ca_key is defined and rke2_custom_root_ca_key | length > 0
     - "'server_nodes' in group_names"
+  tags:
+    - rke2_certs
 
 - name: Configure VIP
   ansible.builtin.import_tasks: vip.yml
   when:
     - rke2_vip_enabled | default(false) | bool
     - "'server_nodes' in group_names"
+  tags:
+    - rke2_vip
 
 - name: Run server node installation
   ansible.builtin.import_tasks: server.yml
   when: "'server_nodes' in group_names"
+  tags:
+    - rke2_setup
 
 - name: Run agent node installation
   ansible.builtin.import_tasks: agent.yml
   when: "'agent_nodes' in group_names"
+  tags:
+    - rke2_setup
 
 - name: Configure certificate rotation
   ansible.builtin.import_tasks: certs_rotation.yml
   when:
     - rke2_cert_rotation_enabled | default(false) | bool
     - "'server_nodes' in group_names or 'agent_nodes' in group_names"
+  tags:
+    - rke2_certs
 
 - name: Deploy Helm addons
   ansible.builtin.import_tasks: addons.yml
   when:
     - rke2_addons | default([]) | length > 0 or rke2_helmchartconfigs | default([]) | length > 0
     - inventory_hostname == groups['server_nodes'][0]
+  tags:
+    - rke2_addons
