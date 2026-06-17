@@ -42,6 +42,10 @@ rke2_airgapped: false
 # Leave empty to download only the install script from the internet (partial air-gap).
 rke2_airgapped_artifacts_dir: ""  # e.g. "{{ playbook_dir }}/rke2-artifacts"
 
+# Point all RKE2 system images at an internal mirror (e.g. Harbor/Nexus).
+# Honored on servers AND agents. Empty = pull from upstream registries.
+rke2_system_default_registry: ""  # e.g. "registry.example.com:5000"
+
 # ----------------------------------------------------------------------------
 # Proxy settings
 # ----------------------------------------------------------------------------

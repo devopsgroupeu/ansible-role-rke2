@@ -76,6 +76,14 @@ argument_specs:
           rke2.linux-amd64.tar.gz, sha256sum-amd64.txt). Leave empty to
           download only the install script from the internet.
 
+      rke2_system_default_registry:
+        type: str
+        required: false
+        default: ""
+        description: >
+          Mirror registry for all RKE2 system images (system-default-registry).
+          Applied to servers and agents. Empty = upstream registries.
+
       # -----------------------------------------------------------------------
       # Proxy settings
       # -----------------------------------------------------------------------

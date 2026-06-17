@@ -40,6 +40,9 @@ node-ip: "{{ _node_ip }}"
 {% if _node_ext_ip | length > 0 %}
 node-external-ip: "{{ _node_ext_ip }}"
 {% endif %}
+{% if rke2_system_default_registry | default('') | length > 0 %}
+system-default-registry: "{{ rke2_system_default_registry }}"
+{% endif %}
 
 {% if rke2_agent_token | default('') | length > 0 %}
 agent-token: "{{ rke2_agent_token }}"

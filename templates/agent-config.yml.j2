@@ -19,6 +19,9 @@ node-ip: "{{ _anode_ip }}"
 {% if _anode_ext_ip | length > 0 %}
 node-external-ip: "{{ _anode_ext_ip }}"
 {% endif %}
+{% if rke2_system_default_registry | default('') | length > 0 %}
+system-default-registry: "{{ rke2_system_default_registry }}"
+{% endif %}
 
 {% if agent.get('node-label') %}
 node-label:
