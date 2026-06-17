@@ -716,6 +716,14 @@ argument_specs:
           After uncordoning a node, wait for all pods to reach Running or
           Succeeded phase before proceeding to the next node.
 
+      rke2_drain_force:
+        type: bool
+        required: false
+        default: false
+        description: >
+          Pass --force to kubectl drain, evicting pods not managed by a
+          ReplicaSet/Job/DaemonSet. Off by default.
+
       # -----------------------------------------------------------------------
       # Hardening
       # -----------------------------------------------------------------------

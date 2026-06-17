@@ -409,6 +409,10 @@ rke2_drain_node_during_upgrade: false
 # Additional arguments passed to kubectl drain (e.g. "--timeout=180s").
 rke2_drain_additional_args: "--timeout=120s"
 
+# Pass --force to kubectl drain (evicts pods not managed by a controller).
+# Off by default — a drain that needs --force usually signals a misconfigured workload.
+rke2_drain_force: false
+
 # When true, wait for all pods to reach Running/Succeeded phase after uncordon.
 rke2_wait_for_all_pods_to_be_ready: false
 
