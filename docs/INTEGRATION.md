@@ -58,7 +58,7 @@ The role requires two inventory groups:
 ## Inventory
 
 ```ini
-# inventory/hosts.ini
+# inventory.ini (illustrative — ready-made examples: examples/inventory/{single-node,ha-kubevip,ha-keepalived}.ini)
 [server_nodes]
 server1 ansible_host=10.0.0.1
 server2 ansible_host=10.0.0.2
@@ -80,7 +80,7 @@ inventory/
   group_vars/
     all.yml          # variables shared across all hosts
     server_nodes.yml # server-specific overrides (rarely needed)
-  hosts.ini
+  hosts.ini          # your inventory file (you provide this)
 ```
 
 **`inventory/group_vars/all.yml`:**
