@@ -1,6 +1,29 @@
 # Changelog
 
 All notable changes to this project are documented in this file.
+The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
+This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased] — 2.0.0
+
+### Breaking changes
+- Namespace changed from `devopsgroup` to `devopsgroupeu` — update `requirements.yml` role source and any `meta/main.yml` dependency references.
+- `min_ansible_version` raised to `2.19`; ansible-core < 2.19 is no longer supported.
+- `cis-1.6` removed from `rke2_cis_profile` choices (was undocumented phantom value); valid values: `""`, `cis`, `cis-1.23`.
+- Custom CA variables (`rke2_custom_root_ca_cert`, `rke2_custom_root_ca_key`, `rke2_custom_intermediate_ca_cert`, `rke2_custom_intermediate_ca_key`) now require **Base64-encoded** PEM input; previously the docs incorrectly said "PEM-encoded" while the tasks applied `| b64decode`. Pipe raw PEM through `| b64encode` before supplying.
+
+### Added
+- `ansible.posix` collection added to `requirements.yml` (`>=1.5.0`) and `meta/main.yml` `collections:` — required for `ansible.posix.selinux` tasks on RHEL-family nodes (SELinux role was failing to install as shipped).
+- `collections:` key added to `meta/main.yml` listing bare collection names (`ansible.posix`, `ansible.utils`) for Galaxy discoverability.
+- Installation section added to README (Galaxy install + `requirements.yml` git-source block).
+- `docs/ARCHITECTURE.md` — HA control-plane topology diagram.
+
+### Changed
+- `.ansible-lint`: upgraded to `profile: production`; unified rule set with sibling roles (`enable_list: [no-log-password, loop-var-prefix]`).
+- `.yamllint`: `line-length` disabled (was `max: 160 warning`); `ignore:` block added for `venv/` and `.git/`.
+- `requirements.txt`: `ansible-core` pin widened to `>=2.19,<2.22` (was `>=2.20,<2.22`; previous pin excluded the declared minimum).
+- `docs/INTEGRATION.md`: HAProxy integration example corrected — `hosts: lb_nodes` → `hosts: proxy_hosts`; role name `devopsgroupeu.haproxy-keepalived` → `devopsgroupeu.haproxy_keepalived` (underscore matches Galaxy `role_name`).
+- `examples/quick_start.yml`: air-gapped comment corrected; `rke2_airgapped_artifacts_dir` added to the example.
 
 ## [1.5.0] - 2026-02-24
 
@@ -30,7 +53,7 @@ All notable changes to this project are documented in this file.
 - `rke2_disable_kube_proxy` — disable kube-proxy for CNI kube-proxy replacement mode (e.g. Cilium)
 - `rke2_drain_node_during_upgrade`, `rke2_drain_additional_args`, `rke2_wait_for_all_pods_to_be_ready` — rolling upgrade variables
 - GitHub community files: ISSUE_TEMPLATE (bug + feature), PULL_REQUEST_TEMPLATE, dependabot
-- GitHub Actions split into focused workflows: `lint.yml`, `molecule.yml`, `galaxy.yml`, `release-drafter.yml`, `pre-commit.yml`
+- GitHub Actions split into focused workflows: `ci.yml`, `galaxy.yml`, `release-drafter.yml`, `pre-commit.yml`
 
 ### Changed
 - **kube-vip now deployed as a DaemonSet** via `server/manifests/` instead of a static pod — static pods in RKE2 do not receive a ServiceAccount token, causing CrashLoopBackOff with kube-vip ≥ v0.7.0
@@ -38,7 +61,7 @@ All notable changes to this project are documented in this file.
 - `templates/keepalived.conf.j2` — now tracks `chk_apiserver` and `chk_rke2server` scripts instead of bare `systemctl is-active`
 - `tasks/proxy_setup.yml` — removed `debug + notify + changed_when: true` anti-pattern; `notify: Reload systemd` moved to template/file tasks directly
 - `handlers/main.yml` — migrated from deprecated `ansible.builtin.systemd` to `ansible.builtin.systemd_service`
-- `molecule/ha/verify.yml` — updated kube-vip assertions to check DaemonSet in `server/manifests/` (not legacy static pod path); added cloud provider, RBAC, agent token, svc_enable checks
+- `molecule/config-render-ha/verify.yml` — updated kube-vip assertions to check DaemonSet in `server/manifests/` (not legacy static pod path); added cloud provider, RBAC, agent token, svc_enable checks
 - `README.md` — complete rewrite covering all features, VIP architecture diagrams, cloud provider, rolling upgrades, agent token
 
 ### Fixed
