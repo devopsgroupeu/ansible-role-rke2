@@ -18,6 +18,7 @@ Ansible role for installing and configuring [RKE2](https://docs.rke2.io/) — Ra
 ## Table of Contents
 
 - [Requirements](#requirements)
+- [Installation](#installation)
 - [Quick Start](#quick-start)
   - [Single Node](#single-node)
   - [Server + Agent Nodes](#server--agent-nodes)
@@ -45,9 +46,33 @@ Ansible role for installing and configuring [RKE2](https://docs.rke2.io/) — Ra
 
 - ansible-core >= 2.19
 - Python >= 3.9
-- Target nodes: Ubuntu 22.04 / 24.04, Debian 12 / 13, Rocky Linux 9, Oracle Linux 9
+- Target nodes: Ubuntu 24.04, Debian 12 / 13, Rocky Linux 9
 - `become: true` (root access required)
 - For HA: odd number of server nodes (3 recommended), reachable by each other on ports 9345 (join) and 6443 (API)
+
+---
+
+## Installation
+
+Install from Ansible Galaxy:
+
+```bash
+ansible-galaxy role install devopsgroupeu.rke2
+```
+
+Or pin a specific version via `requirements.yml`:
+
+```yaml
+roles:
+  - name: devopsgroupeu.rke2
+    src: https://github.com/devopsgroupeu/ansible-role-rke2
+    version: "2.0.0"
+    scm: git
+```
+
+```bash
+ansible-galaxy role install -r requirements.yml
+```
 
 ---
 
