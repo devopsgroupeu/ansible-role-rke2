@@ -81,7 +81,7 @@ ansible-galaxy role install -r requirements.yml
 ### Single Node
 
 ```yaml
-# inventory.yaml (illustrative — or use the ready-made examples/inventory/single-node.ini)
+# examples/inventory/single-node.yml (or adapt the ready-made file directly)
 all:
   children:
     server_nodes:
@@ -104,7 +104,7 @@ all:
 ```
 
 ```bash
-ansible-playbook -i examples/inventory/single-node.ini playbook.yaml
+ansible-playbook -i examples/inventory/single-node.yml playbook.yaml
 ```
 
 ---
@@ -145,7 +145,7 @@ all:
 Three server nodes with a floating VIP managed by [kube-vip](https://kube-vip.io/) running as a DaemonSet on every control plane node. No external load balancer required.
 
 ```yaml
-# inventory.yaml (illustrative — or use the ready-made examples/inventory/ha-kubevip.ini)
+# examples/inventory/ha-kubevip.yml (or adapt the ready-made file directly)
 all:
   children:
     server_nodes:
@@ -188,13 +188,22 @@ keepalived manages the VIP via VRRP directly on the server nodes. Health checks 
 
 **Inventory requirement:** each server node must have a `private_ip` host variable set to its LAN/private IP. keepalived uses it to build the unicast peer list. If omitted, `ansible_host` is used as fallback.
 
-```ini
-# inventory.ini (illustrative — or use the ready-made examples/inventory/ha-keepalived.ini,
-# adding private_ip= per host for unicast VRRP peer discovery)
-[server_nodes]
-rke2-server1  ansible_host=10.0.0.11  private_ip=10.0.0.11
-rke2-server2  ansible_host=10.0.0.12  private_ip=10.0.0.12
-rke2-server3  ansible_host=10.0.0.13  private_ip=10.0.0.13
+```yaml
+# examples/inventory/ha-keepalived.yml (or adapt the ready-made file directly,
+# adding private_ip per host for unicast VRRP peer discovery)
+all:
+  children:
+    server_nodes:
+      hosts:
+        rke2-server1:
+          ansible_host: 10.0.0.11
+          private_ip: 10.0.0.11
+        rke2-server2:
+          ansible_host: 10.0.0.12
+          private_ip: 10.0.0.12
+        rke2-server3:
+          ansible_host: 10.0.0.13
+          private_ip: 10.0.0.13
 ```
 
 ```yaml

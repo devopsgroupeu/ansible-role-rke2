@@ -9,17 +9,20 @@
 # -----------------------------------------------------------------------------
 # Example 1: Single Node (development / testing)
 # -----------------------------------------------------------------------------
-# Inventory — use the ready-made examples/inventory/single-node.ini, or create
+# Inventory — use the ready-made examples/inventory/single-node.yml, or create
 # your own equivalent:
 #
-#   [server_nodes]
-#   rke2-server ansible_host=10.0.0.10
+#   all:
+#     children:
+#       server_nodes:
+#         hosts:
+#           rke2-server:
+#             ansible_host: 10.0.0.10
+#     vars:
+#       ansible_user: root
+#       ansible_ssh_private_key_file: ~/.ssh/id_rsa
 #
-#   [all:vars]
-#   ansible_user=root
-#   ansible_ssh_private_key_file=~/.ssh/id_rsa
-#
-# Run: ansible-playbook -i examples/inventory/single-node.ini examples/quick_start.yml
+# Run: ansible-playbook -i examples/inventory/single-node.yml examples/quick_start.yml
 
 - name: Install RKE2 - single node
   hosts: all
@@ -34,24 +37,31 @@
 # -----------------------------------------------------------------------------
 # Example 2: HA cluster (3 server nodes + worker nodes)
 # -----------------------------------------------------------------------------
-# Inventory — use the ready-made examples/inventory/ha-kubevip.ini (kube-vip)
-# or examples/inventory/ha-keepalived.ini (keepalived), or create your own:
+# Inventory — use the ready-made examples/inventory/ha-kubevip.yml (kube-vip)
+# or examples/inventory/ha-keepalived.yml (keepalived), or create your own:
 #
-#   [server_nodes]
-#   rke2-server1 ansible_host=10.0.0.11
-#   rke2-server2 ansible_host=10.0.0.12
-#   rke2-server3 ansible_host=10.0.0.13
+#   all:
+#     children:
+#       server_nodes:
+#         hosts:
+#           rke2-server1:
+#             ansible_host: 10.0.0.11
+#           rke2-server2:
+#             ansible_host: 10.0.0.12
+#           rke2-server3:
+#             ansible_host: 10.0.0.13
+#       agent_nodes:
+#         hosts:
+#           rke2-worker1:
+#             ansible_host: 10.0.0.21
+#           rke2-worker2:
+#             ansible_host: 10.0.0.22
+#     vars:
+#       ansible_user: root
+#       ansible_ssh_private_key_file: ~/.ssh/id_rsa
 #
-#   [agent_nodes]
-#   rke2-worker1 ansible_host=10.0.0.21
-#   rke2-worker2 ansible_host=10.0.0.22
-#
-#   [all:vars]
-#   ansible_user=root
-#   ansible_ssh_private_key_file=~/.ssh/id_rsa
-#
-# Run (kube-vip): ansible-playbook -i examples/inventory/ha-kubevip.ini examples/quick_start.yml
-# Run (keepalived): ansible-playbook -i examples/inventory/ha-keepalived.ini examples/quick_start.yml
+# Run (kube-vip): ansible-playbook -i examples/inventory/ha-kubevip.yml examples/quick_start.yml
+# Run (keepalived): ansible-playbook -i examples/inventory/ha-keepalived.yml examples/quick_start.yml
 
 # - name: Install RKE2 - HA with kube-vip
 #   hosts: all
