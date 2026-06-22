@@ -34,3 +34,7 @@ galaxy_info:
         - "9"
 
 dependencies: []
+
+collections:
+  - ansible.posix
+  - ansible.utils
