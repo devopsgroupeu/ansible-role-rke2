@@ -1,13 +1,17 @@
+profile: production
 exclude_paths:
   - .github/
   - .ansible-lint
-  - examples/
-  - tests/
   - venv/
-  - .cache/
+  - .git/
 warn_list:
+  - no-handler
   - var-spacing
+  - var-naming
   - yaml[comments-indentation]
-  - yaml[line-length]
 skip_list:
   - experimental
+  - yaml[line-length]
+enable_list:
+  - no-log-password
+  - loop-var-prefix
