@@ -219,13 +219,13 @@ Use tags to run subsets of the role:
 
 ```bash
 # Run only proxy configuration
-ansible-playbook site.yml --tags proxy
+ansible-playbook site.yml --tags rke2_proxy
 
-# Run only certificate rotation setup
-ansible-playbook site.yml --tags cert-rotation
+# Run only certificate (custom CA + rotation) setup
+ansible-playbook site.yml --tags rke2_certs
 
-# Skip cleanup tasks
-ansible-playbook site.yml --skip-tags cleanup
+# Skip VIP configuration
+ansible-playbook site.yml --skip-tags rke2_vip
 ```
 
-Available tags: `proxy`, `vip`, `certs`, `addons`, `cleanup`.
+Available tags: `rke2_setup`, `rke2_proxy`, `rke2_certs`, `rke2_vip`, `rke2_addons`.

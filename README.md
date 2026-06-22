@@ -66,7 +66,7 @@ Or pin a specific version via `requirements.yml`:
 roles:
   - name: devopsgroupeu.rke2
     src: https://github.com/devopsgroupeu/ansible-role-rke2
-    version: "2.0.0"
+    version: "v1.0.0"
     scm: git
 ```
 
@@ -100,7 +100,7 @@ all:
     rke2_tls_san:
       - "10.0.0.10"
   roles:
-    - role: ansible-role-rke2
+    - role: devopsgroupeu.rke2
 ```
 
 ```bash
@@ -135,7 +135,7 @@ all:
   vars:
     rke2_version: v1.36.1+rke2r2
   roles:
-    - role: ansible-role-rke2
+    - role: devopsgroupeu.rke2
 ```
 
 ---
@@ -177,7 +177,7 @@ all:
       - "rke2.example.com"
       # VIP is added to tls-san automatically
   roles:
-    - role: ansible-role-rke2
+    - role: devopsgroupeu.rke2
 ```
 
 ---
@@ -533,7 +533,7 @@ To upgrade RKE2 without downtime, run the playbook with `serial: 1` and set `rke
     rke2_wait_for_all_pods_to_be_ready: true
   tasks:
     - ansible.builtin.import_role:
-        name: ansible-role-rke2
+        name: devopsgroupeu.rke2
         tasks_from: rolling_restart
 ```
 
@@ -553,7 +553,7 @@ the node type and restarts `rke2-agent`; cordon/drain still run when
     rke2_drain_node_during_upgrade: true
   tasks:
     - ansible.builtin.import_role:
-        name: ansible-role-rke2
+        name: devopsgroupeu.rke2
         tasks_from: rolling_restart
 ```
 

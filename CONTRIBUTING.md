@@ -34,7 +34,7 @@ Please review our [Code of Conduct](CODE_OF_CONDUCT.md) . We’re committed to f
 * Fork the repo and clone it locally
 * Create a branch: `git checkout -b feature/your-feature`
 * Install dependencies: `pip install -r requirements.txt`
-* Format your code (we recommend black): `black src`
+* Lint before pushing: `ansible-lint` and `yamllint .`
 * Push your branch and open a PR
 
 If your change is *non-trivial*, open an issue first so we can discuss.
@@ -56,7 +56,7 @@ Found a bug? Please include:
 
 * Steps to reproduce
 * Expected vs actual behavior
-* Python version / OS
+* ansible-core version / target OS
 * Any error messages or logs
 
 Security issue?

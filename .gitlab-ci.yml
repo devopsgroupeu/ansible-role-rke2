@@ -76,23 +76,23 @@ ansible-lint:
     - if: '$CI_COMMIT_BRANCH == "develop"'
     - if: '$CI_COMMIT_BRANCH =~ /^feature\/.*/'
 
-molecule:default:
+molecule:config-render:
   extends: .molecule_test
   script:
     - source venv/bin/activate
-    - molecule test -s default
+    - molecule test -s config-render
 
-molecule:ha:
+molecule:config-render-ha:
   extends: .molecule_test
   script:
     - source venv/bin/activate
-    - molecule test -s ha
+    - molecule test -s config-render-ha
 
-molecule:keepalived:
+molecule:config-render-keepalived:
   extends: .molecule_test
   script:
     - source venv/bin/activate
-    - molecule test -s keepalived
+    - molecule test -s config-render-keepalived
 
 # ============================================================================
 # Release Stage - Publish to Ansible Galaxy (DISABLED FOR TESTING)

@@ -9,6 +9,8 @@
 .DS_Store
 
 .ansible
+*.retry
+venv/
 
 # Local test inventory and kubeconfigs (contain real IPs/keys — never commit)
 tests/
