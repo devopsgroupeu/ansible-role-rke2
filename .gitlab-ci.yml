@@ -26,7 +26,7 @@ cache:
 
 yamllint:
   stage: lint
-  image: python:3.11-slim
+  image: python:3.12-slim
   cache: []
   before_script:
     - pip install yamllint
@@ -40,7 +40,7 @@ yamllint:
 
 ansible-lint:
   stage: lint
-  image: python:3.11-slim
+  image: python:3.12-slim
   cache: []
   before_script:
     - pip install ansible-lint
@@ -58,7 +58,7 @@ ansible-lint:
 
 .molecule_test:
   stage: test
-  image: python:3.11
+  image: python:3.12
   services:
     - docker:24-dind
   variables:
@@ -101,7 +101,7 @@ molecule:keepalived:
 
 # publish:galaxy:
 #   stage: release
-#   image: python:3.11-slim
+#   image: python:3.12-slim
 #   before_script:
 #     - pip install ansible
 #   script:
