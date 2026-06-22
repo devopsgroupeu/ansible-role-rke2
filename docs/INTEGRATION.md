@@ -2,6 +2,8 @@
 
 This guide covers how to integrate `ansible-role-rke2` with other roles, playbooks, and tools.
 
+For topology diagrams and the bootstrap sequence, see [ARCHITECTURE.md](ARCHITECTURE.md).
+
 ---
 
 ## HA Bootstrap Sequence
@@ -110,10 +112,10 @@ control plane, combine with `ansible-role-haproxy-keepalived`:
 # site.yml
 ---
 - name: Deploy HAProxy + Keepalived (load balancer)
-  hosts: lb_nodes
+  hosts: proxy_hosts
   become: true
   roles:
-    - role: devopsgroupeu.haproxy-keepalived
+    - role: devopsgroupeu.haproxy_keepalived
 
 - name: Deploy RKE2
   hosts: server_nodes:agent_nodes

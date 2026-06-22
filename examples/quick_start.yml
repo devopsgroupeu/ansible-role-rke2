@@ -28,7 +28,7 @@
     rke2_tls_san:
       - "10.0.0.10"
   roles:
-    - role: ansible-role-rke2
+    - role: devopsgroupeu.rke2
 
 # -----------------------------------------------------------------------------
 # Example 2: HA cluster (3 server nodes + worker nodes)
@@ -67,7 +67,7 @@
 #       - "10.0.0.100"     # VIP — also added automatically when rke2_vip_enabled: true
 #       - "rke2.example.com"
 #   roles:
-#     - role: ansible-role-rke2
+#     - role: devopsgroupeu.rke2
 
 # -----------------------------------------------------------------------------
 # Example 3: HA cluster with keepalived (external VIP)
@@ -87,12 +87,14 @@
 #     rke2_tls_san:
 #       - "10.0.0.100"
 #   roles:
-#     - role: ansible-role-rke2
+#     - role: devopsgroupeu.rke2
 
 # -----------------------------------------------------------------------------
 # Example 4: Air-gapped install
 # -----------------------------------------------------------------------------
-# Place rke2-install.sh in the role's files directory before running.
+# Download artifacts from rancher/rke2 releases into a local dir on the
+# controller before running:
+#   rke2-install.sh, rke2.linux-amd64.tar.gz, sha256sum-amd64.txt
 # See docs/CONFIGURATION.md for full air-gapped setup instructions.
 
 # - name: Install RKE2 - air-gapped
@@ -101,10 +103,11 @@
 #   vars:
 #     rke2_version: v1.36.1+rke2r2
 #     rke2_airgapped: true
+#     rke2_airgapped_artifacts_dir: "{{ playbook_dir }}/rke2-artifacts"
 #     rke2_tls_san:
 #       - "10.0.0.10"
 #   roles:
-#     - role: ansible-role-rke2
+#     - role: devopsgroupeu.rke2
 
 # -----------------------------------------------------------------------------
 # Example 5: Download kubeconfig to Ansible controller after install
@@ -118,4 +121,4 @@
 #     rke2_kubeconfig_download: true
 #     rke2_kubeconfig_output_path: "~/.kube/rke2.yaml"
 #   roles:
-#     - role: ansible-role-rke2
+#     - role: devopsgroupeu.rke2
