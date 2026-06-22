@@ -7,6 +7,16 @@
     group: root
     mode: "0700"
 
+# Determine up-front whether RKE2's server CA has already been generated from the
+# seeded signing keys. The signing keys (*.key) are written below only on the
+# first run and removed after generation; gating their (re)creation on this check
+# keeps the role idempotent (otherwise copy re-creates them every run and the
+# removal task deletes them again — a perpetual changed/changed ping-pong).
+- name: Check whether the RKE2 server CA has already been generated
+  ansible.builtin.stat:
+    path: /var/lib/rancher/rke2/server/tls/server-ca.crt
+  register: rke2_server_ca_pregen
+
 - name: Decode and save root CA certificate
   ansible.builtin.copy:
     content: "{{ rke2_custom_root_ca_cert | b64decode }}"
@@ -22,6 +32,7 @@
     owner: root
     group: root
     mode: "0600"
+  when: not rke2_server_ca_pregen.stat.exists
 
 - name: Decode and save intermediate CA certificate
   ansible.builtin.copy:
@@ -39,7 +50,9 @@
     owner: root
     group: root
     mode: "0600"
-  when: rke2_custom_intermediate_ca_key is defined and rke2_custom_intermediate_ca_key | length > 0
+  when:
+    - rke2_custom_intermediate_ca_key is defined and rke2_custom_intermediate_ca_key | length > 0
+    - not rke2_server_ca_pregen.stat.exists
 
 - name: Ensure CA script directory exists
   ansible.builtin.file:
