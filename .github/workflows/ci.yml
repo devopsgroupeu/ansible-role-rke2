@@ -36,6 +36,10 @@ jobs:
     needs: lint
     strategy:
       fail-fast: false
+      # CI tests the container-reliable matrix (Debian + Ubuntu) on the
+      # deterministic render scenarios. EL9 is a supported platform but is
+      # validated on real hosts — RockyLinux containers have known systemd/PAM
+      # and curl-minimal packaging quirks. The real-cluster scenario needs VMs.
       matrix:
         scenario:
           - config-render
@@ -46,7 +50,6 @@ jobs:
           - debian13
           - ubuntu2204
           - ubuntu2404
-          - rockylinux9
     steps:
       - name: Checkout
         uses: actions/checkout@v4
