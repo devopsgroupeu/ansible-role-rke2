@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # Example K3s CA certificate generation script.
-# 
+#
 # This script will generate files sufficient to bootstrap K3s cluster certificate
 # authorities.  By default, the script will create the required files under
 # /var/lib/rancher/k3s/server/tls, where they will be found and used by K3s during initial
@@ -9,7 +9,7 @@
 # time; certificate data SHOULD NOT be changed once the cluster has been initialized.
 #
 # The output path may be overridden with the DATA_DIR environment variable.
-# 
+#
 # This script will also auto-generate certificates and keys for both root and intermediate
 # certificate authorities if none are found.
 # If you have existing certs, you must place then in `DATA_DIR/server/tls`.

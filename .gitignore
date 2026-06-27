@@ -1,3 +1,11 @@
+# Python
+venv/
+*.pyc
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+
 # IDE / Editor specific files
 .idea/
 .vscode/
@@ -8,9 +16,15 @@
 # macOS specific files
 .DS_Store
 
+# Ansible
 .ansible
 *.retry
-venv/
+
+# Molecule
+.molecule/
+
+# Logs
+*.log
 
 # Local test inventory and kubeconfigs (contain real IPs/keys — never commit)
 tests/
