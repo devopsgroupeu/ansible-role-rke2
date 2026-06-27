@@ -136,5 +136,5 @@ Inventory group mapping:
 |---|---|
 | `server_nodes` | `devopsgroupeu.rke2` (control plane) |
 | `agent_nodes` | `devopsgroupeu.rke2` (workers) |
-| `proxy_hosts` | `devopsgroupeu.haproxy_keepalived` |
-| `vault` | `devopsgroupeu.hashicorp_vault` |
+| `proxy_hosts` | `devopsgroupeu.haproxy-keepalived` |
+| `vault` | `devopsgroupeu.hashicorp-vault` |

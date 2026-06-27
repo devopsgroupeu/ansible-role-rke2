@@ -123,7 +123,7 @@ control plane, combine with `ansible-role-haproxy-keepalived`:
   hosts: proxy_hosts
   become: true
   roles:
-    - role: devopsgroupeu.haproxy_keepalived
+    - role: devopsgroupeu.haproxy-keepalived
 
 - name: Deploy RKE2
   hosts: server_nodes:agent_nodes
