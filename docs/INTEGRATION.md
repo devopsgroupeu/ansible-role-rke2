@@ -110,21 +110,15 @@ rke2_kubeconfig_output_path: "{{ playbook_dir }}/kubeconfig.yaml"
 
 ---
 
-## Integration with ansible-role-haproxy-keepalived
+## Integration with an external HAProxy load balancer
 
 When `rke2_vip_manager: kubevip` is not suitable (e.g. on environments where ARP/GARP is restricted),
 you can use `keepalived` directly via this role. For HAProxy-based load balancing in front of the
-control plane, combine with `ansible-role-haproxy-keepalived`:
+control plane, deploy an external HAProxy load balancer separately and point this role at its VIP:
 
 ```yaml
 # site.yml
 ---
-- name: Deploy HAProxy + Keepalived (load balancer)
-  hosts: proxy_hosts
-  become: true
-  roles:
-    - role: devopsgroupeu.haproxy-keepalived
-
 - name: Deploy RKE2
   hosts: server_nodes:agent_nodes
   become: true

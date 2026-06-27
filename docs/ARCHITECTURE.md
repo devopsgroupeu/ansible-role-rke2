@@ -1,7 +1,7 @@
 # Architecture
 
 This document describes how the role deploys RKE2 in HA mode and how it integrates
-with external components (HAProxy/keepalived, HashiCorp Vault).
+with external components (HAProxy/keepalived).
 
 See also: [INTEGRATION.md](INTEGRATION.md)
 
@@ -117,17 +117,16 @@ sequenceDiagram
 
 ---
 
-## Stack Composition Order
+## Deployment Order
 
-This role sits in the config tier, after network infrastructure is provisioned:
+This role runs in the configuration tier, after the target hosts are provisioned
+and reachable over SSH:
 
 ```
-infrastructure (provision hosts: any cloud or bare-metal)
-  → haproxy/keepalived (VIP layer)
-    → hashicorp-vault (Raft cluster behind VIP)
-      → rke2 servers (bootstrap + join)
-        → rke2 agents (join via VIP)
-          → in-cluster ESO / Vault Agent
+provision hosts (any cloud or bare-metal)
+  → (optional) external load balancer / VIP in front of the control plane
+    → rke2 servers (bootstrap + join)
+      → rke2 agents (join via VIP)
 ```
 
 Inventory group mapping:
@@ -136,5 +135,3 @@ Inventory group mapping:
 |---|---|
 | `server_nodes` | `devopsgroupeu.rke2` (control plane) |
 | `agent_nodes` | `devopsgroupeu.rke2` (workers) |
-| `proxy_hosts` | `devopsgroupeu.haproxy-keepalived` |
-| `vault` | `devopsgroupeu.hashicorp-vault` |
