@@ -2,11 +2,10 @@
 
 [![CI](https://github.com/devopsgroupeu/ansible-role-rke2/actions/workflows/ci.yml/badge.svg)](https://github.com/devopsgroupeu/ansible-role-rke2/actions/workflows/ci.yml)
 [![Ansible Galaxy](https://img.shields.io/badge/Ansible%20Galaxy-devopsgroupeu.rke2-blue?logo=ansible)](https://galaxy.ansible.com/ui/standalone/roles/devopsgroupeu/rke2/)
-![GitHub License](https://img.shields.io/github/license/devopsgroupeu/ansible-role-rke2)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 ![GitHub Forks](https://img.shields.io/github/forks/devopsgroupeu/ansible-role-rke2)
 ![GitHub Stars](https://img.shields.io/github/stars/devopsgroupeu/ansible-role-rke2)
 ![GitHub Issues](https://img.shields.io/github/issues/devopsgroupeu/ansible-role-rke2)
-![GitHub Last Commit](https://img.shields.io/github/last-commit/devopsgroupeu/ansible-role-rke2)
 
 [![LinkedIn](https://img.shields.io/badge/linkedin-%230077B5.svg?style=for-the-badge&logo=linkedin&logoColor=white)](https://www.linkedin.com/company/devopsgroup8/)
 ![RKE2](https://img.shields.io/badge/RKE2-0075A8?logo=rancher&logoColor=fff&style=for-the-badge)
