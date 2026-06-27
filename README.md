@@ -796,4 +796,4 @@ limitations under the License.
 
 ---
 
-> For more information or support, please refer to the [official RKE2 documentation](https://docs.rke2.io/) or contact us at info@devopsgroup.sk
+> For more information or support, please refer to the official documentation or contact us at info@devopsgroup.sk
