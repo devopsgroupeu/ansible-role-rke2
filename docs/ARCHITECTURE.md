@@ -122,7 +122,7 @@ sequenceDiagram
 This role sits in the config tier, after network infrastructure is provisioned:
 
 ```
-hetzner-cloud (provision hosts)
+infrastructure (provision hosts: any cloud or bare-metal)
   → haproxy/keepalived (VIP layer)
     → hashicorp-vault (Raft cluster behind VIP)
       → rke2 servers (bootstrap + join)

@@ -288,7 +288,7 @@ All variables are defined in [`defaults/main.yml`](defaults/main.yml) with inlin
 | `rke2_keepalived_failover_script` | `/etc/keepalived/notify-master.sh` | Path on target nodes for the notify script |
 | `rke2_keepalived_failover_script_content` | `""` | Shell script body executed when this node becomes MASTER |
 | `rke2_keepalived_failover_env` | `{}` | Key/value pairs written to a protected env file (mode 0600) |
-| `rke2_agent_server_address` | `""` | Override server address in agent config (useful on cloud SDN like Hetzner) |
+| `rke2_agent_server_address` | `""` | Override server address in agent config (useful on cloud SDN networks) |
 
 ### Networking
 
@@ -386,16 +386,20 @@ rke2_keepalived_failover_script: /etc/keepalived/notify-master.sh
 rke2_keepalived_failover_env:
   API_TOKEN: "{{ lookup('env', 'CLOUD_API_TOKEN') }}"
   FLOATING_IP_ID: "{{ lookup('env', 'FLOATING_IP_ID') }}"
+  CLOUD_API: "https://api.your-cloud.example/v1"   # your provider's API base URL
+  METADATA_URL: "http://169.254.169.254/metadata"  # provider metadata service
 
 # Script body — executed when this node becomes MASTER
-# Sources failover.env automatically (same directory as the script)
+# Sources failover.env automatically (same directory as the script).
+# This is an example for a generic cloud floating-IP API; adapt the metadata
+# lookup and the reassign call to your provider.
 rke2_keepalived_failover_script_content: |
   #!/bin/bash
   set -e
   source "$(dirname "$0")/failover.env"
-  SERVER_ID=$(curl -sf http://169.254.169.254/hetzner/v1/metadata/instance-id)
+  SERVER_ID=$(curl -sf "${METADATA_URL}/instance-id")
   curl -sf -X POST \
-    "https://api.hetzner.cloud/v1/floating_ips/${FLOATING_IP_ID}/actions/assign" \
+    "${CLOUD_API}/floating_ips/${FLOATING_IP_ID}/actions/assign" \
     -H "Authorization: Bearer ${API_TOKEN}" \
     -H "Content-Type: application/json" \
     -d "{\"server\": ${SERVER_ID}}" -o /dev/null
@@ -467,7 +471,7 @@ graph TD
     s2 <-->|"etcd"| s3
 ```
 
-> **Cloud SDN note (Hetzner, etc.):** Gratuitous ARP-based VIPs are not routable across Hetzner private networks. Set `rke2_agent_server_address` to a directly reachable server IP or load balancer address to bypass the VIP for agent registration.
+> **Cloud SDN note:** Gratuitous ARP-based VIPs are not routable across many cloud private networks (e.g. Hetzner). Set `rke2_agent_server_address` to a directly reachable server IP or load balancer address to bypass the VIP for agent registration.
 
 ---
 
@@ -733,7 +737,7 @@ molecule test -s config-render-keepalived
 ```
 
 > The `cluster` scenario uses Molecule's `delegated` driver and runs a real
-> install. Provide reachable hosts via a delegated inventory (Hetzner Cloud or
+> install. Provide reachable hosts via a delegated inventory (any cloud or
 > local libvirt/vagrant) and set `rke2_cluster_vip` / `rke2_cluster_vip_interface`.
 > It is NOT run on every PR — it requires dedicated infrastructure.
 

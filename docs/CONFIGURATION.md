@@ -98,7 +98,7 @@ rke2_cni_configs:
 | `rke2_vip_address` | `""` | The virtual IP address (e.g. `10.0.0.100`). Added to `tls-san` automatically. |
 | `rke2_vip_interface` | `"eth0"` | Network interface for the VIP on control plane nodes. |
 | `rke2_vip_manager` | `"kubevip"` | VIP manager: `kubevip` or `keepalived`. |
-| `rke2_agent_server_address` | `""` | Override the server address in the agent `config.yaml` `server` field. Defaults to `rke2_vip_address` (when VIP enabled) or the first server's `ansible_host`. Useful on cloud SDN (e.g. Hetzner private networks) where gratuitous-ARP VIPs are not directly routable. |
+| `rke2_agent_server_address` | `""` | Override the server address in the agent `config.yaml` `server` field. Defaults to `rke2_vip_address` (when VIP enabled) or the first server's `ansible_host`. Useful on cloud SDN networks where gratuitous-ARP VIPs are not directly routable. |
 
 ### kube-vip tuning (when `rke2_vip_manager=kubevip`)
 

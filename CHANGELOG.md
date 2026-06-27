@@ -4,6 +4,19 @@ All notable changes to this project are documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- The "Fix kubeconfig server address" task no longer inherits the play's
+  `become`, so rewriting the downloaded kubeconfig on the control node no longer
+  fails when sudo on the controller requires a password.
+
+### Changed
+- Documentation is now provider-agnostic: the cloud floating-IP failover example
+  uses generic placeholders instead of a single provider's API, and provider
+  names are kept only as illustrative caveats (e.g. unicast VRRP / gratuitous-ARP
+  behaviour on cloud SDNs).
+
 ## [1.0.1] - 2026-06-27
 
 ### Fixed
