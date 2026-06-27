@@ -60,7 +60,7 @@ Found a bug? Please include:
 * Any error messages or logs
 
 Security issue?
-Please do **NOT open a public issue** — email us at [security@devopsgroup.sk].
+Please do **NOT open a public issue** — email us at [info@devopsgroup.sk].
 
 ### 💡 Suggesting Features
 

@@ -81,7 +81,7 @@
 # -----------------------------------------------------------------------------
 # Example 3: HA cluster with keepalived (external VIP)
 # -----------------------------------------------------------------------------
-# Run ansible-role-haproxy-keepalived first to set up the VIP,
+# Set up an external keepalived-managed VIP in front of the control plane first,
 # then run this role with rke2_vip_manager: keepalived.
 # The role will add the VIP to tls-san but will NOT deploy kube-vip.
 
