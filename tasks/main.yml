@@ -24,9 +24,16 @@
 - name: Configure custom CA certificates
   ansible.builtin.import_tasks: custom_ca_certs.yml
   when:
-    - rke2_custom_root_ca_cert is defined and rke2_custom_root_ca_cert | length > 0
-    - rke2_custom_root_ca_key is defined and rke2_custom_root_ca_key | length > 0
     - "'server_nodes' in group_names"
+    - rke2_custom_root_ca_cert | default('') | length > 0
+    # A custom CA can be seeded either as a full root (cert + key) or as a root
+    # cert plus an intermediate (cert + key) — e.g. an intermediate issued by
+    # Vault while the root private key never leaves Vault. generate_ca.sh signs
+    # the leaf CAs with whichever signing key is present.
+    - >-
+      (rke2_custom_root_ca_key | default('') | length > 0)
+      or (rke2_custom_intermediate_ca_cert | default('') | length > 0
+      and rke2_custom_intermediate_ca_key | default('') | length > 0)
   tags:
     - rke2_certs
 

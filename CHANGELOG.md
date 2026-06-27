@@ -4,6 +4,17 @@ All notable changes to this project are documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.1] - 2026-06-27
+
+### Fixed
+- Custom CA injection now runs when a root **certificate** is supplied together
+  with an intermediate CA (cert + key), not only when the root **private key** is
+  present. This supports keeping the root key offline (e.g. in HashiCorp Vault)
+  and seeding RKE2 with a Vault-issued intermediate CA. `generate_ca.sh` already
+  signs leaf CAs with the intermediate; only the `when:` gate was too strict.
+- The root CA private key file is no longer written as an empty file when
+  `rke2_custom_root_ca_key` is unset.
+
 ## [1.0.0] - 2026-06-23
 
 Initial public release on the devopsgroupeu Ansible Galaxy namespace. Installs and

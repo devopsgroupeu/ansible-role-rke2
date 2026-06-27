@@ -32,7 +32,9 @@
     owner: root
     group: root
     mode: "0600"
-  when: not rke2_server_ca_pregen.stat.exists
+  when:
+    - rke2_custom_root_ca_key | default('') | length > 0
+    - not rke2_server_ca_pregen.stat.exists
 
 - name: Decode and save intermediate CA certificate
   ansible.builtin.copy:

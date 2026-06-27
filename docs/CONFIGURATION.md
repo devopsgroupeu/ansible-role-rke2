@@ -230,16 +230,24 @@ rke2_agent_nodes:
 
 ## Custom CA Certificates
 
-Variables expect **Base64-encoded PEM** input. Pipe raw PEM through `| b64encode`:
+Variables expect **Base64-encoded PEM** input. Pipe raw PEM through `| b64encode`.
+You may seed the CA in either of two ways:
 
 ```yaml
+# Option A — full root CA (cert + key):
 rke2_custom_root_ca_cert: "{{ lookup('file', 'root-ca.pem') | b64encode }}"
 rke2_custom_root_ca_key: "{{ lookup('file', 'root-ca.key') | b64encode }}"
+
+# Option B — root cert + intermediate (cert + key); the root private key can stay
+# offline (e.g. in HashiCorp Vault), and RKE2 signs leaf CAs with the intermediate:
+rke2_custom_root_ca_cert: "{{ lookup('file', 'root-ca.pem') | b64encode }}"
+rke2_custom_intermediate_ca_cert: "{{ lookup('file', 'intermediate-ca.pem') | b64encode }}"
+rke2_custom_intermediate_ca_key: "{{ lookup('file', 'intermediate-ca.key') | b64encode }}"
 ```
 
 | Variable | Default | Description |
 |---|---|---|
-| `rke2_custom_root_ca_cert` | `""` | Base64-encoded PEM root CA certificate. When set with `rke2_custom_root_ca_key`, the role generates RKE2 cluster certificates signed by this CA on the first server node. Store with Ansible Vault. |
+| `rke2_custom_root_ca_cert` | `""` | Base64-encoded PEM root CA certificate. The role generates RKE2 cluster certificates signed by this CA on the first server node when a signing key is available — either `rke2_custom_root_ca_key`, or an intermediate (`rke2_custom_intermediate_ca_cert` + `rke2_custom_intermediate_ca_key`). Store with Ansible Vault. |
 | `rke2_custom_root_ca_key` | `""` | Base64-encoded PEM private key for the root CA. |
 | `rke2_custom_intermediate_ca_cert` | `""` | Base64-encoded PEM intermediate CA certificate (optional). |
 | `rke2_custom_intermediate_ca_key` | `""` | Base64-encoded PEM private key for the intermediate CA (optional). |
