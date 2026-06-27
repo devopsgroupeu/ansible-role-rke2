@@ -270,6 +270,10 @@
     regexp: 'https://127\.0\.0\.1:6443'
     replace: "https://{{ ansible_host }}:6443"
   delegate_to: localhost
+  # Runs on the control node: do not inherit the play's become (sudo on the
+  # controller is unnecessary and fails when it requires a password). The
+  # downloaded kubeconfig is owned by the connecting user.
+  become: false
   when:
     - inventory_hostname == groups['server_nodes'][0]
     - rke2_kubeconfig_download | default(false) | bool
