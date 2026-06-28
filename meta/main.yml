@@ -2,7 +2,9 @@
 galaxy_info:
   author: DevOpsGroup
   company: DevOpsGroup s.r.o
-  description: Ansible role for installing RKE2 — single-node and HA with kube-vip and keepalived
+  description: >
+    Ansible role for installing RKE2 — single-node and HA with kube-vip and
+    keepalived
 
   license: Apache-2.0
   min_ansible_version: "2.19"
@@ -34,7 +36,3 @@ galaxy_info:
         - "9"
 
 dependencies: []
-
-collections:
-  - ansible.posix
-  - ansible.utils
