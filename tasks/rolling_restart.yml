@@ -13,19 +13,19 @@
 - name: Determine node name for drain/uncordon
   ansible.builtin.set_fact:
     _rke2_node_name: "{{ rke2_node_name if rke2_node_name | default('') | length > 0 else ansible_nodename }}"
-  tags: [rke2, rolling_restart]
+  tags: [rke2_rolling_restart]
 
 - name: Determine a healthy server to drive kubectl from
   ansible.builtin.set_fact:
     _rke2_drain_delegate: >-
       {{ (groups['server_nodes'] | difference([inventory_hostname]))[0]
          | default(groups['server_nodes'][0]) }}
-  tags: [rke2, rolling_restart]
+  tags: [rke2_rolling_restart]
 
 - name: Determine the RKE2 service for this node type
   ansible.builtin.set_fact:
     _rke2_node_service: "{{ 'rke2-server' if 'server_nodes' in group_names else 'rke2-agent' }}"
-  tags: [rke2, rolling_restart]
+  tags: [rke2_rolling_restart]
 
 - name: Cordon the node
   ansible.builtin.command: >
@@ -36,7 +36,7 @@
   delegate_to: "{{ _rke2_drain_delegate }}"
   run_once: true
   when: rke2_drain_node_during_upgrade | default(false) | bool
-  tags: [rke2, rolling_restart]
+  tags: [rke2_rolling_restart]
 
 - name: Drain the node
   ansible.builtin.command: >
@@ -56,14 +56,14 @@
   delegate_to: "{{ _rke2_drain_delegate }}"
   run_once: true
   when: rke2_drain_node_during_upgrade | default(false) | bool
-  tags: [rke2, rolling_restart]
+  tags: [rke2_rolling_restart]
 
 - name: Restart the RKE2 service for this node type
   ansible.builtin.systemd_service:
     name: "{{ _rke2_node_service }}"
     state: restarted
     daemon_reload: true
-  tags: [rke2, rolling_restart]
+  tags: [rke2_rolling_restart]
 
 - name: Wait for node to rejoin the cluster
   ansible.builtin.command: >
@@ -78,7 +78,7 @@
   changed_when: false
   delegate_to: "{{ _rke2_drain_delegate }}"
   run_once: true
-  tags: [rke2, rolling_restart]
+  tags: [rke2_rolling_restart]
 
 - name: Uncordon the node
   ansible.builtin.command: >
@@ -89,7 +89,7 @@
   delegate_to: "{{ _rke2_drain_delegate }}"
   run_once: true
   when: rke2_drain_node_during_upgrade | default(false) | bool
-  tags: [rke2, rolling_restart]
+  tags: [rke2_rolling_restart]
 
 - name: Wait for all pods to be running after uncordon
   ansible.builtin.command: >
@@ -107,4 +107,4 @@
   delegate_to: "{{ _rke2_drain_delegate }}"
   run_once: true
   when: rke2_wait_for_all_pods_to_be_ready | default(false) | bool
-  tags: [rke2, rolling_restart]
+  tags: [rke2_rolling_restart]

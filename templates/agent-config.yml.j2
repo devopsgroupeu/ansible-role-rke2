@@ -1,4 +1,4 @@
-token: {{ rke2_agent_token if rke2_agent_token | default('') | length > 0 else hostvars[groups['server_nodes'][0]]['secret_token'] }}
+token: {{ rke2_agent_token if rke2_agent_token | default('') | length > 0 else hostvars[groups['server_nodes'][0]]['_rke2_cluster_token'] }}
 {% if rke2_agent_server_address | default('') | length > 0 %}
 server: https://{{ rke2_agent_server_address }}:9345
 {% elif (rke2_vip_enabled | default(false) | bool) and rke2_vip_address | default('') | length > 0 %}
