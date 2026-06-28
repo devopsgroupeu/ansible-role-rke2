@@ -15,6 +15,7 @@
           - curl
           - iptables
           - python3
+          - cron
         state: present
 
     - name: Create rancher directories

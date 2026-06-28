@@ -1,10 +1,4 @@
 ---
-- name: Remove certificate rotation cron job when disabled
-  ansible.builtin.cron:
-    name: "Rotate RKE2 certificates"
-    state: absent
-  when: not rke2_cert_rotation_enabled | default(false) | bool
-
 - name: Ensure cert rotation directory exists
   ansible.builtin.file:
     path: /etc/rancher/certs_rotation

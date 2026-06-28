@@ -65,6 +65,14 @@
   tags:
     - rke2_certs
 
+- name: Remove certificate rotation cron job when disabled
+  ansible.builtin.cron:
+    name: "Rotate RKE2 certificates"
+    state: absent
+  when: not rke2_cert_rotation_enabled | default(false) | bool
+  tags:
+    - rke2_certs
+
 - name: Deploy Helm addons
   ansible.builtin.import_tasks: addons.yml
   when:

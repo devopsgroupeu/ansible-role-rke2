@@ -135,6 +135,7 @@
     owner: root
     group: root
     mode: "0600"
+  no_log: true
   when:
     - rke2_vip_manager == 'keepalived'
     - rke2_keepalived_failover_enabled | bool

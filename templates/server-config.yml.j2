@@ -1,5 +1,5 @@
 {% if inventory_hostname != groups['server_nodes'][0] %}
-token: {{ hostvars[groups['server_nodes'][0]]['secret_token'] }}
+token: {{ hostvars[groups['server_nodes'][0]]['_rke2_cluster_token'] }}
 server: https://{{ hostvars[groups['server_nodes'][0]]['ansible_host'] | default(groups['server_nodes'][0]) }}:9345
 {% endif %}
 

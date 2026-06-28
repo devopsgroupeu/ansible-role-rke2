@@ -121,7 +121,8 @@
 
 - name: Use pre-set cluster token
   ansible.builtin.set_fact:
-    secret_token: "{{ rke2_cluster_token }}"
+    _rke2_cluster_token: "{{ rke2_cluster_token }}"
+  no_log: true
   when:
     - inventory_hostname == groups['server_nodes'][0]
     - rke2_cluster_token | default('') | length > 0
@@ -137,14 +138,16 @@
 - name: Fetch cluster token from first node
   ansible.builtin.slurp:
     src: "{{ rke2_data_dir }}/server/node-token"
-  register: command_output
+  register: _rke2_node_token
+  no_log: true
   when:
     - inventory_hostname == groups['server_nodes'][0]
     - rke2_cluster_token | default('') | length == 0
 
 - name: Set cluster token fact from node-token file
   ansible.builtin.set_fact:
-    secret_token: "{{ command_output.content | b64decode | trim }}"
+    _rke2_cluster_token: "{{ _rke2_node_token.content | b64decode | trim }}"
+  no_log: true
   when:
     - inventory_hostname == groups['server_nodes'][0]
     - rke2_cluster_token | default('') | length == 0
@@ -236,6 +239,7 @@
     owner: root
     group: root
     mode: "0600"
+  no_log: true
   when:
     - rke2_private_registries_config is defined
     - rke2_private_registries_config | trim | length > 0
