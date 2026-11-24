@@ -1,6 +1,7 @@
 #!/bin/sh
 # Managed by Ansible - ansible-role-rke2
-# Keepalived health check: verify the RKE2 registration API is responding
+# Keepalived health check: the RKE2 supervisor answers /ping on port 9345.
+# A failing check puts this node's VRRP instance into FAULT and releases the VIP.
 
 errorExit() {
     echo "*** $*" 1>&2
@@ -8,13 +9,13 @@ errorExit() {
 }
 
 curl --silent --fail --max-time 5 --insecure \
-    https://localhost:9345/ \
+    https://localhost:9345/ping \
     -o /dev/null \
-    || errorExit "RKE2 registration API check failed on localhost:9345"
+    || errorExit "RKE2 supervisor /ping failed on localhost:9345"
 
 if ip addr | grep -qw "{{ rke2_vip_address }}"; then
     curl --silent --fail --max-time 5 --insecure \
-        "https://{{ rke2_vip_address }}:9345/" \
+        "https://{{ rke2_vip_address }}:9345/ping" \
         -o /dev/null \
-        || errorExit "RKE2 registration API check failed on VIP {{ rke2_vip_address }}:9345"
+        || errorExit "RKE2 supervisor /ping failed on VIP {{ rke2_vip_address }}:9345"
 fi

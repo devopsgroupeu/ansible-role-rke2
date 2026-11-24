@@ -121,6 +121,23 @@
         that: "'unicast_src_ip' in (keepalived_conf_raw.content | b64decode)"
         fail_msg: "unicast_src_ip not found in keepalived.conf — unicast VRRP not configured"
 
+    - name: Stat keepalived.conf
+      ansible.builtin.stat:
+        path: /etc/keepalived/keepalived.conf
+      register: keepalived_conf_stat
+
+    - name: Assert keepalived.conf is mode 0600 (holds auth_pass)
+      ansible.builtin.assert:
+        that: keepalived_conf_stat.stat.mode == '0600'
+        fail_msg: "keepalived.conf mode is {{ keepalived_conf_stat.stat.mode }}, expected 0600"
+
+    - name: Assert vrrp_script blocks have no weight (failing check means FAULT)
+      ansible.builtin.assert:
+        that: >-
+          (keepalived_conf_raw.content | b64decode
+           | regex_findall('vrrp_script [a-z_]+ [{][^}]*[}]') | select('search', 'weight') | list | length) == 0
+        fail_msg: "a vrrp_script block sets weight; failing checks would not release the VIP"
+
     - name: Assert keepalived.conf has VRRP instance
       ansible.builtin.assert:
         that: "'vrrp_instance RKE2_VIP' in (keepalived_conf_raw.content | b64decode)"
@@ -158,6 +175,23 @@
       ansible.builtin.assert:
         that: check_rke2server.stat.executable
         fail_msg: "/etc/keepalived/check-rke2server.sh is not executable"
+
+    - name: Read health check scripts
+      ansible.builtin.slurp:
+        src: "/etc/keepalived/{{ item }}"
+      loop:
+        - check-apiserver.sh
+        - check-rke2server.sh
+      register: check_scripts
+
+    - name: Assert health checks probe authenticated /readyz and supervisor /ping
+      ansible.builtin.assert:
+        that:
+          - "'get --raw /readyz' in (check_scripts.results[0].content | b64decode)"
+          - "'/etc/rancher/rke2/rke2.yaml' in (check_scripts.results[0].content | b64decode)"
+          - "'/healthz' not in (check_scripts.results[0].content | b64decode)"
+          - "'https://localhost:9345/ping' in (check_scripts.results[1].content | b64decode)"
+        fail_msg: "keepalived health checks do not probe /readyz (authenticated) and /ping"
 
     - name: Assert .j2 leftover files are NOT present
       ansible.builtin.stat:

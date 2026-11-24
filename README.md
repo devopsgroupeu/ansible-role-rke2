@@ -212,14 +212,19 @@ rke2_vip_address: "10.0.0.100"
 rke2_vip_interface: "eth0"
 rke2_vip_manager: "keepalived"
 rke2_keepalived_router_id: 51
-rke2_keepalived_auth_pass: "rke2vip"
+rke2_keepalived_auth_pass: "{{ vault_rke2_keepalived_auth_pass }}"  # max 8 chars
 ```
 
 keepalived deploys two health check scripts on each server node:
-- `/etc/keepalived/check-apiserver.sh` — curls `/healthz` on port 6443
-- `/etc/keepalived/check-rke2server.sh` — curls the RKE2 registration API on port 9345
+- `/etc/keepalived/check-apiserver.sh` - queries the authenticated `/readyz`
+  endpoint on port 6443 with the node's kubectl and admin kubeconfig
+- `/etc/keepalived/check-rke2server.sh` - queries the RKE2 supervisor `/ping`
+  on port 9345
 
-If both checks fail on the MASTER, keepalived drops its VRRP priority and another node takes over the VIP.
+A failing check puts that node's VRRP instance into FAULT and releases the VIP;
+another healthy server takes it over. While the first server bootstraps, no
+node holds the VIP until its API server is ready (agents already wait for
+`VIP:9345`, and servers join through the first server's address).
 
 ---
 
@@ -285,7 +290,8 @@ All variables are defined in [`defaults/main.yml`](defaults/main.yml) with inlin
 | `rke2_keepalived_router_id` | `51` | VRRP virtual router ID (1-255, unique per subnet) |
 | `rke2_keepalived_priority_master` | `101` | VRRP priority for first server (MASTER) |
 | `rke2_keepalived_priority_backup` | `100` | VRRP priority for additional servers (BACKUP) |
-| `rke2_keepalived_auth_pass` | `rke2vip` | VRRP authentication password (max 8 chars) |
+| `rke2_keepalived_auth_pass` | `rke2vip` | VRRP authentication password (max 8 chars). Store with Ansible Vault |
+| `rke2_keepalived_require_custom_auth_pass` | `false` | Fail when `rke2_keepalived_auth_pass` is still the default |
 | `rke2_keepalived_failover_enabled` | `false` | Enable cloud floating IP failover via `notify_master` hook |
 | `rke2_keepalived_failover_script` | `/etc/keepalived/notify-master.sh` | Path on target nodes for the notify script |
 | `rke2_keepalived_failover_script_content` | `""` | Shell script body executed when this node becomes MASTER |

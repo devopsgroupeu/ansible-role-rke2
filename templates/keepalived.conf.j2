@@ -2,6 +2,10 @@
 # keepalived VRRP configuration for RKE2 HA control plane VIP
 # Unicast mode — required on cloud SDN networks where VRRP multicast (224.0.0.18) is filtered
 
+# The vrrp_scripts have no weight: a failing check puts this node's VRRP
+# instance into FAULT and releases the VIP (a negative weight would only lower
+# the priority, which never moves the VIP with nopreempt).
+
 global_defs {
   router_id {{ inventory_hostname }}
   enable_script_security
@@ -12,7 +16,6 @@ vrrp_script chk_apiserver {
   script "/etc/keepalived/check-apiserver.sh"
   interval 5
   timeout 5
-  weight -20
   fall 3
   rise 2
 }
@@ -21,7 +24,6 @@ vrrp_script chk_rke2server {
   script "/etc/keepalived/check-rke2server.sh"
   interval 5
   timeout 5
-  weight -20
   fall 3
   rise 2
 }

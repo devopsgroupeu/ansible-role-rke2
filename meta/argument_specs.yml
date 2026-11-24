@@ -304,6 +304,15 @@ argument_specs:
         default: 100
         description: VRRP priority for additional server nodes (BACKUP state).
 
+      rke2_keepalived_require_custom_auth_pass:
+        type: bool
+        required: false
+        default: false
+        description: >
+          Fail when rke2_keepalived_auth_pass is still the role default
+          (rke2vip). VRRP PASS auth is cleartext on the wire, so this is
+          hygiene only.
+
       rke2_keepalived_auth_pass:
         type: str
         required: false

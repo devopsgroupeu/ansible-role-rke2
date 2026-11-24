@@ -132,7 +132,8 @@ rke2_kubevip_version: "v1.2.0"
 | `rke2_keepalived_router_id` | `51` | VRRP virtual router ID — must be unique per VRRP group on the subnet (1-255). |
 | `rke2_keepalived_priority_master` | `101` | VRRP priority for the first server node (MASTER state). |
 | `rke2_keepalived_priority_backup` | `100` | VRRP priority for additional server nodes (BACKUP state). |
-| `rke2_keepalived_auth_pass` | `"rke2vip"` | VRRP authentication password (max 8 characters). Store with Ansible Vault. |
+| `rke2_keepalived_auth_pass` | `"rke2vip"` | VRRP authentication password (max 8 characters). Store with Ansible Vault. `keepalived.conf` is deployed mode 0600. VRRP PASS auth is cleartext on the wire. |
+| `rke2_keepalived_require_custom_auth_pass` | `false` | Fail when `rke2_keepalived_auth_pass` is still the role default. |
 
 **keepalived example:**
 

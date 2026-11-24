@@ -150,6 +150,9 @@ rke2_keepalived_router_id: 51          # Virtual router ID — must be unique pe
 rke2_keepalived_priority_master: 101   # Priority for the first server node (MASTER)
 rke2_keepalived_priority_backup: 100   # Priority for additional server nodes (BACKUP)
 rke2_keepalived_auth_pass: "rke2vip"  # VRRP authentication password (max 8 chars)
+# Fail when rke2_keepalived_auth_pass is still the default above. VRRP PASS
+# auth is cleartext on the wire, so this is hygiene, not real protection.
+rke2_keepalived_require_custom_auth_pass: false
 
 # Floating IP failover hook — runs a script when this node becomes keepalived MASTER.
 # Use this to reassign a cloud floating IP to the current active node.
