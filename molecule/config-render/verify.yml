@@ -219,11 +219,13 @@
           - "'service' in (traefik_cfg_raw.content | b64decode)"
         fail_msg: "Traefik HelmChartConfig not rendered at rke2-traefik-config.yml (E9)"
 
-    - name: Assert rke2-ingress-nginx is disabled in server config (E9 traefik disables nginx)
+    - name: Assert traefik is selected with ingress-controller, not via disable (E9)
       ansible.builtin.assert:
         that:
-          - "'rke2-ingress-nginx' in server_config_parsed.get('disable', [])"
-        fail_msg: "rke2-ingress-nginx not in disable list when controller=traefik (E9)"
+          - server_config_parsed['ingress-controller'] == ['traefik']
+          - "'rke2-traefik' not in (server_config_parsed.get('disable') or [])"
+          - "'rke2-ingress-nginx' not in (server_config_parsed.get('disable') or [])"
+        fail_msg: "controller=traefik must render ingress-controller: [traefik] and disable no ingress chart (E9)"
 
     # --- E11: addon CRD fields (bootstrap/set/repoCA/authSecret/failurePolicy) ---
     - name: Read rendered argocd addon manifest (E11)
@@ -329,3 +331,74 @@
       ansible.builtin.assert:
         that: "'disable-kube-proxy' not in server_config_parsed"
         fail_msg: "disable-kube-proxy should not be present when rke2_disable_kube_proxy is false"
+
+# Renders the role templates directly for the choices the converge does not
+# use. Task vars win over the role defaults loaded from vars_files.
+- name: Verify ingress rendering for every rke2_ingress_controller choice
+  hosts: server_nodes
+  gather_facts: false
+  vars_files:
+    - ../../defaults/main.yml
+  tasks:
+    - name: Render the server config for each ingress choice
+      ansible.builtin.template:
+        src: "{{ lookup('ansible.builtin.env', 'MOLECULE_PROJECT_DIRECTORY') }}/templates/server-config.yml.j2"
+        dest: "/tmp/rke2-ingress-{{ item }}.yaml"
+        mode: "0600"
+      vars:
+        rke2_ingress_controller: "{{ item }}"
+      loop: &ingress_choices
+        - traefik
+        - ingress-nginx
+        - ingress-nginx+traefik
+        - none
+
+    - name: Read the rendered server configs
+      ansible.builtin.slurp:
+        src: "/tmp/rke2-ingress-{{ item }}.yaml"
+      loop: *ingress_choices
+      register: ingress_renders
+
+    - name: Assert ingress-controller per choice and no ingress chart in disable
+      vars:
+        _cfg: "{{ item.content | b64decode | from_yaml }}"
+        _expected:
+          traefik: [traefik]
+          ingress-nginx: [ingress-nginx]
+          ingress-nginx+traefik: [ingress-nginx, traefik]
+          none: [none]
+      ansible.builtin.assert:
+        that:
+          - _cfg['ingress-controller'] == _expected[item.item]
+          - "'rke2-traefik' not in (_cfg.get('disable') or [])"
+          - "'rke2-ingress-nginx' not in (_cfg.get('disable') or [])"
+        fail_msg: "{{ item.item }} rendered ingress-controller {{ _cfg['ingress-controller'] }}"
+      loop: "{{ ingress_renders.results }}"
+      loop_control:
+        label: "{{ item.item }}"
+
+    - name: Render the ingress-nginx HelmChartConfig with two top-level keys
+      ansible.builtin.template:
+        src: "{{ lookup('ansible.builtin.env', 'MOLECULE_PROJECT_DIRECTORY') }}/templates/rke2-ingress-nginx-config.yml.j2"
+        dest: /tmp/rke2-ingress-nginx-config.yml
+        mode: "0600"
+      vars:
+        rke2_ingress_nginx_config: |
+          controller:
+            kind: DaemonSet
+          defaultBackend:
+            enabled: true
+
+    - name: Read the rendered ingress-nginx HelmChartConfig
+      ansible.builtin.slurp:
+        src: /tmp/rke2-ingress-nginx-config.yml
+      register: nginx_hcc_raw
+
+    - name: Assert the ingress-nginx valuesContent parses with both keys
+      vars:
+        _values: "{{ (nginx_hcc_raw.content | b64decode | from_yaml).spec.valuesContent | from_yaml }}"
+      ansible.builtin.assert:
+        that:
+          - _values.controller.kind == 'DaemonSet'
+          - _values.defaultBackend.enabled | bool
+        fail_msg: "rke2-ingress-nginx HelmChartConfig valuesContent is mis-indented"

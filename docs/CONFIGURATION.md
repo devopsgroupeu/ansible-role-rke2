@@ -276,9 +276,9 @@ rke2_custom_intermediate_ca_key: "{{ lookup('file', 'intermediate-ca.key') | b64
 
 | Variable | Default | Description |
 |---|---|---|
-| `rke2_ingress_controller` | `"traefik"` | Ingress controller this role configures: `traefik` (default in RKE2 v1.36+), `ingress-nginx` (legacy, EOL Mar 2026), or `none` (disables both built-ins). |
-| `rke2_traefik_config` | `""` | YAML string of Helm values for the bundled `rke2-traefik` chart, applied as a `HelmChartConfig` when `rke2_ingress_controller=traefik`. |
-| `rke2_ingress_nginx_config` | `""` | YAML string of Helm values for `rke2-ingress-nginx`. Applied when `rke2_ingress_controller=ingress-nginx`. |
+| `rke2_ingress_controller` | `"traefik"` | Bundled ingress controller(s), rendered as the RKE2 `ingress-controller` key: `traefik` (default), `ingress-nginx` (retired upstream, RKE2 < v1.37 only), `ingress-nginx+traefik` (dual mode for migration, nginx stays the default class), or `none`. |
+| `rke2_traefik_config` | `""` | YAML string of Helm values for the bundled `rke2-traefik` chart, applied as a `HelmChartConfig` when the controller includes `traefik`. |
+| `rke2_ingress_nginx_config` | `""` | YAML string of Helm values for `rke2-ingress-nginx`. Applied when the controller includes `ingress-nginx`. |
 
 ---
 

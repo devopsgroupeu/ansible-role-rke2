@@ -667,10 +667,13 @@ argument_specs:
         choices:
           - traefik
           - ingress-nginx
+          - ingress-nginx+traefik
           - none
         description: >
-          Which ingress controller this role configures. traefik (v1.36 default),
-          ingress-nginx (legacy, EOL Mar 2026), or none (disables both built-ins).
+          Bundled ingress controller(s), rendered as the RKE2
+          ingress-controller key. traefik (default), ingress-nginx (retired
+          upstream, RKE2 < v1.37 only), ingress-nginx+traefik (dual mode for
+          migration, nginx stays the default class; also on v1.37), or none.
 
       rke2_traefik_config:
         type: str
@@ -678,7 +681,8 @@ argument_specs:
         default: ""
         description: >
           YAML string of Helm values for the bundled rke2-traefik chart, applied
-          as a HelmChartConfig on the first server node when controller=traefik.
+          as a HelmChartConfig on the first server node when the controller
+          includes traefik.
 
       rke2_ingress_nginx_config:
         type: str
@@ -686,7 +690,7 @@ argument_specs:
         default: ""
         description: >
           YAML string with Helm values for the rke2-ingress-nginx HelmChart
-          config. Applied when rke2_ingress_controller is ingress-nginx.
+          config. Applied when the controller includes ingress-nginx.
           Leave empty or comment-only to skip.
 
       # -----------------------------------------------------------------------

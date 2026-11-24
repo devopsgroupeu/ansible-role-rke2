@@ -88,3 +88,33 @@
     - name: Stop the mock channel server
       ansible.builtin.shell: kill "$(cat '{{ _channel_dir }}/server.pid')" || true
       changed_when: true
+
+- name: Reject standalone ingress-nginx on an RKE2 v1.37 target
+  hosts: server_nodes
+  gather_facts: false
+  tasks:
+    - name: Run the version and server checks with ingress-nginx and v1.37
+      block:
+        - name: Include the version tasks
+          ansible.builtin.include_role:
+            name: ansible-role-rke2
+            tasks_from: version.yml
+          vars:
+            rke2_version: v1.37.2+rke2r1
+
+        - name: Include the server tasks
+          ansible.builtin.include_role:
+            name: ansible-role-rke2
+            tasks_from: server.yml
+          vars:
+            rke2_version: v1.37.2+rke2r1
+            rke2_ingress_controller: ingress-nginx
+
+        - name: Fail when the guard did not fire
+          ansible.builtin.fail:
+            msg: ingress-nginx with a v1.37 target was not rejected
+      rescue:
+        - name: Assert the ingress guard fired and points to dual mode
+          ansible.builtin.assert:
+            that: ansible_failed_result.msg is search('ingress-nginx[+]traefik')
+            fail_msg: "unexpected failure: {{ ansible_failed_result.msg }}"

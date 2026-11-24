@@ -677,19 +677,26 @@ kubectl config set-cluster default \
 
 ## Ingress controller
 
-From RKE2 v1.36 the default ingress is **Traefik** (`rke2-traefik`);
-`rke2-ingress-nginx` is deprecated (upstream EOL March 2026, removed in v1.37).
-Select the controller with `rke2_ingress_controller`:
+From RKE2 v1.36 the default ingress for new clusters is **Traefik**
+(`rke2-traefik`). `rke2-ingress-nginx` is retired upstream: RKE2 v1.37 no
+longer accepts it as the only controller and keeps it only in dual mode for
+migration. The role renders the RKE2 `ingress-controller` key from
+`rke2_ingress_controller` (RKE2 deploys only the listed controllers, the first
+one is the default ingress class):
 
-| Value | Effect |
-|-------|--------|
-| `traefik` (default) | Disables rke2-ingress-nginx; applies `rke2_traefik_config` |
-| `ingress-nginx` | Disables rke2-traefik; applies `rke2_ingress_nginx_config` |
-| `none` | Disables both built-in controllers (bring your own) |
+| Value | `ingress-controller` | Effect |
+|-------|----------------------|--------|
+| `traefik` (default) | `[traefik]` | Traefik only; applies `rke2_traefik_config` |
+| `ingress-nginx` | `[ingress-nginx]` | nginx only; RKE2 < v1.37 (the role fails fast on a v1.37+ target); applies `rke2_ingress_nginx_config` |
+| `ingress-nginx+traefik` | `[ingress-nginx, traefik]` | Dual mode for migrating off nginx (nginx stays the default class); applies both configs |
+| `none` | `[none]` | No bundled ingress controller (bring your own) |
 
-Migration: set `rke2_ingress_controller: ingress-nginx` to stay on nginx for
-now, or `traefik` to adopt the new default and move custom values into
-`rke2_traefik_config`.
+Migration: use `ingress-nginx+traefik` while you move Ingresses to Traefik
+(see https://docs.rke2.io/reference/ingress_migration), then switch to
+`traefik` and keep custom values in `rke2_traefik_config`.
+
+Air-gapped clusters that select ingress-nginx must stage the
+`rke2-images-ingress-nginx` image tarball themselves.
 
 ---
 

@@ -1,5 +1,5 @@
-# rke2-ingress-nginx-config.j2
-
+# Managed by Ansible - ansible-role-rke2
+---
 apiVersion: helm.cattle.io/v1
 kind: HelmChartConfig
 metadata:
@@ -7,4 +7,4 @@ metadata:
   namespace: kube-system
 spec:
   valuesContent: |-
-    {{ rke2_ingress_nginx_config | indent(6) }}
+{{ rke2_ingress_nginx_config | indent(4, true) }}

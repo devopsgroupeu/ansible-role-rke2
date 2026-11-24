@@ -8,9 +8,19 @@
       is false; set rke2_disable_cloud_controller: true.
   when: rke2_cloud_provider_name | default('') == 'external'
 
+- name: Assert standalone ingress-nginx targets RKE2 before v1.37
+  ansible.builtin.assert:
+    that:
+      - _rke2_target_version | regex_replace('^v?([0-9]+[.][0-9]+).*$', '\\1') is version('1.37', '<')
+    fail_msg: >-
+      RKE2 {{ _rke2_target_version }} no longer supports ingress-nginx as a
+      standalone ingress controller. Use rke2_ingress_controller:
+      ingress-nginx+traefik to migrate (nginx stays the default class) or traefik.
+  when: rke2_ingress_controller == 'ingress-nginx'
+
 - name: Assert rke2_extra_config does not collide with dedicated keys
   vars:
-    _managed_keys: ['disable', 'tls-san', 'cni', 'node-ip', 'cluster-dns', 'system-default-registry']
+    _managed_keys: ['disable', 'tls-san', 'cni', 'node-ip', 'cluster-dns', 'system-default-registry', 'ingress-controller']
   ansible.builtin.assert:
     that:
       - (rke2_extra_config | default({})).keys() | list | intersect(_managed_keys) | length == 0
@@ -159,7 +169,7 @@
     - inventory_hostname != groups['server_nodes'][0]
     - not (ansible_check_mode and _rke2_install_needed | bool)
 
-- name: Apply custom ingress-nginx HelmChartConfig (controller=ingress-nginx)
+- name: Apply custom ingress-nginx HelmChartConfig (controller includes ingress-nginx)
   ansible.builtin.template:
     src: rke2-ingress-nginx-config.yml.j2
     dest: "{{ rke2_data_dir }}/server/manifests/rke2-ingress-nginx-config.yml"
@@ -167,13 +177,13 @@
     group: root
     mode: "0644"
   when:
-    - rke2_ingress_controller == 'ingress-nginx'
+    - rke2_ingress_controller in ['ingress-nginx', 'ingress-nginx+traefik']
     - rke2_ingress_nginx_config is defined
     - rke2_ingress_nginx_config | trim | length > 0
     - not rke2_ingress_nginx_config | trim | regex_search('^#')
     - inventory_hostname == groups['server_nodes'][0]
 
-- name: Apply custom Traefik HelmChartConfig (controller=traefik)
+- name: Apply custom Traefik HelmChartConfig (controller includes traefik)
   ansible.builtin.template:
     src: rke2-traefik-config.yml.j2
     dest: "{{ rke2_data_dir }}/server/manifests/rke2-traefik-config.yml"
@@ -181,7 +191,7 @@
     group: root
     mode: "0644"
   when:
-    - rke2_ingress_controller == 'traefik'
+    - rke2_ingress_controller in ['traefik', 'ingress-nginx+traefik']
     - rke2_traefik_config | trim | length > 0
     - not rke2_traefik_config | trim | regex_search('^#')
     - inventory_hostname == groups['server_nodes'][0]

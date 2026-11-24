@@ -138,14 +138,19 @@ cloud-provider-name: "{{ rke2_cloud_provider_name }}"
 selinux: true
 {% endif %}
 
+{# RKE2 deploys only the controllers listed in ingress-controller and
+   truncates the others; the first entry is the default ingress class. #}
+{% set _ingress = {
+  'traefik': ['traefik'],
+  'ingress-nginx': ['ingress-nginx'],
+  'ingress-nginx+traefik': ['ingress-nginx', 'traefik'],
+  'none': ['none']}[rke2_ingress_controller | default('traefik')] %}
+ingress-controller:
+{% for item in _ingress %}
+  - {{ item }}
+{% endfor %}
+
 {% set _disable = (rke2_disable | default([])) %}
-{% if rke2_ingress_controller | default('traefik') == 'none' %}
-{% set _disable = (_disable + ['rke2-ingress-nginx', 'rke2-traefik']) | unique %}
-{% elif rke2_ingress_controller | default('traefik') == 'traefik' %}
-{% set _disable = (_disable + ['rke2-ingress-nginx']) | unique %}
-{% elif rke2_ingress_controller | default('traefik') == 'ingress-nginx' %}
-{% set _disable = (_disable + ['rke2-traefik']) | unique %}
-{% endif %}
 {% if _disable | length > 0 %}
 disable:
 {% for item in _disable %}
