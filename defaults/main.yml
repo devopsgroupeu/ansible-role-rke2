@@ -12,7 +12,17 @@ rke2_version: v1.36.1+rke2r2
 
 # Install channel used ONLY when rke2_version is empty.
 # Options: stable, latest, or a per-minor channel like "v1.35".
+# The role resolves the channel to its latest version (once per play, from
+# the controller) and installs/upgrades only when that version changes.
+# Not supported with rke2_airgapped: true.
 rke2_channel: ""
+
+# Channel index used to resolve rke2_channel to a version (controller side).
+rke2_channel_url: "https://update.rke2.io/v1-release/channels"
+
+# Install method passed to get.rke2.io as INSTALL_RKE2_METHOD.
+# "" = installer default (rpm on yum/dnf hosts, tar elsewhere), or rpm / tar.
+rke2_install_method: ""
 
 # Pre-set cluster token. When empty the role reads the auto-generated token
 # from /var/lib/rancher/rke2/server/node-token on the first server and

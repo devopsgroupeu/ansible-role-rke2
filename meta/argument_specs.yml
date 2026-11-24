@@ -27,7 +27,27 @@ argument_specs:
         default: ""
         description: >
           RKE2 install channel used only when rke2_version is empty. Options:
-          stable, latest, or a per-minor channel like "v1.35".
+          stable, latest, or a per-minor channel like "v1.35". The role
+          resolves it to the channel's latest version (from the controller,
+          via rke2_channel_url) and upgrades only when that version changes.
+          Not supported with rke2_airgapped.
+
+      rke2_channel_url:
+        type: str
+        required: false
+        default: "https://update.rke2.io/v1-release/channels"
+        description: >
+          Channel index used on the controller to resolve rke2_channel to a
+          version.
+
+      rke2_install_method:
+        type: str
+        required: false
+        default: ""
+        choices: ["", "rpm", "tar"]
+        description: >
+          Exported to get.rke2.io as INSTALL_RKE2_METHOD. Empty uses the
+          installer default (rpm on yum/dnf hosts, tar elsewhere).
 
       rke2_agent_token:
         type: str

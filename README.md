@@ -262,6 +262,8 @@ All variables are defined in [`defaults/main.yml`](defaults/main.yml) with inlin
 | `rke2_cluster_token` | `""` | Pre-shared cluster token. Auto-generated when empty. |
 | `rke2_agent_token` | `""` | Separate token for agent nodes (less privileged than server token) |
 | `rke2_allow_downgrade` | `false` | Allow installing a version older than currently installed |
+| `rke2_channel` | `""` | Channel used only when `rke2_version` is empty; resolved on the controller via `rke2_channel_url` |
+| `rke2_install_method` | `""` | `INSTALL_RKE2_METHOD` for get.rke2.io: `""` (installer default), `rpm` or `tar` |
 | `rke2_airgapped` | `false` | Enable air-gapped installation mode |
 | `rke2_airgapped_artifacts_dir` | `""` | Path on controller to pre-downloaded artifacts |
 

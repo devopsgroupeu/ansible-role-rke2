@@ -247,6 +247,20 @@
         that: rke2_service_status.stdout == 'active'
         fail_msg: "rke2-server service is not active (status: {{ rke2_service_status.stdout }})"
 
+    - name: Stat the RKE2 install paths
+      ansible.builtin.stat:
+        path: "{{ item }}"
+      loop:
+        - /usr/bin/rke2
+        - /usr/local/bin/rke2
+      register: rke2_bin_paths
+
+    - name: Assert an RPM-style install in /usr/bin was detected (no reinstall)
+      ansible.builtin.assert:
+        that: not rke2_bin_paths.results[1].stat.exists
+        fail_msg: "/usr/local/bin/rke2 appeared next to /usr/bin/rke2: the RPM install was not detected and RKE2 was reinstalled"
+      when: rke2_bin_paths.results[0].stat.exists
+
     - name: Check RKE2 version output
       ansible.builtin.command: rke2 --version
       register: rke2_version_check

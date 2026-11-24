@@ -45,6 +45,13 @@
   tags:
     - rke2_vip
 
+- name: Resolve target and installed RKE2 versions
+  # Unconditional on purpose: the channel lookup is run_once, and a group
+  # condition would skip it for every host when the first host is not a node.
+  ansible.builtin.import_tasks: version.yml
+  tags:
+    - rke2_setup
+
 - name: Run server node installation
   ansible.builtin.import_tasks: server.yml
   when: "'server_nodes' in group_names"

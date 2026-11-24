@@ -14,7 +14,9 @@ All variables are defined in `defaults/main.yml` and can be overridden in your p
 | Variable | Default | Description |
 |---|---|---|
 | `rke2_version` | `v1.36.1+rke2r2` | RKE2 version to install. See [GitHub releases](https://github.com/rancher/rke2/releases). Takes precedence over `rke2_channel`. |
-| `rke2_channel` | `""` | Install channel used only when `rke2_version` is empty. Options: `stable`, `latest`, or a per-minor channel like `"v1.35"`. |
+| `rke2_channel` | `""` | Install channel used only when `rke2_version` is empty. Options: `stable`, `latest`, or a per-minor channel like `"v1.35"`. The role resolves it on the controller to the channel's latest version and upgrades only when that changes. Not supported with `rke2_airgapped: true`. |
+| `rke2_channel_url` | `"https://update.rke2.io/v1-release/channels"` | Channel index used on the controller to resolve `rke2_channel`. |
+| `rke2_install_method` | `""` | Exported to get.rke2.io as `INSTALL_RKE2_METHOD`: `""` (installer default: `rpm` on yum/dnf hosts, `tar` elsewhere), `rpm` or `tar`. The role detects an installed binary in `/usr/local/bin`, `/usr/bin` or `/opt/rke2/bin`. |
 
 ---
 

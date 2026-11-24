@@ -1,37 +1,4 @@
 ---
-- name: Check if RKE2 server binary exists
-  ansible.builtin.stat:
-    path: /usr/local/bin/rke2
-  register: rke2_server_binary
-
-- name: Check current RKE2 server installed version
-  ansible.builtin.command: rke2 --version
-  register: rke2_installed_version_output
-  when: rke2_server_binary.stat.exists
-  changed_when: false
-
-- name: Set current RKE2 server version fact
-  ansible.builtin.set_fact:
-    current_rke2_server_version: "{{ rke2_installed_version_output.stdout | regex_search('v[0-9]+\\.[0-9]+\\.[0-9]+\\+rke2r[0-9]+') }}"
-  when: rke2_server_binary.stat.exists
-
-- name: Set RKE2 server version as not installed
-  ansible.builtin.set_fact:
-    current_rke2_server_version: "not_installed"
-  when: not rke2_server_binary.stat.exists
-
-- name: Prevent accidental downgrade
-  ansible.builtin.fail:
-    msg: >-
-      Downgrade blocked: {{ current_rke2_server_version }} is installed but
-      {{ rke2_version }} was requested. Set rke2_allow_downgrade: true to override.
-  when:
-    - not rke2_allow_downgrade | default(false) | bool
-    - current_rke2_server_version != "not_installed"
-    - current_rke2_server_version | length > 0
-    - current_rke2_server_version != rke2_version
-    - current_rke2_server_version is version(rke2_version, '>', version_type='loose')
-
 - name: Assert external cloud-provider is paired with disabled built-in CCM
   ansible.builtin.assert:
     that:
@@ -61,12 +28,12 @@
     INSTALL_RKE2_VERSION: "{{ rke2_version }}"
     INSTALL_RKE2_CHANNEL: "{{ rke2_channel if (rke2_version | default('') | length == 0) else '' }}"
     INSTALL_RKE2_TYPE: "server"
+    INSTALL_RKE2_METHOD: "{{ rke2_install_method }}"
   changed_when: true
   notify: Restart rke2-server
   when:
-    - rke2_version | default('') | length > 0 or rke2_channel | default('') | length > 0
     - not (rke2_airgapped | default(false) | bool)
-    - current_rke2_server_version != rke2_version
+    - _rke2_install_needed | bool
 
 - name: Install RKE2 server (air-gapped)
   ansible.builtin.command: sh /tmp/rke2-install.sh
@@ -74,13 +41,13 @@
     INSTALL_RKE2_VERSION: "{{ rke2_version }}"
     INSTALL_RKE2_CHANNEL: "{{ rke2_channel if (rke2_version | default('') | length == 0) else '' }}"
     INSTALL_RKE2_TYPE: "server"
+    INSTALL_RKE2_METHOD: "{{ rke2_install_method }}"
     INSTALL_RKE2_ARTIFACT_PATH: "{{ '/tmp/rke2-artifacts' if rke2_airgapped_artifacts_dir | length > 0 else '' }}"
   changed_when: true
   notify: Restart rke2-server
   when:
-    - rke2_version | default('') | length > 0 or rke2_channel | default('') | length > 0
     - rke2_airgapped | default(false) | bool
-    - current_rke2_server_version != rke2_version
+    - _rke2_install_needed | bool
 
 - name: Ensure /etc/rancher/rke2 directory exists
   ansible.builtin.file:
@@ -117,7 +84,9 @@
     name: rke2-server
     state: started
     enabled: true
-  when: inventory_hostname == groups['server_nodes'][0]
+  when:
+    - inventory_hostname == groups['server_nodes'][0]
+    - not (ansible_check_mode and _rke2_install_needed | bool)
 
 - name: Use pre-set cluster token
   ansible.builtin.set_fact:
@@ -131,18 +100,22 @@
   ansible.builtin.wait_for:
     path: "{{ rke2_data_dir }}/server/node-token"
     timeout: 300
+  check_mode: false
   when:
     - inventory_hostname == groups['server_nodes'][0]
     - rke2_cluster_token | default('') | length == 0
+    - not (ansible_check_mode and _rke2_install_needed | bool)
 
 - name: Fetch cluster token from first node
   ansible.builtin.slurp:
     src: "{{ rke2_data_dir }}/server/node-token"
   register: _rke2_node_token
   no_log: true
+  check_mode: false
   when:
     - inventory_hostname == groups['server_nodes'][0]
     - rke2_cluster_token | default('') | length == 0
+    - not (ansible_check_mode and _rke2_install_needed | bool)
 
 - name: Set cluster token fact from node-token file
   ansible.builtin.set_fact:
@@ -151,6 +124,7 @@
   when:
     - inventory_hostname == groups['server_nodes'][0]
     - rke2_cluster_token | default('') | length == 0
+    - _rke2_node_token.content is defined
 
 - name: Wait for RKE2 first server registration API to be available
   ansible.builtin.wait_for:
@@ -181,7 +155,9 @@
   delay: 10
   register: rke2_server_status
   until: not rke2_server_status.failed
-  when: inventory_hostname != groups['server_nodes'][0]
+  when:
+    - inventory_hostname != groups['server_nodes'][0]
+    - not (ansible_check_mode and _rke2_install_needed | bool)
 
 - name: Apply custom ingress-nginx HelmChartConfig (controller=ingress-nginx)
   ansible.builtin.template:
