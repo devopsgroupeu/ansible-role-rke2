@@ -187,6 +187,31 @@
           /etc/rancher/rke2/audit-policy.yaml on {{ inventory_hostname }} has mode
           {{ audit_policy_stat.stat.mode }}, expected 0600
 
+- name: Verify serial server restarts
+  hosts: server_nodes
+  gather_facts: false
+  tasks:
+    - name: Read rke2-server start time (monotonic, microseconds)
+      ansible.builtin.command: systemctl show rke2-server -p ActiveEnterTimestampMonotonic --value # noqa: command-instead-of-module
+      register: rke2_server_started_at
+      changed_when: false
+
+    - name: Assert servers restarted one at a time
+      vars:
+        _started: >-
+          {{ groups['server_nodes'] | map('extract', hostvars, ['rke2_server_started_at', 'stdout'])
+             | map('int') | sort }}
+      ansible.builtin.assert:
+        that:
+          - _started | length == 3
+          - _started[0] > 0
+          - (_started[1] - _started[0]) >= 1000000
+          - (_started[2] - _started[1]) >= 1000000
+        fail_msg: >-
+          rke2-server restarts were not serial (start times in us: {{ _started }});
+          the restart handler must restart one server at a time and wait for it
+      run_once: true
+
 - name: Verify agent nodes
   hosts: agent_nodes
   gather_facts: false

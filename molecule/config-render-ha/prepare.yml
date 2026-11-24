@@ -16,6 +16,7 @@
           - iptables
           - python3
           - cron
+          - openssl
         state: present
 
     - name: Create rancher directories
@@ -28,7 +29,64 @@
         - /var/lib/rancher/rke2/server
         - /var/lib/rancher/rke2/server/manifests
         - /var/lib/rancher/rke2/agent/pod-manifests
+        - /var/lib/rancher/rke2/bin
         - /usr/local/bin
+
+    - name: Create self-signed TLS certificate for the mock supervisor
+      ansible.builtin.command:
+        argv:
+          - openssl
+          - req
+          - -x509
+          - -newkey
+          - rsa:2048
+          - -nodes
+          - -keyout
+          - /etc/rancher/rke2/mock-tls.key
+          - -out
+          - /etc/rancher/rke2/mock-tls.crt
+          - -subj
+          - /CN=rke2-mock
+          - -days
+          - "30"
+        creates: /etc/rancher/rke2/mock-tls.crt
+
+    # The mock services listen like the real ones (supervisor HTTPS /ping on
+    # 9345 for servers, kubelet port 10250 for agents), so the health-gated
+    # restart handlers run their real waits against them.
+    - name: Create mock rke2 listener
+      ansible.builtin.copy:
+        dest: /usr/local/bin/rke2-mock-listener.py
+        mode: "0755"
+        content: |
+          import http.server
+          import socket
+          import ssl
+          import sys
+
+          class Ping(http.server.BaseHTTPRequestHandler):
+              def do_GET(self):
+                  self.send_response(200)
+                  self.end_headers()
+                  self.wfile.write(b"pong")
+
+              def log_message(self, *args):
+                  pass
+
+          if sys.argv[1] == "server":
+              httpd = http.server.ThreadingHTTPServer(("0.0.0.0", 9345), Ping)
+              ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+              ctx.load_cert_chain("/etc/rancher/rke2/mock-tls.crt", "/etc/rancher/rke2/mock-tls.key")
+              httpd.socket = ctx.wrap_socket(httpd.socket, server_side=True)
+              httpd.serve_forever()
+          else:
+              s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+              s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+              s.bind(("0.0.0.0", 10250))
+              s.listen(100)
+              while True:
+                  conn, _ = s.accept()
+                  conn.close()
 
     - name: Create mock rke2 binary
       ansible.builtin.copy:
@@ -36,9 +94,21 @@
         mode: "0755"
         content: |
           #!/bin/bash
-          if [[ "$1" == "--version" ]]; then
-            echo "rke2 version v1.36.1+rke2r2 (abc123)"
-          fi
+          case "$1" in
+            --version) echo "rke2 version v1.36.1+rke2r2 (abc123)" ;;
+            server|agent) exec python3 /usr/local/bin/rke2-mock-listener.py "$1" ;;
+          esac
+
+    # Reports the node Ready after one second, so serial restarts are at least
+    # one second apart and the verify step can tell them from parallel ones.
+    - name: Create mock kubectl
+      ansible.builtin.copy:
+        dest: /var/lib/rancher/rke2/bin/kubectl
+        mode: "0755"
+        content: |
+          #!/bin/bash
+          sleep 1
+          echo -n True
 
     - name: Create mock kubeconfig
       ansible.builtin.copy:
@@ -71,9 +141,8 @@
           Description=RKE2 Kubernetes Server (mock)
 
           [Service]
-          Type=oneshot
+          Type=simple
           ExecStart=/usr/local/bin/rke2 server
-          RemainAfterExit=yes
 
           [Install]
           WantedBy=multi-user.target
@@ -87,9 +156,8 @@
           Description=RKE2 Kubernetes Agent (mock)
 
           [Service]
-          Type=oneshot
+          Type=simple
           ExecStart=/usr/local/bin/rke2 agent
-          RemainAfterExit=yes
 
           [Install]
           WantedBy=multi-user.target
@@ -111,21 +179,6 @@
     - name: Enable and start mock rke2-server service
       ansible.builtin.command: systemctl enable --now rke2-server # noqa: command-instead-of-module
       changed_when: false
-
-    - name: Start mock port 9345 listener on first server (simulates cluster join API)
-      ansible.builtin.shell: |
-        nohup python3 -c "
-        import socket, time
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        s.bind(('0.0.0.0', 9345))
-        s.listen(100)
-        time.sleep(3600)
-        " >/dev/null 2>&1 &
-      args:
-        executable: /bin/bash
-      changed_when: true
-      when: inventory_hostname == groups['server_nodes'][0]
 
     - name: Wait for mock port 9345 to be ready
       ansible.builtin.wait_for:

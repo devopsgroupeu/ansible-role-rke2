@@ -1,0 +1,9 @@
+---
+# Second converge with one changed config value: every node's config.yaml
+# changes, so the restart handlers fire on all servers and the agent. verify.yml
+# then checks that the servers restarted one at a time.
+- name: Converge again with a changed kubelet argument
+  ansible.builtin.import_playbook: converge.yml
+  vars:
+    rke2_kubelet_args:
+      - "max-pods=120"

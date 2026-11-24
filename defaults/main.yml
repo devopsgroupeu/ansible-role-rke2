@@ -466,6 +466,20 @@ rke2_drain_force: false
 rke2_wait_for_all_pods_to_be_ready: false
 
 # ----------------------------------------------------------------------------
+# Restart handlers
+# ----------------------------------------------------------------------------
+# A version or config change restarts servers one at a time. With this true,
+# each server restart waits for the supervisor (https://127.0.0.1:9345/ping)
+# and for the node to report Ready before the next server restarts, and each
+# agent restart waits for the kubelet port (10250). Set false only when the
+# nodes cannot answer these probes (e.g. render-only test containers).
+rke2_handler_wait_for_ready: true
+
+# How many agents may restart at the same time when their config or version
+# changes. Servers always restart one at a time.
+rke2_agent_restart_throttle: 1
+
+# ----------------------------------------------------------------------------
 # Extra configuration (catch-all)
 # ----------------------------------------------------------------------------
 # Any key/value pairs here are merged into config.yaml after all other

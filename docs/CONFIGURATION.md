@@ -416,6 +416,8 @@ rke2_kubelet_args:
 | `rke2_drain_additional_args` | `"--timeout=120s"` | Additional arguments passed to `kubectl drain`. |
 | `rke2_drain_force` | `false` | Pass `--force` to `kubectl drain`, evicting pods not managed by a ReplicaSet/Job/DaemonSet. Off by default. |
 | `rke2_wait_for_all_pods_to_be_ready` | `false` | After uncordoning a node, wait for all pods to reach Running or Succeeded phase before proceeding to the next node. |
+| `rke2_handler_wait_for_ready` | `true` | Health-gate the restart handlers. Servers restart one at a time; each restart waits for `https://127.0.0.1:9345/ping` and for the node to be Ready before the next server restarts. Agent restarts wait for the kubelet port 10250. Set `false` only when nodes cannot answer these probes (render-only test containers). |
+| `rke2_agent_restart_throttle` | `1` | Maximum number of agents restarted at the same time when their config or version changes. |
 
 ---
 

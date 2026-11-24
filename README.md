@@ -323,6 +323,8 @@ All variables are defined in [`defaults/main.yml`](defaults/main.yml) with inlin
 | `rke2_drain_node_during_upgrade` | `false` | Cordon and drain nodes before restarting during upgrades |
 | `rke2_drain_additional_args` | `--timeout=120s` | Extra arguments passed to `kubectl drain` |
 | `rke2_wait_for_all_pods_to_be_ready` | `false` | Wait for all pods to be Running/Succeeded after uncordon |
+| `rke2_handler_wait_for_ready` | `true` | Restart handlers wait for the supervisor `/ping` and node Ready (servers) or the kubelet port (agents) before the next node restarts |
+| `rke2_agent_restart_throttle` | `1` | Maximum number of agents restarted at the same time |
 
 ### Kubeconfig
 
@@ -522,15 +524,51 @@ The role copies all artifacts to the target nodes and runs the install script lo
 
 ## Rolling Upgrades
 
-To upgrade RKE2 without downtime, run the playbook with `serial: 1` and set `rke2_drain_node_during_upgrade: true`. The role will cordon, drain, restart, wait for Ready, then uncordon each node before moving to the next.
+When a run changes the RKE2 version or `config.yaml`, the restart handlers
+restart **servers one at a time**: each restart waits for the supervisor
+(`https://127.0.0.1:9345/ping`) and for the node to report Ready before the
+next server restarts. Agents restart `rke2_agent_restart_throttle` at a time
+(default `1`) and wait for the kubelet port. Set
+`rke2_handler_wait_for_ready: false` only for nodes that cannot answer these
+probes.
+
+RKE2 upstream: "Upgrade the server nodes first, one at a time. Once all servers
+have been upgraded, you may then upgrade agent nodes." A real upgrade therefore
+runs the **full role** with `serial: 1`, servers in the first play and agents in
+the second:
 
 ```yaml
-- name: Rolling upgrade RKE2
+- name: Upgrade RKE2 servers
   hosts: server_nodes
   become: true
   serial: 1
   vars:
-    rke2_version: v1.29.4+rke2r1
+    rke2_version: v1.36.1+rke2r2
+  roles:
+    - devopsgroupeu.rke2
+
+- name: Upgrade RKE2 agents
+  hosts: agent_nodes
+  become: true
+  serial: 1
+  vars:
+    rke2_version: v1.36.1+rke2r2
+  roles:
+    - devopsgroupeu.rke2
+```
+
+The `rolling_restart` entry point does **not** install anything: it only
+cordons, drains, restarts the node's RKE2 service, waits for Ready and
+uncordons. Use it to restart nodes without changing the installed version
+(certificate change, kernel update, manual config change). Set
+`rke2_drain_node_during_upgrade: true` to cordon and drain each node first.
+
+```yaml
+- name: Rolling restart RKE2 servers
+  hosts: server_nodes
+  become: true
+  serial: 1
+  vars:
     rke2_drain_node_during_upgrade: true
     rke2_drain_additional_args: "--timeout=180s --delete-emptydir-data"
     rke2_wait_for_all_pods_to_be_ready: true
@@ -540,7 +578,8 @@ To upgrade RKE2 without downtime, run the playbook with `serial: 1` and set `rke
         tasks_from: rolling_restart
 ```
 
-> **Note:** `serial: 1` is required at the play level. Without it all nodes restart simultaneously.
+> **Note:** `serial: 1` is required at the play level for `rolling_restart`.
+> Without it all nodes restart simultaneously.
 
 For a rolling restart of **agent (worker)** nodes, run the same `rolling_restart`
 entry point against `hosts: agent_nodes` with `serial: 1`. The task auto-detects
@@ -560,9 +599,9 @@ the node type and restarts `rke2-agent`; cordon/drain still run when
         tasks_from: rolling_restart
 ```
 
-> `rolling_restart` always restarts the node's RKE2 service — it is a
+> `rolling_restart` always restarts the node's RKE2 service. It is a
 > deliberate force-restart entry point, not gated on a version change. Run it
-> only when you intend to restart (upgrade, cert change, config change).
+> only when you intend to restart.
 
 ---
 

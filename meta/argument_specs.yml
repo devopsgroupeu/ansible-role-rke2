@@ -823,6 +823,28 @@ argument_specs:
           ReplicaSet/Job/DaemonSet. Off by default.
 
       # -----------------------------------------------------------------------
+      # Restart handlers
+      # -----------------------------------------------------------------------
+      rke2_handler_wait_for_ready:
+        type: bool
+        required: false
+        default: true
+        description: >
+          Health-gate the restart handlers. Each server restart (one server at
+          a time) waits for https://127.0.0.1:9345/ping and for the node to be
+          Ready before the next server restarts; each agent restart waits for
+          the kubelet port 10250. Set false only when the nodes cannot answer
+          these probes (e.g. render-only test containers).
+
+      rke2_agent_restart_throttle:
+        type: int
+        required: false
+        default: 1
+        description: >
+          Maximum number of agents restarted at the same time when their
+          config or version changes. Servers always restart one at a time.
+
+      # -----------------------------------------------------------------------
       # Hardening
       # -----------------------------------------------------------------------
       rke2_cis_profile:

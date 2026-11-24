@@ -5,6 +5,9 @@
   vars:
     rke2_version: v1.36.1+rke2r2
     rke2_airgapped: false
+    # The mock rke2-server is a oneshot unit without a supervisor or kubectl,
+    # so the health-gated restart waits are exercised in config-render-ha.
+    rke2_handler_wait_for_ready: false
     rke2_cni: default
     rke2_tls_san:
       - "10.0.0.100"

@@ -1,15 +1,55 @@
 ---
+# Restart handlers are serialised with throttle and health-gated in the SAME
+# task: under the linear strategy a separate "wait" handler would only run
+# after every notified host had already restarted. A version or config change
+# therefore restarts one server at a time (waiting for the supervisor /ping
+# and the node to be Ready) and rke2_agent_restart_throttle agents at a time
+# (waiting for the kubelet port), as the RKE2 upgrade docs require.
 - name: Restart rke2-server
-  ansible.builtin.systemd_service:
-    name: rke2-server
-    state: restarted
-    daemon_reload: true
+  ansible.builtin.shell: |
+    set -o pipefail
+    systemctl daemon-reload
+    systemctl restart rke2-server
+    {% if rke2_handler_wait_for_ready | bool %}
+    for _ in $(seq 1 60); do
+      curl -ksf --max-time 5 -o /dev/null https://127.0.0.1:9345/ping && break
+      sleep 5
+    done
+    curl -ksf --max-time 5 -o /dev/null https://127.0.0.1:9345/ping \
+      || { echo "rke2-server supervisor did not answer https://127.0.0.1:9345/ping" >&2; exit 1; }
+    node="{{ rke2_node_name | default('') }}"
+    [ -n "${node}" ] || node="$(hostname | tr '[:upper:]' '[:lower:]')"
+    for _ in $(seq 1 120); do
+      ready="$({{ rke2_data_dir }}/bin/kubectl --kubeconfig /etc/rancher/rke2/rke2.yaml \
+        get node "${node}" -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || true)"
+      [ "${ready}" = "True" ] && exit 0
+      sleep 5
+    done
+    echo "node ${node} did not become Ready after the restart" >&2
+    exit 1
+    {% endif %}
+  args:
+    executable: /bin/bash
+  throttle: 1
+  changed_when: true
 
 - name: Restart rke2-agent
-  ansible.builtin.systemd_service:
-    name: rke2-agent
-    state: restarted
-    daemon_reload: true
+  ansible.builtin.shell: |
+    set -o pipefail
+    systemctl daemon-reload
+    systemctl restart rke2-agent
+    {% if rke2_handler_wait_for_ready | bool %}
+    for _ in $(seq 1 60); do
+      timeout 5 bash -c '</dev/tcp/127.0.0.1/10250' 2>/dev/null && exit 0
+      sleep 5
+    done
+    echo "kubelet did not open port 10250 after the rke2-agent restart" >&2
+    exit 1
+    {% endif %}
+  args:
+    executable: /bin/bash
+  throttle: "{{ rke2_agent_restart_throttle }}"
+  changed_when: true
 
 - name: Restart keepalived
   ansible.builtin.systemd_service:
