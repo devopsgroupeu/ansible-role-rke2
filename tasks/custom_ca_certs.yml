@@ -1,7 +1,7 @@
 ---
 - name: Ensure custom CA directory exists
   ansible.builtin.file:
-    path: /var/lib/rancher/rke2/server/tls
+    path: "{{ rke2_data_dir }}/server/tls"
     state: directory
     owner: root
     group: root
@@ -14,13 +14,13 @@
 # removal task deletes them again — a perpetual changed/changed ping-pong).
 - name: Check whether the RKE2 server CA has already been generated
   ansible.builtin.stat:
-    path: /var/lib/rancher/rke2/server/tls/server-ca.crt
+    path: "{{ rke2_data_dir }}/server/tls/server-ca.crt"
   register: rke2_server_ca_pregen
 
 - name: Decode and save root CA certificate
   ansible.builtin.copy:
     content: "{{ rke2_custom_root_ca_cert | b64decode }}"
-    dest: /var/lib/rancher/rke2/server/tls/root-ca.pem
+    dest: "{{ rke2_data_dir }}/server/tls/root-ca.pem"
     owner: root
     group: root
     mode: "0644"
@@ -28,7 +28,7 @@
 - name: Decode and save root CA private key
   ansible.builtin.copy:
     content: "{{ rke2_custom_root_ca_key | b64decode }}"
-    dest: /var/lib/rancher/rke2/server/tls/root-ca.key
+    dest: "{{ rke2_data_dir }}/server/tls/root-ca.key"
     owner: root
     group: root
     mode: "0600"
@@ -40,7 +40,7 @@
 - name: Decode and save intermediate CA certificate
   ansible.builtin.copy:
     content: "{{ rke2_custom_intermediate_ca_cert | b64decode }}"
-    dest: /var/lib/rancher/rke2/server/tls/intermediate-ca.pem
+    dest: "{{ rke2_data_dir }}/server/tls/intermediate-ca.pem"
     owner: root
     group: root
     mode: "0644"
@@ -49,7 +49,7 @@
 - name: Decode and save intermediate CA private key
   ansible.builtin.copy:
     content: "{{ rke2_custom_intermediate_ca_key | b64decode }}"
-    dest: /var/lib/rancher/rke2/server/tls/intermediate-ca.key
+    dest: "{{ rke2_data_dir }}/server/tls/intermediate-ca.key"
     owner: root
     group: root
     mode: "0600"
@@ -77,12 +77,14 @@
 - name: Run CA generation script
   ansible.builtin.command: "/etc/rancher/custom_ca/generate_ca.sh"
   args:
-    chdir: "/var/lib/rancher/rke2/server/tls"
-    creates: "/var/lib/rancher/rke2/server/tls/server-ca.crt"
+    chdir: "{{ rke2_data_dir }}/server/tls"
+    creates: "{{ rke2_data_dir }}/server/tls/server-ca.crt"
+  environment:
+    DATA_DIR: "{{ rke2_data_dir }}"
 
 - name: Verify CA certificates were generated
   ansible.builtin.stat:
-    path: "/var/lib/rancher/rke2/server/tls/server-ca.crt"
+    path: "{{ rke2_data_dir }}/server/tls/server-ca.crt"
   register: ca_cert_check
 
 - name: Fail if CA certificates were not generated
@@ -92,7 +94,7 @@
 
 - name: Remove CA signing private keys after generation
   ansible.builtin.file:
-    path: "/var/lib/rancher/rke2/server/tls/{{ item }}"
+    path: "{{ rke2_data_dir }}/server/tls/{{ item }}"
     state: absent
   loop:
     - root-ca.key

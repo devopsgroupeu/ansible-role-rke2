@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
-EXPIRY_THRESHOLD_DAYS={{ rke2_cert_rotation_expiry_threshold_days | default(7) }}
-LOG_RETENTION_DAYS={{ rke2_cert_rotation_log_retention_days | default(7) }}
+EXPIRY_THRESHOLD_DAYS={{ rke2_cert_rotation_expiry_threshold_days }}
+LOG_RETENTION_DAYS={{ rke2_cert_rotation_log_retention_days }}
+DATA_DIR={{ rke2_data_dir | quote }}
 
 CERTS_ROTATION_DIR="/etc/rancher/certs_rotation"
 LOG_BACKUP_DIR="$CERTS_ROTATION_DIR/logs"
@@ -32,11 +33,11 @@ for cmd in openssl rke2 systemctl; do
     fi
 done
 
-if [[ -d "/var/lib/rancher/rke2/server/tls" ]]; then
-    TLS_DIR="/var/lib/rancher/rke2/server/tls"
+if [[ -d "${DATA_DIR}/server/tls" ]]; then
+    TLS_DIR="${DATA_DIR}/server/tls"
     RKE2_SERVICE="rke2-server"
-elif [[ -d "/var/lib/rancher/rke2/agent" ]]; then
-    TLS_DIR="/var/lib/rancher/rke2/agent"
+elif [[ -d "${DATA_DIR}/agent" ]]; then
+    TLS_DIR="${DATA_DIR}/agent"
     RKE2_SERVICE="rke2-agent"
 else
     log_message "ERROR: Could not find RKE2 TLS directory."
@@ -59,7 +60,7 @@ for CERT in "$TLS_DIR"/*.crt; do
             log_message "Certificate $CERT expires in $DAYS_LEFT days. Initiating rotation..."
             log_message "Stopping $RKE2_SERVICE before rotation..."
             systemctl stop "$RKE2_SERVICE"
-            rke2 certificate rotate >> "$LOG_FILE" 2>&1
+            rke2 certificate rotate --data-dir "${DATA_DIR}" >> "$LOG_FILE" 2>&1
             ROTATE_RC=$?
             log_message "Starting $RKE2_SERVICE after rotation (rotate rc=${ROTATE_RC})..."
             systemctl start "$RKE2_SERVICE"

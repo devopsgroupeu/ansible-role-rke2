@@ -202,7 +202,7 @@ rke2_keepalived_auth_pass: "s3cur3pw"
 
 | Variable | Default | Description |
 |---|---|---|
-| `rke2_data_dir` | `"/var/lib/rancher/rke2"` | RKE2 data directory. |
+| `rke2_data_dir` | `"/var/lib/rancher/rke2"` | RKE2 data directory on servers and agents (`data-dir`). Custom CA files, the cert rotation script and air-gap images (`agent/images`) follow it. Changing it on an installed agent whose data is still in `/var/lib/rancher/rke2/agent` fails until the data is moved. |
 | `rke2_write_kubeconfig_mode` | `"0600"` | File mode for the generated kubeconfig. |
 | `rke2_kubeconfig_download` | `false` | Download kubeconfig to the Ansible controller after install. |
 | `rke2_kubeconfig_output_path` | `"{{ playbook_dir }}/rke2.yaml"` | Local path on the controller where kubeconfig is saved. |
@@ -236,6 +236,10 @@ rke2_agent_nodes:
 ## Custom CA Certificates
 
 Variables expect **Base64-encoded PEM** input. Pipe raw PEM through `| b64encode`.
+The CA files are written and the cluster CA chain is generated on the first
+server only (`{{ rke2_data_dir }}/server/tls`). RKE2 uses them when that server
+initialises the cluster; joining servers get the CA from the datastore, so the
+signing keys never reach them.
 You may seed the CA in either of two ways:
 
 ```yaml
@@ -272,6 +276,7 @@ rke2_custom_intermediate_ca_key: "{{ lookup('file', 'intermediate-ca.key') | b64
 | `rke2_cert_rotation_schedule_day_of_week` | `"1"` | Day of week (1=Monday) — used when `type=weekly`. |
 | `rke2_cert_rotation_schedule_day_of_month` | `"1"` | Day of month — used when `type=monthly`. |
 | `rke2_cert_rotation_log_retention_days` | `7` | How many days to keep rotation logs. |
+| `rke2_cert_rotation_stagger_minutes` | `30` | Minutes between the rotation jobs of consecutive nodes (servers in `server_nodes` order, then agents; wraps around midnight). The script stops RKE2 while it rotates, so this keeps etcd members from stopping together. `0` runs every node at the same time. |
 
 ---
 

@@ -94,6 +94,7 @@
     INSTALL_RKE2_TYPE: "server"
     INSTALL_RKE2_METHOD: "{{ rke2_install_method }}"
     INSTALL_RKE2_ARTIFACT_PATH: "{{ '/tmp/rke2-artifacts' if rke2_airgapped_artifacts_dir | length > 0 else '' }}"
+    INSTALL_RKE2_AGENT_IMAGES_DIR: "{{ rke2_data_dir }}/agent/images"
   changed_when: true
   notify: Restart rke2-server
   when:

@@ -15,7 +15,6 @@
           - curl
           - iptables
           - python3
-          - cron
           - openssl
         state: present
 
@@ -200,3 +199,33 @@
     - name: Enable and start mock rke2-agent service
       ansible.builtin.command: systemctl enable --now rke2-agent # noqa: command-instead-of-module
       changed_when: false
+
+- name: Generate a throwaway root CA on the controller
+  hosts: localhost
+  gather_facts: false
+  vars:
+    _ca: "{{ lookup('ansible.builtin.env', 'MOLECULE_EPHEMERAL_DIRECTORY') }}/test-root-ca"
+  tasks:
+    - name: Generate self-signed root CA key and certificate
+      ansible.builtin.command:
+        argv:
+          - openssl
+          - req
+          - -x509
+          - -newkey
+          - rsa:2048
+          - -nodes
+          - -keyout
+          - "{{ _ca }}.key"
+          - -out
+          - "{{ _ca }}.pem"
+          - -subj
+          - /CN=rke2-ha-test-ca
+          - -days
+          - "30"
+        creates: "{{ _ca }}.pem"
+
+    - name: Restrict permissions on root CA private key
+      ansible.builtin.file:
+        path: "{{ _ca }}.key"
+        mode: "0600"

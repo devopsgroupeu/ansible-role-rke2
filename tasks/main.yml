@@ -24,7 +24,10 @@
 - name: Configure custom CA certificates
   ansible.builtin.import_tasks: custom_ca_certs.yml
   when:
-    - "'server_nodes' in group_names"
+    # RKE2 reads the custom CA files only when the first server initialises
+    # the cluster; joining servers receive the CA from the datastore and
+    # refuse to start with newer local CA files.
+    - inventory_hostname == groups['server_nodes'][0]
     - rke2_custom_root_ca_cert | default('') | length > 0
     # A custom CA can be seeded either as a full root (cert + key) or as a root
     # cert plus an intermediate (cert + key) — e.g. an intermediate issued by
@@ -78,11 +81,25 @@
   tags:
     - rke2_certs
 
+# Minimal and container images may ship without cron; there is then no job
+# to remove and the cron module would fail on the missing crontab binary.
+- name: Check whether crontab is available
+  ansible.builtin.shell: command -v crontab # noqa: command-instead-of-shell - command -v is a shell builtin
+  register: _rke2_crontab_probe
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  when: not rke2_cert_rotation_enabled | default(false) | bool
+  tags:
+    - rke2_certs
+
 - name: Remove certificate rotation cron job when disabled
   ansible.builtin.cron:
     name: "Rotate RKE2 certificates"
     state: absent
-  when: not rke2_cert_rotation_enabled | default(false) | bool
+  when:
+    - not rke2_cert_rotation_enabled | default(false) | bool
+    - _rke2_crontab_probe.rc == 0
   tags:
     - rke2_certs
 

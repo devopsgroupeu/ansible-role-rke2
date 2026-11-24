@@ -239,6 +239,8 @@ rke2_etcd_s3_skip_ssl_verify: false
 # ----------------------------------------------------------------------------
 # Data and kubeconfig
 # ----------------------------------------------------------------------------
+# Rendered as data-dir on servers and agents. Moving it on an installed agent
+# fails until /var/lib/rancher/rke2 is moved to the new path.
 rke2_data_dir: "/var/lib/rancher/rke2"
 rke2_write_kubeconfig_mode: "0600"
 
@@ -293,6 +295,11 @@ rke2_cert_rotation_schedule_minute: "0"       # 0-59
 rke2_cert_rotation_schedule_day_of_week: "1"  # 1-7 (1=Monday), used when type=weekly
 rke2_cert_rotation_schedule_day_of_month: "1" # 1-31, used when type=monthly
 rke2_cert_rotation_log_retention_days: 7
+# The rotation script stops RKE2 while it rotates. Each node runs it this many
+# minutes after the previous one (servers in server_nodes order, then agents),
+# so etcd members never stop together. 0 runs every node at the same time.
+# RKE2 itself renews certificates that expire within 120 days on every start.
+rke2_cert_rotation_stagger_minutes: 30
 
 # ----------------------------------------------------------------------------
 # Additional packages

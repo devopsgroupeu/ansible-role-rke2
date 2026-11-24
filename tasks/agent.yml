@@ -1,4 +1,34 @@
 ---
+# The agent config now carries data-dir. An installed agent whose data still
+# lives in the default directory would start with an empty rke2_data_dir
+# (new node identity, no cached images), so stop before writing the config.
+- name: Find agent data in the default and the configured data dir
+  ansible.builtin.stat:
+    path: "{{ item }}/agent"
+  loop:
+    - /var/lib/rancher/rke2
+    - "{{ rke2_data_dir }}"
+  register: _rke2_agent_data_dirs
+  check_mode: false
+  when:
+    - _rke2_current_version != 'not_installed'
+    - rke2_data_dir != '/var/lib/rancher/rke2'
+
+- name: Refuse to move an installed agent to an empty rke2_data_dir
+  ansible.builtin.assert:
+    that:
+      - not (_rke2_agent_data_dirs.results[0].stat.exists and not _rke2_agent_data_dirs.results[1].stat.exists)
+    fail_msg: >-
+      {{ inventory_hostname }} is an installed agent with its data in
+      /var/lib/rancher/rke2/agent, but rke2_data_dir is {{ rke2_data_dir }} and
+      {{ rke2_data_dir }}/agent does not exist. Stop rke2-agent and move
+      /var/lib/rancher/rke2 to {{ rke2_data_dir }} first, or keep the default
+      rke2_data_dir for this node.
+    quiet: true
+  when:
+    - _rke2_current_version != 'not_installed'
+    - rke2_data_dir != '/var/lib/rancher/rke2'
+
 - name: Download RKE2 agent install script (internet)
   ansible.builtin.get_url:
     url: "https://get.rke2.io"
@@ -29,6 +59,7 @@
     INSTALL_RKE2_TYPE: "agent"
     INSTALL_RKE2_METHOD: "{{ rke2_install_method }}"
     INSTALL_RKE2_ARTIFACT_PATH: "{{ '/tmp/rke2-artifacts' if rke2_airgapped_artifacts_dir | length > 0 else '' }}"
+    INSTALL_RKE2_AGENT_IMAGES_DIR: "{{ rke2_data_dir }}/agent/images"
   changed_when: true
   notify: Restart rke2-agent
   when:

@@ -209,6 +209,44 @@
           /etc/rancher/rke2/audit-policy.yaml on {{ inventory_hostname }} has mode
           {{ audit_policy_stat.stat.mode }}, expected 0600
 
+- name: Verify custom CA and certificate rotation on the servers
+  hosts: server_nodes
+  gather_facts: false
+  tasks:
+    - name: Stat the custom CA files
+      ansible.builtin.stat:
+        path: "/var/lib/rancher/rke2/server/tls/{{ item }}"
+      loop:
+        - server-ca.crt
+        - root-ca.pem
+        - root-ca.key
+        - intermediate-ca.key
+      register: ca_files
+
+    - name: Assert the custom CA exists on the first server only
+      vars:
+        _exists: "{{ ca_files.results | selectattr('stat.exists') | map(attribute='item') | list }}"
+      ansible.builtin.assert:
+        that: >-
+          _exists == (['server-ca.crt', 'root-ca.pem'] if inventory_hostname == groups['server_nodes'][0] else [])
+        fail_msg: "unexpected custom CA files on {{ inventory_hostname }}: {{ _exists }}"
+
+    - name: Read root's crontab
+      ansible.builtin.command: crontab -l -u root
+      register: root_crontab
+      changed_when: false
+
+    - name: Assert the rotation schedules differ on every server
+      vars:
+        _schedules: >-
+          {{ groups['server_nodes'] | map('extract', hostvars, ['root_crontab', 'stdout'])
+             | map('regex_search', '(?m)^[0-9]+ [0-9]+ [*] [*] [0-9]+') | list }}
+      ansible.builtin.assert:
+        that:
+          - _schedules == ['0 20 * * 1', '30 20 * * 1', '0 21 * * 1']
+        fail_msg: "server rotation schedules are not staggered: {{ _schedules }}"
+      run_once: true
+
 - name: Verify serial server restarts
   hosts: server_nodes
   gather_facts: false
@@ -297,6 +335,21 @@
           - rke2_agent_config_parsed['cloud-provider-name'] == 'external'
         fail_msg: "agent config lacks profile: cis or cloud-provider-name: external"
 
+    - name: Assert agent config has the default data-dir
+      ansible.builtin.assert:
+        that: rke2_agent_config_parsed['data-dir'] == '/var/lib/rancher/rke2'
+        fail_msg: "agent config data-dir is {{ rke2_agent_config_parsed['data-dir'] | default('missing') }}"
+
+    - name: Read root's crontab on the agent
+      ansible.builtin.command: crontab -l -u root
+      register: root_crontab
+      changed_when: false
+
+    - name: Assert the agent rotates after the last server
+      ansible.builtin.assert:
+        that: root_crontab.stdout is search('(?m)^30 21 [*] [*] 1 ')
+        fail_msg: "agent rotation schedule is not after the servers: {{ root_crontab.stdout }}"
+
     - name: Assert agent config has server key
       ansible.builtin.assert:
         that: "'server' in rke2_agent_config_parsed"
@@ -310,7 +363,7 @@
         - rke2_vip_enabled | default(false) | bool
         - rke2_agent_server_address | default('') | length == 0
 
-- name: Verify rke2_server_join_address rendering
+- name: Verify rke2_server_join_address and rke2_data_dir rendering
   hosts: rke2-server2:rke2-agent1
   gather_facts: false
   # Task vars: they must win over the role defaults loaded from vars_files.
@@ -324,6 +377,7 @@
         mode: "0600"
       vars:
         rke2_server_join_address: "10.0.0.100"
+        rke2_data_dir: /data/rke2
         _rke2_cluster_token: "preset-token-ha"
         _rke2_agent_join_token: ""
 
@@ -339,4 +393,7 @@
         that:
           - _cfg['server'] == 'https://10.0.0.100:9345'
           - _cfg['token'] == 'preset-token-ha'
-        fail_msg: "server is {{ _cfg['server'] }}, expected https://10.0.0.100:9345 (token must fall back to the cluster token)"
+          - _cfg['data-dir'] == '/data/rke2'
+        fail_msg: >-
+          server is {{ _cfg['server'] }}, expected https://10.0.0.100:9345 (token must fall
+          back to the cluster token, data-dir must be /data/rke2: {{ _cfg['data-dir'] }})

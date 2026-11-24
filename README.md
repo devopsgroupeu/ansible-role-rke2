@@ -350,6 +350,13 @@ All variables are defined in [`defaults/main.yml`](defaults/main.yml) with inlin
 | `rke2_cert_rotation_enabled` | `false` | Enable automatic certificate rotation via cron |
 | `rke2_cert_rotation_expiry_threshold_days` | `20` | Rotate when cert expires within N days |
 | `rke2_cert_rotation_schedule_type` | `weekly` | Schedule type: `daily`, `weekly`, `monthly` |
+| `rke2_cert_rotation_stagger_minutes` | `30` | Minutes between the rotation jobs of consecutive nodes (servers first, then agents) |
+
+RKE2 already renews certificates that expire within 120 days every time it
+starts. The rotation cron job covers nodes that run longer than that without a
+restart. It stops RKE2 while it rotates, so each node runs it
+`rke2_cert_rotation_stagger_minutes` after the previous one. The role installs
+`cron` (`cronie` on EL) when rotation is enabled.
 
 ### etcd Snapshots
 

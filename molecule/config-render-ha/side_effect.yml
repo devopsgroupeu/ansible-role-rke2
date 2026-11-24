@@ -97,6 +97,33 @@
             state: absent
           delegate_to: rke2-server2
 
+- name: Refuse to move an installed agent to an empty data dir
+  hosts: agent_nodes
+  gather_facts: false
+  tasks:
+    - name: Run the agent tasks with a new rke2_data_dir
+      block:
+        - name: Include the version tasks
+          ansible.builtin.include_role:
+            name: ansible-role-rke2
+            tasks_from: version.yml
+
+        - name: Include the agent tasks
+          ansible.builtin.include_role:
+            name: ansible-role-rke2
+            tasks_from: agent.yml
+          vars:
+            rke2_data_dir: /data/rke2
+
+        - name: Fail when the guard did not fire
+          ansible.builtin.fail:
+            msg: an installed agent was moved to an empty rke2_data_dir
+      rescue:
+        - name: Assert the data dir guard fired
+          ansible.builtin.assert:
+            that: ansible_failed_result.msg is search('move\s+/var/lib/rancher/rke2\s+to\s+/data/rke2')
+            fail_msg: "unexpected failure: {{ ansible_failed_result.msg }}"
+
 # Second converge with one changed config value: every node's config.yaml
 # changes, so the restart handlers fire on all servers and the agent. verify.yml
 # then checks that the servers restarted one at a time.

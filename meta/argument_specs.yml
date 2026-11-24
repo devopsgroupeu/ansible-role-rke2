@@ -487,7 +487,11 @@ argument_specs:
         type: str
         required: false
         default: /var/lib/rancher/rke2
-        description: RKE2 data directory.
+        description: >
+          RKE2 data directory, rendered as data-dir on servers and agents.
+          Custom CA files, the cert rotation script and air-gap images follow
+          it. An installed agent whose data is still in
+          /var/lib/rancher/rke2/agent fails until the data is moved.
 
       rke2_node_ip:
         type: str
@@ -664,6 +668,16 @@ argument_specs:
         required: false
         default: 7
         description: Number of days to retain certificate rotation log files.
+
+      rke2_cert_rotation_stagger_minutes:
+        type: int
+        required: false
+        default: 30
+        description: >
+          Minutes between the rotation jobs of consecutive nodes. Servers run
+          in server_nodes order starting at the configured hour and minute,
+          agents follow after the last server; the time wraps around midnight.
+          0 runs the job on every node at the same time.
 
       # -----------------------------------------------------------------------
       # Additional packages

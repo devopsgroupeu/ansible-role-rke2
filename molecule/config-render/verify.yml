@@ -21,7 +21,7 @@
 
     - name: Read CNI HelmChartConfig manifest
       ansible.builtin.slurp:
-        src: /var/lib/rancher/rke2/server/manifests/rke2-calico-config.yml
+        src: /data/rke2/server/manifests/rke2-calico-config.yml
       register: cni_raw
 
     - name: Parse CNI manifest as YAML
@@ -64,7 +64,7 @@
 
     - name: Read kube-vip RBAC manifest
       ansible.builtin.slurp:
-        src: /var/lib/rancher/rke2/server/manifests/kube-vip-rbac.yml
+        src: /data/rke2/server/manifests/kube-vip-rbac.yml
       register: rbac_raw
 
     - name: Assert kube-vip RBAC grants endpointslices
@@ -115,7 +115,7 @@
 
     - name: Read kube-vip DaemonSet manifest
       ansible.builtin.slurp:
-        src: /var/lib/rancher/rke2/server/manifests/kube-vip.yml
+        src: /data/rke2/server/manifests/kube-vip.yml
       register: kubevip_ds_raw
 
     - name: Parse kube-vip DaemonSet manifest
@@ -150,13 +150,48 @@
 
     - name: Stat root CA private key after generation
       ansible.builtin.stat:
-        path: /var/lib/rancher/rke2/server/tls/root-ca.key
+        path: /data/rke2/server/tls/root-ca.key
       register: rootca_key
 
     - name: Assert root CA private key was removed
       ansible.builtin.assert:
         that: not rootca_key.stat.exists
         fail_msg: "root-ca.key was left on the node despite remove_signing_keys=true"
+
+    - name: Stat the generated cluster CA under rke2_data_dir
+      ansible.builtin.stat:
+        path: /data/rke2/server/tls/server-ca.crt
+      register: data_dir_server_ca
+
+    - name: Assert the custom CA was generated under rke2_data_dir
+      ansible.builtin.assert:
+        that:
+          - data_dir_server_ca.stat.exists
+          - server_config_parsed['data-dir'] == '/data/rke2'
+        fail_msg: "server-ca.crt is not in /data/rke2/server/tls or data-dir is not /data/rke2"
+
+    - name: Read the certificate rotation script
+      ansible.builtin.slurp:
+        src: /etc/rancher/certs_rotation/rotate_rke2_certs.sh
+      register: rotate_script_raw
+
+    - name: Assert the rotation script uses rke2_data_dir
+      ansible.builtin.assert:
+        that:
+          - "'DATA_DIR=/data/rke2' in (rotate_script_raw.content | b64decode)"
+          - "'certificate rotate --data-dir \"${DATA_DIR}\"' in (rotate_script_raw.content | b64decode)"
+          - "'/var/lib/rancher' not in (rotate_script_raw.content | b64decode)"
+        fail_msg: "rotate_rke2_certs.sh does not use rke2_data_dir"
+
+    - name: Read root's crontab
+      ansible.builtin.command: crontab -l -u root
+      register: root_crontab
+      changed_when: false
+
+    - name: Assert the rotation job is installed at the configured time (first server, no offset)
+      ansible.builtin.assert:
+        that: root_crontab.stdout is search('(?m)^0 20 \\* \\* 1 .*/etc/rancher/certs_rotation/rotate_rke2_certs.sh$')
+        fail_msg: "certificate rotation job missing from root's crontab: {{ root_crontab.stdout }}"
 
     - name: Stat audit policy file
       ansible.builtin.stat:
@@ -174,7 +209,7 @@
     # --- E3: data_dir parametrisation ---
     - name: Stat CNI manifest using rke2_data_dir path (E3)
       ansible.builtin.stat:
-        path: /var/lib/rancher/rke2/server/manifests/rke2-calico-config.yml
+        path: /data/rke2/server/manifests/rke2-calico-config.yml
       register: e3_cni_stat
 
     - name: Assert CNI manifest exists at rke2_data_dir-derived path (E3)
@@ -184,7 +219,7 @@
 
     - name: Stat kube-vip RBAC manifest using rke2_data_dir path (E3)
       ansible.builtin.stat:
-        path: /var/lib/rancher/rke2/server/manifests/kube-vip-rbac.yml
+        path: /data/rke2/server/manifests/kube-vip-rbac.yml
       register: e3_rbac_stat
 
     - name: Assert kube-vip RBAC manifest exists at rke2_data_dir-derived path (E3)
@@ -217,7 +252,7 @@
     # --- E9: ingress controller selector (traefik default) ---
     - name: Read Traefik HelmChartConfig manifest (E9)
       ansible.builtin.slurp:
-        src: /var/lib/rancher/rke2/server/manifests/rke2-traefik-config.yml
+        src: /data/rke2/server/manifests/rke2-traefik-config.yml
       register: traefik_cfg_raw
 
     - name: Assert Traefik HelmChartConfig renders name and valuesContent (E9)
@@ -238,7 +273,7 @@
     # --- E11: addon CRD fields (bootstrap/set/repoCA/authSecret/failurePolicy) ---
     - name: Read rendered argocd addon manifest (E11)
       ansible.builtin.slurp:
-        src: /var/lib/rancher/rke2/server/manifests/addon-argocd.yml
+        src: /data/rke2/server/manifests/addon-argocd.yml
       register: addon_argocd_raw
 
     - name: Assert addon CRD fields render (E11)
@@ -254,7 +289,7 @@
     # --- E12: rke2_helmchartconfigs ---
     - name: Read HelmChartConfig override manifest for rke2-coredns (E12)
       ansible.builtin.slurp:
-        src: /var/lib/rancher/rke2/server/manifests/helmchartconfig-rke2-coredns.yml
+        src: /data/rke2/server/manifests/helmchartconfig-rke2-coredns.yml
       register: hcc_coredns_raw
 
     - name: Assert HelmChartConfig override renders name and valuesContent (E12)
