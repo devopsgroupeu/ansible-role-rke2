@@ -18,6 +18,9 @@
     rke2_agent_token: "mock-agent-token-ha"
     rke2_agent_server_address: "rke2-server1"
     rke2_cert_rotation_enabled: false
+    rke2_cis_profile: cis
+    rke2_cloud_provider_name: external
+    rke2_disable_cloud_controller: true
     rke2_additional_packages: []
     rke2_audit_policy: |
       apiVersion: audit.k8s.io/v1

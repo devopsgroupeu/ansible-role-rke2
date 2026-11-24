@@ -871,10 +871,11 @@ argument_specs:
         type: str
         required: false
         default: ""
-        choices: ["", "cis", "cis-1.23"]
+        choices: ["", "cis", "etcd"]
         description: >
-          RKE2 CIS hardening profile. Options: cis (RKE2 >= 1.25) or cis-1.23
-          (legacy). Leave empty to disable.
+          RKE2 hardening profile, rendered on servers and agents. cis applies
+          the CIS kernel parameters and creates the etcd user; etcd only
+          creates the etcd user and group. Leave empty to disable.
 
       rke2_audit_policy:
         type: str

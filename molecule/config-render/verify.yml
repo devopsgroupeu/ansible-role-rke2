@@ -93,6 +93,26 @@
         that: cis_sysctl.stat.exists
         fail_msg: "/etc/sysctl.d/60-rke2-cis.conf not deployed for CIS profile"
 
+    - name: Read live CIS kernel parameters
+      ansible.builtin.slurp:
+        src: "/proc/sys/{{ item }}"
+      loop:
+        - kernel/panic
+        - vm/overcommit_memory
+      register: cis_live
+
+    - name: Assert CIS kernel parameters are live before RKE2 starts
+      ansible.builtin.assert:
+        that:
+          - (cis_live.results[0].content | b64decode | trim) == '10'
+          - (cis_live.results[1].content | b64decode | trim) == '1'
+        fail_msg: "CIS kernel parameters are not live (kernel.panic=10, vm.overcommit_memory=1)"
+
+    - name: Assert profile cis is rendered on the server
+      ansible.builtin.assert:
+        that: server_config_parsed['profile'] == 'cis'
+        fail_msg: "profile: cis missing from the server config"
+
     - name: Read kube-vip DaemonSet manifest
       ansible.builtin.slurp:
         src: /var/lib/rancher/rke2/server/manifests/kube-vip.yml

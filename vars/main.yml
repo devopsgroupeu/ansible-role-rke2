@@ -1,1 +1,10 @@
 ---
+# Kernel parameters for rke2_cis_profile: cis. RKE2 checks the first four on
+# every start and refuses to start when they differ; root_maxbytes comes from
+# the RKE2 hardening guide.
+_rke2_cis_sysctls:
+  vm.panic_on_oom: 0
+  vm.overcommit_memory: 1
+  kernel.panic: 10
+  kernel.panic_on_oops: 1
+  kernel.keys.root_maxbytes: 25000000

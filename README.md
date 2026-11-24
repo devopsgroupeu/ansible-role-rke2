@@ -366,7 +366,7 @@ RKE2 takes local etcd snapshots by default; set `rke2_etcd_disable_snapshots: tr
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `rke2_cis_profile` | `""` | CIS hardening profile: `cis` (RKE2 ≥ 1.25) or `cis-1.23` |
+| `rke2_cis_profile` | `""` | Hardening profile for servers and agents: `cis` (kernel parameters + etcd user) or `etcd` (etcd user only) |
 | `rke2_selinux` | `false` | Enable SELinux mode for RKE2 and containerd |
 
 > **Secrets encryption at rest:** RKE2 enables secrets encryption (aescbc) by

@@ -51,6 +51,29 @@
         fail_msg: "VIP 10.0.0.100 not found in tls-san: {{ rke2_config_parsed.get('tls-san', []) }}"
       when: inventory_hostname == groups['server_nodes'][0]
 
+    - name: Assert profile etcd is rendered
+      ansible.builtin.assert:
+        that: rke2_config_parsed['profile'] == 'etcd'
+        fail_msg: "profile: etcd missing from the server config"
+
+    - name: Check etcd user exists for profile etcd
+      ansible.builtin.command: id etcd
+      register: etcd_user_check
+      changed_when: false
+      failed_when: false
+
+    - name: Stat CIS sysctl drop-in for profile etcd
+      ansible.builtin.stat:
+        path: /etc/sysctl.d/60-rke2-cis.conf
+      register: cis_sysctl
+
+    - name: Assert profile etcd creates the etcd user but sets no CIS sysctls
+      ansible.builtin.assert:
+        that:
+          - etcd_user_check.rc == 0
+          - not cis_sysctl.stat.exists
+        fail_msg: "profile etcd must create the etcd user and skip the CIS sysctls"
+
     # ---- keepalived package -------------------------------------------------
 
     - name: Check keepalived is installed

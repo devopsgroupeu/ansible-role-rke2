@@ -436,7 +436,9 @@ rke2_cloud_provider_name: ""
 # CIS Kubernetes benchmark hardening profile.
 # Activates RKE2's built-in CIS hardening — sets secure defaults for
 # API server, controller-manager, scheduler, etcd and kubelet.
-# Options: "cis" (RKE2 >= 1.25) or "cis-1.23" (legacy)
+# Rendered on servers AND agents.
+# Options: "cis" (CIS kernel parameters + etcd user) or "etcd" (etcd user and
+# group only). RKE2 accepts no other value.
 rke2_cis_profile: ""
 
 # Kubernetes audit policy. When set (full YAML body), the role writes it to

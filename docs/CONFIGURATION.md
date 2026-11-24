@@ -427,7 +427,7 @@ rke2_kubelet_args:
 
 | Variable | Default | Description |
 |---|---|---|
-| `rke2_cis_profile` | `""` | CIS Kubernetes benchmark profile. Options: `cis` (RKE2 ≥ 1.25) or `cis-1.23` (legacy). Activates RKE2's built-in hardened defaults for all control plane components. |
+| `rke2_cis_profile` | `""` | Hardening profile, rendered on servers and agents. Options: `cis` (activates RKE2's built-in CIS hardened defaults; the role sets the required kernel parameters live and in `/etc/sysctl.d/60-rke2-cis.conf` before RKE2 starts, and creates the etcd user) or `etcd` (etcd user and group only). |
 | `rke2_selinux` | `false` | Enable SELinux mode in RKE2 and containerd. On RHEL-family nodes the role automatically installs `container-selinux`. When `false` on RHEL, SELinux is set to `permissive`. |
 | `rke2_audit_policy` | `""` | Full YAML body of a Kubernetes audit policy. When set, the role deploys `/etc/rancher/rke2/audit-policy.yaml` (mode 0600) and emits `audit-policy-file` in `config.yaml`. |
 

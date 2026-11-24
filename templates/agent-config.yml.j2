@@ -45,6 +45,14 @@ debug: true
 selinux: true
 {% endif %}
 
+{% if rke2_cis_profile | default('') | length > 0 %}
+profile: {{ rke2_cis_profile | to_json }}
+{% endif %}
+
+{% if rke2_cloud_provider_name | default('') | length > 0 %}
+cloud-provider-name: {{ rke2_cloud_provider_name | to_json }}
+{% endif %}
+
 {% if rke2_kubelet_args | default([]) | length > 0 %}
 kubelet-arg:
 {% for arg in rke2_kubelet_args %}
