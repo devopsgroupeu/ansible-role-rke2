@@ -118,7 +118,9 @@ rke2_agent_server_address: ""
 # kube-vip version (only used when rke2_vip_manager=kubevip).
 # v1.x defaults to EndpointSlices for service watch — the kube-vip RBAC in this
 # role grants discovery.k8s.io/endpointslices accordingly.
-rke2_kubevip_version: "v1.2.0"
+# Since v1.3.0 kube-vip restricts shared service VIPs to Services in the same
+# lease; read the kube-vip v1.3.0 release notes if you share service VIPs.
+rke2_kubevip_version: "v1.3.2"
 
 # Control-plane port kube-vip advertises the VIP on (RKE2 apiserver = 6443).
 rke2_kubevip_port: "6443"
@@ -136,7 +138,7 @@ rke2_kubevip_metrics_port: 0
 # Deploy the kube-vip cloud provider (enables LoadBalancer-type Services).
 # Requires rke2_vip_manager=kubevip and rke2_kubevip_load_balancer_ip_range to be set.
 rke2_kubevip_cloud_provider_enabled: false
-rke2_kubevip_cloud_provider_image: "ghcr.io/kube-vip/kube-vip-cloud-provider:v0.0.12"
+rke2_kubevip_cloud_provider_image: "ghcr.io/kube-vip/kube-vip-cloud-provider:v0.0.13"
 
 # IP pool for LoadBalancer-type Services assigned by the cloud provider.
 # Accepts CIDR notation (e.g. "192.168.0.200/29") or a range (e.g. "192.168.0.200-192.168.0.250").
@@ -428,14 +430,20 @@ rke2_kube_proxy_args: []
 # Cloud provider
 # ----------------------------------------------------------------------------
 # Set to true to disable RKE2's built-in cloud controller manager.
-# Required when using an external cloud controller (e.g. kube-vip cloud provider,
-# AWS CCM, Azure CCM). For on-prem bare-metal leave false.
+# Only when a real external cloud controller manager (e.g. AWS CCM, Azure CCM,
+# hcloud CCM) initialises the nodes. The kube-vip cloud provider is NOT one:
+# it only implements LoadBalancer Services, so keep this false with it.
 rke2_disable_cloud_controller: false
 
 # Cloud provider name passed to kubelet/API server.
 # Set to "external" when using any external cloud controller manager.
 # Leave empty for default RKE2 behaviour.
 rke2_cloud_provider_name: ""
+
+# Set true when a third-party CCM (e.g. hcloud CCM) initialises the nodes.
+# Only then does the role accept rke2_kubevip_cloud_provider_enabled together
+# with rke2_disable_cloud_controller: true.
+rke2_external_ccm_deployed: false
 
 # ----------------------------------------------------------------------------
 # Hardening

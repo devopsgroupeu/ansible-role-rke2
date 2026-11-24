@@ -38,6 +38,10 @@ spec:
               value: "{{ rke2_vip_address }}"
             - name: vip_interface
               value: "{{ rke2_vip_interface }}"
+            - name: vip_nodename
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
             - name: port
               value: "{{ rke2_kubevip_port }}"
             - name: vip_subnet

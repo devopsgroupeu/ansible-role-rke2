@@ -106,13 +106,14 @@ rke2_cni_configs:
 
 | Variable | Default | Description |
 |---|---|---|
-| `rke2_kubevip_version` | `"v1.2.0"` | kube-vip image tag. |
+| `rke2_kubevip_version` | `"v1.3.2"` | kube-vip image tag. Since kube-vip v1.3.0, shared service VIPs are restricted to Services in the same lease (see the kube-vip v1.3.0 release notes). |
 | `rke2_kubevip_port` | `"6443"` | Control-plane port kube-vip advertises the VIP on. |
 | `rke2_kubevip_svc_enable` | `false` | Enable kube-vip watching of LoadBalancer-type Services (`svc_enable`). Automatically set when `rke2_kubevip_cloud_provider_enabled` is `true`. |
 | `rke2_kubevip_service_election_enable` | `false` | Enable per-service leader election (`svc_election`). |
 | `rke2_kubevip_metrics_port` | `0` | Port for kube-vip Prometheus metrics. `0` disables the metrics endpoint. |
 | `rke2_kubevip_cloud_provider_enabled` | `false` | Deploy the kube-vip cloud provider for LoadBalancer-type Services. Requires `rke2_kubevip_load_balancer_ip_range`. |
-| `rke2_kubevip_cloud_provider_image` | `ghcr.io/kube-vip/kube-vip-cloud-provider:v0.0.12` | Image for the kube-vip cloud provider StatefulSet. |
+| `rke2_kubevip_cloud_provider_image` | `ghcr.io/kube-vip/kube-vip-cloud-provider:v0.0.13` | Image for the kube-vip cloud provider StatefulSet. |
+| `rke2_external_ccm_deployed` | `false` | Set `true` only when a third-party cloud controller manager (e.g. hcloud CCM) initialises nodes. The kube-vip cloud provider implements only LoadBalancer Services, so the role refuses `rke2_kubevip_cloud_provider_enabled` with `rke2_disable_cloud_controller: true` unless this is set. |
 | `rke2_kubevip_load_balancer_ip_range` | `""` | IP pool for LoadBalancer Services. Accepts CIDR (`192.168.0.200/29`) or range (`192.168.0.200-192.168.0.250`). |
 
 **kube-vip example:**
@@ -122,7 +123,7 @@ rke2_vip_enabled: true
 rke2_vip_address: "10.0.0.100"
 rke2_vip_interface: "ens3"
 rke2_vip_manager: kubevip
-rke2_kubevip_version: "v1.2.0"
+rke2_kubevip_version: "v1.3.2"
 ```
 
 ### keepalived VRRP (when `rke2_vip_manager=keepalived`)
@@ -406,7 +407,7 @@ rke2_kubelet_args:
 
 | Variable | Default | Description |
 |---|---|---|
-| `rke2_disable_cloud_controller` | `false` | Disable RKE2's built-in cloud controller manager. Required when using an external cloud controller (e.g. kube-vip cloud provider, AWS CCM). |
+| `rke2_disable_cloud_controller` | `false` | Disable RKE2's built-in cloud controller manager. Only when a real external cloud controller manager (e.g. AWS CCM, hcloud CCM) initialises the nodes; the kube-vip cloud provider is not one. |
 | `rke2_cloud_provider_name` | `""` | Cloud provider name passed to kubelet and the API server. Set to `"external"` when using any external cloud controller manager. |
 
 ---

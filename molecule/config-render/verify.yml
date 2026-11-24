@@ -118,10 +118,18 @@
         src: /var/lib/rancher/rke2/server/manifests/kube-vip.yml
       register: kubevip_ds_raw
 
-    - name: Assert kube-vip image is v1.x
+    - name: Parse kube-vip DaemonSet manifest
+      ansible.builtin.set_fact:
+        kubevip_ds: "{{ kubevip_ds_raw.content | b64decode | from_yaml }}"
+
+    - name: Assert kube-vip image is the default tag and vip_nodename uses the node name
       ansible.builtin.assert:
-        that: "'kube-vip:v1.' in (kubevip_ds_raw.content | b64decode)"
-        fail_msg: "kube-vip DaemonSet not pinned to a v1.x image"
+        that:
+          - kubevip_ds.spec.template.spec.containers[0].image == 'ghcr.io/kube-vip/kube-vip:v1.3.2'
+          - >-
+            (kubevip_ds.spec.template.spec.containers[0].env | selectattr('name', 'equalto', 'vip_nodename')
+             | map(attribute='valueFrom') | first).fieldRef.fieldPath == 'spec.nodeName'
+        fail_msg: "kube-vip DaemonSet image is not v1.3.2 or vip_nodename is not set from spec.nodeName"
 
     - name: Assert kube-vip DaemonSet sets port and vip_subnet
       ansible.builtin.assert:

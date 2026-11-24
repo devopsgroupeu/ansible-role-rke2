@@ -280,12 +280,13 @@ All variables are defined in [`defaults/main.yml`](defaults/main.yml) with inlin
 | `rke2_vip_address` | `""` | The VIP IP address |
 | `rke2_vip_interface` | `eth0` | Network interface for VIP |
 | `rke2_vip_manager` | `kubevip` | VIP manager: `kubevip` or `keepalived` |
-| `rke2_kubevip_version` | `v1.2.0` | kube-vip image tag |
+| `rke2_kubevip_version` | `v1.3.2` | kube-vip image tag. Since v1.3.0 shared service VIPs are restricted to Services in the same lease |
 | `rke2_kubevip_svc_enable` | `false` | Enable kube-vip watching of LoadBalancer Services |
 | `rke2_kubevip_service_election_enable` | `false` | Per-service leader election |
 | `rke2_kubevip_metrics_port` | `0` | Prometheus metrics port (0 = disabled) |
 | `rke2_kubevip_cloud_provider_enabled` | `false` | Deploy kube-vip cloud provider for LoadBalancer Services |
-| `rke2_kubevip_cloud_provider_image` | `ghcr.io/kube-vip/kube-vip-cloud-provider:v0.0.12` | Cloud provider image |
+| `rke2_kubevip_cloud_provider_image` | `ghcr.io/kube-vip/kube-vip-cloud-provider:v0.0.13` | Cloud provider image |
+| `rke2_external_ccm_deployed` | `false` | A third-party CCM initialises nodes; allows the kube-vip cloud provider with `rke2_disable_cloud_controller: true` |
 | `rke2_kubevip_load_balancer_ip_range` | `""` | IP pool: CIDR (`192.168.0.200/29`) or range (`192.168.0.200-192.168.0.250`) |
 | `rke2_keepalived_router_id` | `51` | VRRP virtual router ID (1-255, unique per subnet) |
 | `rke2_keepalived_priority_master` | `101` | VRRP priority for first server (MASTER) |
@@ -498,11 +499,16 @@ vars:
   # Enable cloud provider
   rke2_kubevip_cloud_provider_enabled: true
   rke2_kubevip_load_balancer_ip_range: "10.0.0.200-10.0.0.250"
-
-  # Required: disable the built-in cloud controller and set provider to external
-  rke2_disable_cloud_controller: true
-  rke2_cloud_provider_name: "external"
 ```
+
+Keep the built-in RKE2 cloud controller enabled (the default,
+`rke2_disable_cloud_controller: false`). kube-vip-cloud-provider only
+implements LoadBalancer Services and does not initialise nodes: with the
+built-in CCM disabled and no other CCM, every node keeps the
+`node.cloudprovider.kubernetes.io/uninitialized` taint and nothing schedules.
+The role refuses that combination unless `rke2_external_ccm_deployed: true`
+says a third-party CCM (e.g. the hcloud CCM, with
+`rke2_cloud_provider_name: external`) initialises the nodes.
 
 The role automatically enables `svc_enable=true` on the kube-vip DaemonSet when the cloud provider is enabled. Accepts CIDR notation (`192.168.0.200/29`) or a range (`192.168.0.200-192.168.0.250`).
 

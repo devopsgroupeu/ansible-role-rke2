@@ -161,12 +161,35 @@
         src: /var/lib/rancher/rke2/server/manifests/kube-vip-rbac.yml
       register: kubevip_rbac_raw
 
-    - name: Assert kube-vip RBAC grants endpointslices and image is v1.x (VIP-1/VIP-2)
+    - name: Assert kube-vip RBAC grants endpointslices and image is the default tag (VIP-1/VIP-2)
       ansible.builtin.assert:
         that:
           - "'endpointslices' in (kubevip_rbac_raw.content | b64decode)"
-          - "'kube-vip:v1.' in (kubevip_manifest_raw.content | b64decode)"
-        fail_msg: "kube-vip RBAC missing endpointslices or image is not v1.x"
+          - kubevip_parsed.spec.template.spec.containers[0].image == 'ghcr.io/kube-vip/kube-vip:v1.3.2'
+          - >-
+            (kubevip_parsed.spec.template.spec.containers[0].env | selectattr('name', 'equalto', 'vip_nodename')
+             | map(attribute='valueFrom') | first).fieldRef.fieldPath == 'spec.nodeName'
+        fail_msg: "kube-vip RBAC missing endpointslices, image is not v1.3.2 or vip_nodename is not from spec.nodeName"
+
+    - name: Read kube-vip cloud provider manifest
+      ansible.builtin.slurp:
+        src: /var/lib/rancher/rke2/server/manifests/kube-vip-cloud-controller.yml
+      register: kubevip_cloud_raw
+
+    - name: Assert the cloud provider tolerates control-plane taints and uses v0.0.13
+      vars:
+        _sts: >-
+          {{ kubevip_cloud_raw.content | b64decode | from_yaml_all | selectattr('kind', 'equalto', 'StatefulSet') | first }}
+      ansible.builtin.assert:
+        that:
+          - _sts.spec.template.spec.containers[0].image == 'ghcr.io/kube-vip/kube-vip-cloud-provider:v0.0.13'
+          - >-
+            _sts.spec.template.spec.tolerations | selectattr('key', 'equalto', 'node-role.kubernetes.io/control-plane')
+            | list | length == 1
+          - >-
+            _sts.spec.template.spec.tolerations | selectattr('key', 'equalto', 'CriticalAddonsOnly')
+            | list | length == 1
+        fail_msg: "kube-vip cloud provider StatefulSet lacks control-plane tolerations or the v0.0.13 image"
 
     - name: Check audit policy file exists on ALL server nodes
       ansible.builtin.stat:

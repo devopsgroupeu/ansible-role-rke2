@@ -7,3 +7,31 @@
   vars:
     rke2_kubelet_args:
       - "max-pods=120"
+
+- name: Reject the kube-vip cloud provider without a CCM that initialises nodes
+  hosts: server_nodes
+  gather_facts: false
+  tasks:
+    - name: Run the VIP tasks with the built-in CCM disabled and no external CCM
+      block:
+        - name: Include the VIP tasks
+          ansible.builtin.include_role:
+            name: ansible-role-rke2
+            tasks_from: vip.yml
+          vars:
+            rke2_vip_enabled: true
+            rke2_vip_address: "10.0.0.100"
+            rke2_vip_manager: kubevip
+            rke2_kubevip_cloud_provider_enabled: true
+            rke2_kubevip_load_balancer_ip_range: "10.0.0.200-10.0.0.220"
+            rke2_disable_cloud_controller: true
+            rke2_external_ccm_deployed: false
+
+        - name: Fail when the guard did not fire
+          ansible.builtin.fail:
+            msg: kube-vip cloud provider with a disabled CCM was not rejected
+      rescue:
+        - name: Assert the CCM guard fired
+          ansible.builtin.assert:
+            that: ansible_failed_result.msg is search('rke2_external_ccm_deployed')
+            fail_msg: "unexpected failure: {{ ansible_failed_result.msg }}"

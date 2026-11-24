@@ -220,7 +220,7 @@ argument_specs:
       rke2_kubevip_version:
         type: str
         required: false
-        default: v1.2.0
+        default: v1.3.2
         description: kube-vip image tag. Only used when rke2_vip_manager is 'kubevip'.
 
       rke2_kubevip_port:
@@ -264,7 +264,7 @@ argument_specs:
       rke2_kubevip_cloud_provider_image:
         type: str
         required: false
-        default: ghcr.io/kube-vip/kube-vip-cloud-provider:v0.0.12
+        default: ghcr.io/kube-vip/kube-vip-cloud-provider:v0.0.13
         description: Image for the kube-vip cloud provider StatefulSet.
 
       rke2_kubevip_load_balancer_ip_range:
@@ -811,8 +811,18 @@ argument_specs:
         required: false
         default: false
         description: >
-          Disable RKE2's built-in cloud controller manager. Required when using
-          an external cloud controller (e.g. kube-vip cloud provider, AWS CCM).
+          Disable RKE2's built-in cloud controller manager. Only when a real
+          external cloud controller manager (e.g. AWS CCM, hcloud CCM)
+          initialises the nodes; the kube-vip cloud provider is not one.
+
+      rke2_external_ccm_deployed:
+        type: bool
+        required: false
+        default: false
+        description: >
+          A third-party cloud controller manager initialises the nodes. Only
+          then does the role accept rke2_kubevip_cloud_provider_enabled with
+          rke2_disable_cloud_controller true.
 
       rke2_cloud_provider_name:
         type: str

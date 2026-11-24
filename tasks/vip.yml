@@ -15,6 +15,23 @@
       rke2_vip_address must be set, rke2_vip_manager must be kubevip|keepalived,
       and the VIP must NOT fall inside rke2_kubevip_load_balancer_ip_range.
 
+# kube-vip-cloud-provider only implements LoadBalancer Services. With the
+# built-in RKE2 CCM disabled and no other CCM, nothing clears the
+# node.cloudprovider.kubernetes.io/uninitialized taint and nothing schedules.
+- name: Assert the kube-vip cloud provider keeps a CCM that initialises nodes
+  ansible.builtin.assert:
+    that:
+      - not (rke2_disable_cloud_controller | default(false) | bool) or (rke2_external_ccm_deployed | bool)
+    fail_msg: >-
+      rke2_kubevip_cloud_provider_enabled with rke2_disable_cloud_controller: true
+      leaves every node tainted node.cloudprovider.kubernetes.io/uninitialized:
+      kube-vip-cloud-provider only implements LoadBalancer Services. Keep the
+      built-in RKE2 cloud controller (rke2_disable_cloud_controller: false), or set
+      rke2_external_ccm_deployed: true when a third-party CCM initialises the nodes.
+  when:
+    - rke2_vip_manager == 'kubevip'
+    - rke2_kubevip_cloud_provider_enabled | bool
+
 - name: Validate keepalived auth_pass length
   ansible.builtin.assert:
     that:
