@@ -298,6 +298,7 @@ All variables are defined in [`defaults/main.yml`](defaults/main.yml) with inlin
 | `rke2_keepalived_failover_script_content` | `""` | Shell script body executed when this node becomes MASTER |
 | `rke2_keepalived_failover_env` | `{}` | Key/value pairs written to a protected env file (mode 0600) |
 | `rke2_agent_server_address` | `""` | Override server address in agent config (useful on cloud SDN networks) |
+| `rke2_server_join_address` | `""` | Fixed registration address for additional servers and agents (load balancer, DNS name) |
 
 ### Networking
 
@@ -650,18 +651,21 @@ Restoring from S3 uses the same flags plus `--etcd-s3` and the S3 flags.
 
 ## Separate Agent Token
 
-RKE2 supports a dedicated agent token that gives worker nodes less cluster access than server nodes. Set different token values per group:
+RKE2 supports a dedicated agent token that gives worker nodes less cluster
+access than server nodes. Anyone with the server token essentially has full
+administrator access, so agents should only ever get the agent token. Define
+both tokens for all hosts:
 
 ```yaml
-# group_vars/server_nodes.yml
-rke2_cluster_token: "my-strong-server-token"
-rke2_agent_token: "my-agent-token"
-
-# group_vars/agent_nodes.yml
-rke2_cluster_token: "my-agent-token"
+# group_vars/all.yml
+rke2_cluster_token: "{{ vault_rke2_cluster_token }}"
+rke2_agent_token: "{{ vault_rke2_agent_token }}"
 ```
 
-When `rke2_agent_token` is set on servers, agent nodes must use that token (passed as `rke2_cluster_token` in their group vars). The role writes `agent-token` into the server config and uses `rke2_agent_token` (when set) as the `token` in the agent config automatically.
+The role writes `agent-token` into the server config and uses
+`rke2_agent_token` as the `token` in the agent config. A `rke2_agent_token`
+defined only for `server_nodes` is still read from the first server's host vars
+for the agents, so agents never fall back to the server token by accident.
 
 ---
 

@@ -1,4 +1,102 @@
 ---
+# Runs before any play of this file sets facts: the first server is not part
+# of the play and its token fact is unknown, so token.yml reads node-token
+# from it (the --limit / agents-only path).
+- name: Resolve the join token without the first server in the play
+  hosts: agent_nodes
+  gather_facts: false
+  tasks:
+    - name: Include the token tasks
+      ansible.builtin.include_role:
+        name: ansible-role-rke2
+        tasks_from: token.yml
+      vars:
+        rke2_cluster_token: ""
+
+    - name: Assert the token was read from the first server
+      ansible.builtin.assert:
+        that: _rke2_cluster_token == 'mock-cluster-token-for-ha-testing'
+        fail_msg: the join token was not read from the first server's node-token
+
+- name: Agents-only converge (first server not in the play)
+  ansible.builtin.import_playbook: converge.yml
+  vars:
+    rke2_converge_hosts: agent_nodes
+
+- name: Reject a preset token that differs from the existing cluster token
+  hosts: rke2-server1
+  gather_facts: false
+  tasks:
+    - name: Run the server tasks with a mismatching existing token
+      block:
+        - name: Replace the existing cluster token
+          ansible.builtin.copy:
+            dest: /var/lib/rancher/rke2/server/token
+            content: "K10mockcahash::server:another-password"
+            mode: "0600"
+
+        - name: Include the version tasks
+          ansible.builtin.include_role:
+            name: ansible-role-rke2
+            tasks_from: version.yml
+
+        - name: Include the server tasks
+          ansible.builtin.include_role:
+            name: ansible-role-rke2
+            tasks_from: server.yml
+          vars:
+            rke2_cluster_token: "preset-token-ha"
+
+        - name: Fail when the guard did not fire
+          ansible.builtin.fail:
+            msg: a mismatching rke2_cluster_token was not rejected
+      rescue:
+        - name: Assert the token guard fired
+          ansible.builtin.assert:
+            that: ansible_failed_result.msg is search('rke2 token rotate')
+            fail_msg: "unexpected failure: {{ ansible_failed_result.msg }}"
+      always:
+        - name: Restore the existing cluster token
+          ansible.builtin.copy:
+            dest: /var/lib/rancher/rke2/server/token
+            content: "K10mockcahash::server:preset-token-ha"
+            mode: "0600"
+
+# run_once failures fail every host of the play, so the check runs from the
+# first server only; it inspects all servers through delegation.
+- name: Refuse to initialise a second cluster on an empty first server
+  hosts: rke2-server1
+  gather_facts: false
+  tasks:
+    - name: Run the bootstrap check with etcd data on the second server only
+      block:
+        - name: Create etcd data on the second server
+          ansible.builtin.file:
+            path: /var/lib/rancher/rke2/server/db/etcd
+            state: directory
+            mode: "0700"
+          delegate_to: rke2-server2
+
+        - name: Include the bootstrap check
+          ansible.builtin.include_role:
+            name: ansible-role-rke2
+            tasks_from: bootstrap_check.yml
+
+        - name: Fail when the guard did not fire
+          ansible.builtin.fail:
+            msg: an empty first server with an initialised peer was not rejected
+      rescue:
+        - name: Assert the bootstrap guard fired
+          ansible.builtin.assert:
+            that: ansible_failed_result.msg is search('second, independent cluster')
+            fail_msg: "unexpected failure: {{ ansible_failed_result.msg }}"
+      always:
+        - name: Remove the etcd data again
+          ansible.builtin.file:
+            path: /var/lib/rancher/rke2/server/db
+            state: absent
+          delegate_to: rke2-server2
+
 # Second converge with one changed config value: every node's config.yaml
 # changes, so the restart handlers fire on all servers and the agent. verify.yml
 # then checks that the servers restarted one at a time.

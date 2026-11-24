@@ -1,0 +1,33 @@
+---
+# Join token for additional servers and agents. Also works when the first
+# server is not part of the play (--limit, agents-only runs): the token then
+# comes from rke2_cluster_token or is read from the first server's node-token.
+- name: Read the cluster token from the first server
+  ansible.builtin.slurp:
+    src: "{{ rke2_data_dir }}/server/node-token"
+  delegate_to: "{{ groups['server_nodes'][0] }}"
+  register: _rke2_first_server_token
+  no_log: true
+  check_mode: false
+  failed_when: false
+  when:
+    - rke2_cluster_token | default('') | length == 0
+    - hostvars[groups['server_nodes'][0]]['_rke2_cluster_token'] is not defined
+
+- name: Set the cluster join token
+  ansible.builtin.set_fact:
+    _rke2_cluster_token: >-
+      {{ rke2_cluster_token if rke2_cluster_token | default('') | length > 0
+         else hostvars[groups['server_nodes'][0]]['_rke2_cluster_token']
+              | default(_rke2_first_server_token.content | default('') | b64decode | trim) }}
+  no_log: true
+
+- name: Assert the cluster join token is known
+  ansible.builtin.assert:
+    that:
+      - _rke2_cluster_token | length > 0
+    fail_msg: >-
+      Could not determine the cluster join token for {{ inventory_hostname }}:
+      set rke2_cluster_token, or make sure {{ groups['server_nodes'][0] }} is
+      reachable and has {{ rke2_data_dir }}/server/node-token.
+    quiet: true

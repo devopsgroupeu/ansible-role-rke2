@@ -56,7 +56,8 @@ argument_specs:
         description: >
           Optional separate token for agent nodes. When set, agents authenticate
           with this token instead of rke2_cluster_token, giving them less cluster
-          access than server nodes.
+          access than server nodes. A value scoped to server_nodes only is read
+          from the first server's host vars for the agents.
 
       rke2_cluster_token:
         type: str
@@ -65,7 +66,9 @@ argument_specs:
         description: >
           Pre-set cluster token. When empty the role reads the auto-generated
           token from /var/lib/rancher/rke2/server/node-token on the first server
-          and distributes it to all other nodes.
+          and distributes it to all other nodes. When set, the first server is
+          configured with it as well, and the role fails if it differs from the
+          token of an existing cluster.
 
       rke2_allow_downgrade:
         type: bool
@@ -285,6 +288,16 @@ argument_specs:
           When empty, defaults to rke2_vip_address (if VIP enabled) or the first
           server node's ansible_host. Set this on cloud SDN environments (e.g. Hetzner
           private networks) where gratuitous-ARP VIPs are not directly routable.
+
+      rke2_server_join_address:
+        type: str
+        required: false
+        default: ""
+        description: >
+          Fixed registration address (host or IP, port 9345) for additional
+          servers and agents, e.g. a load balancer or DNS name. Agents still
+          prefer rke2_agent_server_address and the VIP. Empty uses the first
+          server's ansible_host.
 
       rke2_keepalived_router_id:
         type: int

@@ -28,6 +28,47 @@
       rke2_extra_config sets a key already managed by a dedicated variable;
       use the dedicated variable instead to avoid duplicate YAML keys.
 
+- name: Check for the token of an existing cluster on the first server
+  ansible.builtin.stat:
+    path: "{{ rke2_data_dir }}/server/token"
+  register: _rke2_existing_token_file
+  check_mode: false
+  when:
+    - inventory_hostname == groups['server_nodes'][0]
+    - rke2_cluster_token | default('') | length > 0
+
+- name: Read the token of the existing cluster
+  ansible.builtin.slurp:
+    src: "{{ rke2_data_dir }}/server/token"
+  register: _rke2_existing_token
+  no_log: true
+  check_mode: false
+  when:
+    - inventory_hostname == groups['server_nodes'][0]
+    - rke2_cluster_token | default('') | length > 0
+    - _rke2_existing_token_file.stat.exists
+
+# server/token holds the full token (K10<ca-hash>::server:<password>). A preset
+# without "::" is the password part only.
+- name: Assert rke2_cluster_token matches the existing cluster token
+  vars:
+    _existing: "{{ _rke2_existing_token.content | b64decode | trim }}"
+  ansible.builtin.assert:
+    that:
+      - >-
+        (_existing == rke2_cluster_token) if '::' in rke2_cluster_token
+        else ((_existing | regex_replace('^.*?::server:', '')) == rke2_cluster_token)
+    fail_msg: >-
+      rke2_cluster_token does not match the token of the existing cluster on
+      {{ inventory_hostname }} ({{ rke2_data_dir }}/server/token). RKE2 would refuse
+      the new token; rotate it first with `rke2 token rotate` and then update
+      rke2_cluster_token.
+    quiet: true
+  when:
+    - inventory_hostname == groups['server_nodes'][0]
+    - rke2_cluster_token | default('') | length > 0
+    - _rke2_existing_token_file.stat.exists
+
 - name: Install RKE2 server (internet)
   ansible.builtin.shell: |
     set -o pipefail
@@ -136,9 +177,15 @@
     - rke2_cluster_token | default('') | length == 0
     - _rke2_node_token.content is defined
 
+- name: Resolve the cluster join token (additional nodes)
+  ansible.builtin.import_tasks: token.yml
+  when: inventory_hostname != groups['server_nodes'][0]
+
 - name: Wait for RKE2 first server registration API to be available
   ansible.builtin.wait_for:
-    host: "{{ hostvars[groups['server_nodes'][0]]['ansible_host'] | default(groups['server_nodes'][0]) }}"
+    host: >-
+      {{ rke2_server_join_address if rke2_server_join_address | default('') | length > 0
+         else hostvars[groups['server_nodes'][0]]['ansible_host'] | default(groups['server_nodes'][0]) }}
     port: 9345
     timeout: 300
   when:

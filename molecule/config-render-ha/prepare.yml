@@ -176,6 +176,13 @@
         content: "mock-cluster-token-for-ha-testing"
         mode: "0600"
 
+    - name: Create the existing cluster token on the first server (matches the preset)
+      ansible.builtin.copy:
+        dest: /var/lib/rancher/rke2/server/token
+        content: "K10mockcahash::server:preset-token-ha"
+        mode: "0600"
+      when: inventory_hostname == groups['server_nodes'][0]
+
     - name: Enable and start mock rke2-server service
       ansible.builtin.command: systemctl enable --now rke2-server # noqa: command-instead-of-module
       changed_when: false

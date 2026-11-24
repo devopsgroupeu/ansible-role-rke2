@@ -1,6 +1,7 @@
 ---
 - name: Converge
-  hosts: all
+  # side_effect.yml re-imports this play for an agents-only (--limit style) run.
+  hosts: "{{ rke2_converge_hosts | default('all') }}"
   gather_facts: true
   vars:
     rke2_version: v1.36.1+rke2r2
@@ -15,7 +16,8 @@
     rke2_kubevip_svc_enable: true
     rke2_kubevip_cloud_provider_enabled: true
     rke2_kubevip_load_balancer_ip_range: "10.0.0.200-10.0.0.220"
-    rke2_agent_token: "mock-agent-token-ha"
+    # rke2_agent_token is set for server_nodes only (molecule.yml group_vars).
+    rke2_cluster_token: "preset-token-ha"
     rke2_agent_server_address: "rke2-server1"
     rke2_cert_rotation_enabled: false
     rke2_cis_profile: cis

@@ -43,6 +43,20 @@
     group: root
     mode: "0755"
 
+# rke2_agent_token may be scoped to server_nodes only (e.g. group_vars); the
+# first server's host vars still carry it, so agents never fall back to the
+# full server token by accident.
+- name: Resolve the agent token
+  ansible.builtin.set_fact:
+    _rke2_agent_join_token: >-
+      {{ rke2_agent_token if rke2_agent_token | default('') | length > 0
+         else hostvars[groups['server_nodes'][0]]['rke2_agent_token'] | default('') }}
+  no_log: true
+
+- name: Resolve the cluster join token (no agent token)
+  ansible.builtin.import_tasks: token.yml
+  when: _rke2_agent_join_token | length == 0
+
 - name: Generate RKE2 agent configuration
   ansible.builtin.template:
     src: agent-config.yml.j2

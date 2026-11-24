@@ -49,11 +49,10 @@
         fail_msg: "VIP address 10.0.0.100 not found in tls-san: {{ rke2_config_parsed.get('tls-san', []) }}"
       when: inventory_hostname == groups['server_nodes'][0]
 
-    - name: Assert additional server config has token key
+    - name: Assert every server uses the preset cluster token
       ansible.builtin.assert:
-        that: "'token' in rke2_config_parsed"
-        fail_msg: "token key missing from additional server config"
-      when: inventory_hostname != groups['server_nodes'][0]
+        that: rke2_config_parsed['token'] == 'preset-token-ha'
+        fail_msg: "server config token is not the preset rke2_cluster_token"
 
     - name: Assert additional server config has server key
       ansible.builtin.assert:
@@ -284,11 +283,12 @@
         that: "'token' in rke2_agent_config_parsed"
         fail_msg: "token key missing from agent config"
 
-    - name: Assert agent config uses agent token when set
+    - name: Assert agent uses the server-group-scoped agent token, not the server token
       ansible.builtin.assert:
-        that: rke2_agent_config_parsed['token'] == rke2_agent_token
-        fail_msg: "agent config token '{{ rke2_agent_config_parsed['token'] }}' does not match rke2_agent_token"
-      when: rke2_agent_token | default('') | length > 0
+        that:
+          - rke2_agent_config_parsed['token'] == 'mock-agent-token-ha'
+          - rke2_agent_config_parsed['token'] != 'preset-token-ha'
+        fail_msg: "agent config does not use the rke2_agent_token defined for server_nodes"
 
     - name: Assert agent config has profile and cloud-provider-name
       ansible.builtin.assert:
@@ -309,3 +309,34 @@
       when:
         - rke2_vip_enabled | default(false) | bool
         - rke2_agent_server_address | default('') | length == 0
+
+- name: Verify rke2_server_join_address rendering
+  hosts: rke2-server2:rke2-agent1
+  gather_facts: false
+  # Task vars: they must win over the role defaults loaded from vars_files.
+  vars_files:
+    - ../../defaults/main.yml
+  tasks:
+    - name: Render the node config with a join address
+      ansible.builtin.template:
+        src: "{{ lookup('ansible.builtin.env', 'MOLECULE_PROJECT_DIRECTORY') }}/templates/{{ 'server' if 'server_nodes' in group_names else 'agent' }}-config.yml.j2"
+        dest: /tmp/rke2-join-address.yaml
+        mode: "0600"
+      vars:
+        rke2_server_join_address: "10.0.0.100"
+        _rke2_cluster_token: "preset-token-ha"
+        _rke2_agent_join_token: ""
+
+    - name: Read the rendered config
+      ansible.builtin.slurp:
+        src: /tmp/rke2-join-address.yaml
+      register: join_render
+
+    - name: Assert the node joins through rke2_server_join_address
+      vars:
+        _cfg: "{{ join_render.content | b64decode | from_yaml }}"
+      ansible.builtin.assert:
+        that:
+          - _cfg['server'] == 'https://10.0.0.100:9345'
+          - _cfg['token'] == 'preset-token-ha'
+        fail_msg: "server is {{ _cfg['server'] }}, expected https://10.0.0.100:9345 (token must fall back to the cluster token)"

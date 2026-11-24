@@ -45,8 +45,8 @@ rke2-images.linux-amd64.tar.zst   # optional — for fully offline image loading
 
 | Variable | Default | Description |
 |---|---|---|
-| `rke2_cluster_token` | `""` | Pre-set cluster token. When empty the role reads the auto-generated `node-token` from the first server. Set this to a value from Vault for a fully declarative, auditable cluster token. |
-| `rke2_agent_token` | `""` | Optional separate token for agent nodes. When set, agents use this instead of `rke2_cluster_token` (less cluster access). |
+| `rke2_cluster_token` | `""` | Pre-set cluster token. When empty the role reads the `node-token` that RKE2 creates on the first server. Set this to a value from Vault for a fully declarative, auditable cluster token; the first server is configured with it too, and the role fails when it differs from the token of an existing cluster (rotate with `rke2 token rotate` first). |
+| `rke2_agent_token` | `""` | Optional separate token for agent nodes. When set, agents use this instead of `rke2_cluster_token` (less cluster access). Define it for all hosts; a value scoped to `server_nodes` only is still honoured on agents. |
 | `rke2_allow_downgrade` | `false` | Allow installing a version older than what is currently installed. Default `false` protects against accidental rollbacks. |
 
 ---
@@ -101,6 +101,7 @@ rke2_cni_configs:
 | `rke2_vip_interface` | `"eth0"` | Network interface for the VIP on control plane nodes. |
 | `rke2_vip_manager` | `"kubevip"` | VIP manager: `kubevip` or `keepalived`. |
 | `rke2_agent_server_address` | `""` | Override the server address in the agent `config.yaml` `server` field. Defaults to `rke2_vip_address` (when VIP enabled) or the first server's `ansible_host`. Useful on cloud SDN networks where gratuitous-ARP VIPs are not directly routable. |
+| `rke2_server_join_address` | `""` | Fixed registration address (host or IP, port 9345) for additional servers and agents, e.g. a load balancer or DNS name, so new servers can join while the first server is down. Agents still prefer `rke2_agent_server_address` and the VIP. Empty uses the first server's `ansible_host`. |
 
 ### kube-vip tuning (when `rke2_vip_manager=kubevip`)
 

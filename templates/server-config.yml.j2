@@ -1,6 +1,9 @@
 {% if inventory_hostname != groups['server_nodes'][0] %}
-token: {{ hostvars[groups['server_nodes'][0]]['_rke2_cluster_token'] }}
-server: https://{{ hostvars[groups['server_nodes'][0]]['ansible_host'] | default(groups['server_nodes'][0]) }}:9345
+token: {{ _rke2_cluster_token | to_json }}
+server: https://{{ rke2_server_join_address if rke2_server_join_address | default('') | length > 0 else hostvars[groups['server_nodes'][0]]['ansible_host'] | default(groups['server_nodes'][0]) }}:9345
+{% elif rke2_cluster_token | default('') | length > 0 %}
+{# Without token: the first server creates a random one and joiners fail. #}
+token: {{ rke2_cluster_token | to_json }}
 {% endif %}
 
 {% if rke2_cni is defined and rke2_cni != 'default' %}

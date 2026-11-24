@@ -28,11 +28,15 @@ rke2_install_method: ""
 # from /var/lib/rancher/rke2/server/node-token on the first server and
 # distributes it to all other nodes. Set this to pin a known token (e.g. from
 # Vault) so the cluster token is fully declarative and version-controlled.
+# The first server is configured with it too; on an existing cluster the role
+# fails when it differs from the cluster's token (rotate with `rke2 token rotate`).
 rke2_cluster_token: ""
 
 # Optional separate token for agent nodes. When set, agents must use this token
 # instead of rke2_cluster_token, giving them less cluster access than server nodes.
-# Leave empty to use rke2_cluster_token for all nodes.
+# Leave empty to use rke2_cluster_token for all nodes. Define it for all hosts
+# (e.g. group_vars/all); a value scoped to server_nodes only is still read from
+# the first server's host vars for the agents.
 rke2_agent_token: ""
 
 # Downgrade protection — refuses to install a version older than what is
@@ -114,6 +118,12 @@ rke2_vip_manager: "kubevip"  # options: kubevip, keepalived
 # ARP-based VIPs are not routable — set this to a load balancer address or a
 # directly reachable server IP instead.
 rke2_agent_server_address: ""
+
+# Fixed registration address (host or IP, port 9345) that additional servers and
+# agents join through, e.g. a load balancer, DNS name or VIP. Lets new servers
+# join while the first server is down. Agents still prefer
+# rke2_agent_server_address and the VIP. Empty = the first server's ansible_host.
+rke2_server_join_address: ""
 
 # kube-vip version (only used when rke2_vip_manager=kubevip).
 # v1.x defaults to EndpointSlices for service watch — the kube-vip RBAC in this

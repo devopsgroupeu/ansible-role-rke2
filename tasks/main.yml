@@ -52,6 +52,12 @@
   tags:
     - rke2_setup
 
+- name: Check the cluster bootstrap state
+  # Unconditional on purpose: run_once, like the version lookup.
+  ansible.builtin.import_tasks: bootstrap_check.yml
+  tags:
+    - rke2_setup
+
 - name: Run server node installation
   ansible.builtin.import_tasks: server.yml
   when: "'server_nodes' in group_names"
