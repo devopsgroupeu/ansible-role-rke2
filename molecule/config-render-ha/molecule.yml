@@ -53,6 +53,9 @@ platforms:
     volumes:
       - /sys/fs/cgroup:/sys/fs/cgroup:rw
     command: ""
+    # Differs from the inventory name the agent registers with (node-name),
+    # so rolling_restart must not use the hostname for agents.
+    hostname: rke2-agent1-host
     groups:
       - agent_nodes
     networks:

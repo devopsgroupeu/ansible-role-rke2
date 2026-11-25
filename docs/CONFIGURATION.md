@@ -453,7 +453,7 @@ rke2_selinux: true
 
 | Variable | Default | Description |
 |---|---|---|
-| `rke2_node_name` | `""` | Override the Kubernetes node name. Defaults to the system hostname when empty. Useful when hostnames are not unique or not DNS-resolvable. |
+| `rke2_node_name` | `""` | Override the Kubernetes node name. When empty, servers register with their lowercased hostname and agents with their `inventory_hostname`. Useful when hostnames are not unique or not DNS-resolvable. |
 | `rke2_debug` | `false` | Enable RKE2 debug logging. Very verbose — use only for troubleshooting. |
 
 ---

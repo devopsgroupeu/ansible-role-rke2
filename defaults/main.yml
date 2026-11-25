@@ -491,8 +491,9 @@ rke2_selinux: false
 # ----------------------------------------------------------------------------
 # Runtime options
 # ----------------------------------------------------------------------------
-# Override the node name registered in Kubernetes. Defaults to the system
-# hostname when empty. Useful when hostnames are not unique or DNS-resolvable.
+# Override the node name registered in Kubernetes. When empty, servers use
+# their lowercased hostname and agents their inventory_hostname. Useful when
+# hostnames are not unique or DNS-resolvable.
 rke2_node_name: ""
 
 # Enable RKE2 debug logging (very verbose — use only for troubleshooting).

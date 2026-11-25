@@ -160,3 +160,37 @@
           ansible.builtin.assert:
             that: ansible_failed_result.msg is search('rke2_external_ccm_deployed')
             fail_msg: "unexpected failure: {{ ansible_failed_result.msg }}"
+
+# The agent's container hostname (rke2-agent1-host) differs from the name it
+# registers with (inventory_hostname), so a hostname-based name would be wrong.
+- name: Rolling restart of an agent uses its registered node name
+  hosts: agent_nodes
+  gather_facts: true
+  tasks:
+    - name: Run the rolling restart on the agent
+      ansible.builtin.include_role:
+        name: ansible-role-rke2
+        tasks_from: rolling_restart.yml
+
+    - name: Read the agent config
+      ansible.builtin.slurp:
+        src: /etc/rancher/rke2/config.yaml
+      register: _agent_cfg_raw
+
+    - name: Read the kubectl calls on the server that drove the restart
+      ansible.builtin.slurp:
+        src: /tmp/rke2-mock-kubectl.log
+      delegate_to: "{{ _rke2_drain_delegate }}"
+      register: _kubectl_log
+
+    - name: Assert the rolling restart targeted the registered node name
+      vars:
+        _registered: "{{ (_agent_cfg_raw.content | b64decode | from_yaml)['node-name'] }}"
+      ansible.builtin.assert:
+        that:
+          - ansible_facts['nodename'] != _registered
+          - _rke2_node_name == _registered
+          - (_kubectl_log.content | b64decode) is search('get node ' ~ _registered ~ ' --no-headers')
+        fail_msg: >-
+          rolling_restart used {{ _rke2_node_name }}, the agent registered as {{ _registered }}
+          (hostname {{ ansible_facts['nodename'] }})

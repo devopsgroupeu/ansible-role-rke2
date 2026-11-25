@@ -969,8 +969,8 @@ argument_specs:
         required: false
         default: ""
         description: >
-          Override the Kubernetes node name. Defaults to the system hostname
-          when empty.
+          Override the Kubernetes node name. When empty, servers register with
+          their lowercased hostname and agents with their inventory_hostname.
 
       rke2_debug:
         type: bool
