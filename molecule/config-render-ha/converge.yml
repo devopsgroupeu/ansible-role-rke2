@@ -30,6 +30,11 @@
     # without it the kube-vip cloud provider + disabled CCM combination fails.
     rke2_external_ccm_deployed: true
     rke2_additional_packages: []
+    rke2_private_registries_config: |
+      mirrors:
+        docker.io:
+          endpoint:
+            - "https://registry.example.com:5000"
     rke2_audit_policy: |
       apiVersion: audit.k8s.io/v1
       kind: Policy

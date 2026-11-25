@@ -209,6 +209,24 @@
           /etc/rancher/rke2/audit-policy.yaml on {{ inventory_hostname }} has mode
           {{ audit_policy_stat.stat.mode }}, expected 0600
 
+    - name: Stat registries.yaml
+      ansible.builtin.stat:
+        path: /etc/rancher/rke2/registries.yaml
+      register: registries_stat
+
+    - name: Read registries.yaml
+      ansible.builtin.slurp:
+        src: /etc/rancher/rke2/registries.yaml
+      register: registries_raw
+
+    - name: Assert registries.yaml is 0600, role-managed and valid YAML
+      ansible.builtin.assert:
+        that:
+          - registries_stat.stat.mode == '0600'
+          - (registries_raw.content | b64decode).startswith('# Managed by Ansible - ansible-role-rke2')
+          - "'docker.io' in (registries_raw.content | b64decode | from_yaml).mirrors"
+        fail_msg: "registries.yaml mode {{ registries_stat.stat.mode }} or content is wrong"
+
 - name: Verify custom CA and certificate rotation on the servers
   hosts: server_nodes
   gather_facts: false
@@ -335,6 +353,24 @@
           - rke2_agent_config_parsed['profile'] == 'cis'
           - rke2_agent_config_parsed['cloud-provider-name'] == 'external'
         fail_msg: "agent config lacks profile: cis or cloud-provider-name: external"
+
+    - name: Stat registries.yaml
+      ansible.builtin.stat:
+        path: /etc/rancher/rke2/registries.yaml
+      register: registries_stat
+
+    - name: Read registries.yaml
+      ansible.builtin.slurp:
+        src: /etc/rancher/rke2/registries.yaml
+      register: registries_raw
+
+    - name: Assert registries.yaml is 0600, role-managed and valid YAML
+      ansible.builtin.assert:
+        that:
+          - registries_stat.stat.mode == '0600'
+          - (registries_raw.content | b64decode).startswith('# Managed by Ansible - ansible-role-rke2')
+          - "'docker.io' in (registries_raw.content | b64decode | from_yaml).mirrors"
+        fail_msg: "registries.yaml mode {{ registries_stat.stat.mode }} or content is wrong"
 
     - name: Assert agent config has the default data-dir
       ansible.builtin.assert:

@@ -141,3 +141,73 @@
           ansible.builtin.assert:
             that: ansible_failed_result.msg is search('rke2_extra_config sets profile,')
             fail_msg: "unexpected failure: {{ ansible_failed_result.msg }}"
+
+# RKE2 reads registries.yaml only at start: a change and a removal must each
+# restart rke2-server. The last step writes the file again for verify.yml.
+- name: Restart RKE2 when registries.yaml changes or is removed
+  hosts: server_nodes
+  gather_facts: false
+  vars:
+    rke2_handler_wait_for_ready: false
+    _changed_registries: |
+      mirrors:
+        docker.io:
+          endpoint:
+            - "https://mirror2.example.com"
+  tasks:
+    - name: Read rke2-server start time before
+      ansible.builtin.command: systemctl show rke2-server -p ActiveEnterTimestampMonotonic --value # noqa: command-instead-of-module
+      register: _reg_t0
+      changed_when: false
+
+    - name: Change the registry configuration
+      ansible.builtin.include_role:
+        name: ansible-role-rke2
+        tasks_from: registries.yml
+      vars:
+        rke2_private_registries_config: "{{ _changed_registries }}"
+
+    - name: Run the restart handler
+      ansible.builtin.meta: flush_handlers
+
+    - name: Read rke2-server start time after the change
+      ansible.builtin.command: systemctl show rke2-server -p ActiveEnterTimestampMonotonic --value # noqa: command-instead-of-module
+      register: _reg_t1
+      changed_when: false
+
+    - name: Clear the registry configuration
+      ansible.builtin.include_role:
+        name: ansible-role-rke2
+        tasks_from: registries.yml
+      vars:
+        rke2_private_registries_config: "# no registries"
+
+    - name: Run the restart handler again
+      ansible.builtin.meta: flush_handlers
+
+    - name: Read rke2-server start time after the removal
+      ansible.builtin.command: systemctl show rke2-server -p ActiveEnterTimestampMonotonic --value # noqa: command-instead-of-module
+      register: _reg_t2
+      changed_when: false
+
+    - name: Stat registries.yaml after the removal
+      ansible.builtin.stat:
+        path: /etc/rancher/rke2/registries.yaml
+      register: _reg_removed
+
+    - name: Assert the change and the removal each restarted rke2-server
+      ansible.builtin.assert:
+        that:
+          - _reg_t1.stdout | int > _reg_t0.stdout | int
+          - _reg_t2.stdout | int > _reg_t1.stdout | int
+          - not _reg_removed.stat.exists
+        fail_msg: >-
+          start times {{ _reg_t0.stdout }} / {{ _reg_t1.stdout }} / {{ _reg_t2.stdout }},
+          registries.yaml removed: {{ not _reg_removed.stat.exists }}
+
+    - name: Write the registry configuration again
+      ansible.builtin.include_role:
+        name: ansible-role-rke2
+        tasks_from: registries.yml
+      vars:
+        rke2_private_registries_config: "{{ _changed_registries }}"

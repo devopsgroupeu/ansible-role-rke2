@@ -773,7 +773,9 @@ argument_specs:
         default: ""
         description: >
           YAML string for /etc/rancher/rke2/registries.yaml (mirrors and auth
-          config). Leave empty or comment-only to skip.
+          config). A change restarts RKE2 on each node, one at a time. Empty or
+          comment-only removes a file this role wrote earlier and leaves a file
+          managed elsewhere alone.
 
       # -----------------------------------------------------------------------
       # Built-in component management

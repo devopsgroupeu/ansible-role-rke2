@@ -81,6 +81,11 @@
         valuesContent: |
           replicas: 2
     rke2_cluster_domain: "cluster.test"
+    rke2_private_registries_config: |
+      mirrors:
+        docker.io:
+          endpoint:
+            - "https://registry.example.com:5000"
     rke2_data_dir: /data/rke2
     rke2_cert_rotation_enabled: true
     rke2_disable_kube_proxy: false

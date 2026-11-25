@@ -1,0 +1,50 @@
+---
+# RKE2 reads registries.yaml only at start, so every change restarts the node
+# (serially, see handlers/main.yml). An empty or comment-only
+# rke2_private_registries_config removes the file, but only when this role
+# wrote it (marker line), so a file managed elsewhere is left alone.
+- name: Decide whether a private registry configuration is set
+  ansible.builtin.set_fact:
+    _rke2_registries_set: >-
+      {{ rke2_private_registries_config | default('') | trim | length > 0
+         and not rke2_private_registries_config | trim | regex_search('^#') }}
+
+- name: Validate private registry config is parseable YAML
+  ansible.builtin.assert:
+    that:
+      - rke2_private_registries_config | from_yaml is mapping
+    fail_msg: "rke2_private_registries_config is not valid YAML mapping"
+  when: _rke2_registries_set | bool
+
+- name: Deploy private registry configuration
+  ansible.builtin.template:
+    src: registries.yml.j2
+    dest: /etc/rancher/rke2/registries.yaml
+    owner: root
+    group: root
+    mode: "0600"
+  no_log: true
+  notify: "Restart {{ 'rke2-server' if 'server_nodes' in group_names else 'rke2-agent' }}"
+  when: _rke2_registries_set | bool
+
+- name: Check whether this role wrote the registry configuration
+  ansible.builtin.command:
+    argv:
+      - grep
+      - -qxF
+      - "# Managed by Ansible - ansible-role-rke2"
+      - /etc/rancher/rke2/registries.yaml
+  register: _rke2_registries_managed
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  when: not _rke2_registries_set | bool
+
+- name: Remove the private registry configuration
+  ansible.builtin.file:
+    path: /etc/rancher/rke2/registries.yaml
+    state: absent
+  notify: "Restart {{ 'rke2-server' if 'server_nodes' in group_names else 'rke2-agent' }}"
+  when:
+    - not _rke2_registries_set | bool
+    - _rke2_registries_managed.rc == 0

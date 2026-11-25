@@ -261,27 +261,8 @@
     - rke2_cni_configs is defined and rke2_cni_configs[rke2_cni] is defined
     - inventory_hostname == groups['server_nodes'][0]
 
-- name: Validate private registry config is parseable YAML
-  ansible.builtin.assert:
-    that:
-      - rke2_private_registries_config | from_yaml is mapping
-    fail_msg: "rke2_private_registries_config is not valid YAML mapping"
-  when:
-    - rke2_private_registries_config | trim | length > 0
-    - not rke2_private_registries_config | trim | regex_search('^#')
-
-- name: Deploy private registry configuration
-  ansible.builtin.template:
-    src: registries.yml.j2
-    dest: /etc/rancher/rke2/registries.yaml
-    owner: root
-    group: root
-    mode: "0600"
-  no_log: true
-  when:
-    - rke2_private_registries_config is defined
-    - rke2_private_registries_config | trim | length > 0
-    - not rke2_private_registries_config | trim | regex_search('^#')
+- name: Configure the private registries
+  ansible.builtin.import_tasks: registries.yml
 
 - name: Ensure .kube directory exists
   ansible.builtin.file:

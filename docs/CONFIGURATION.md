@@ -338,7 +338,7 @@ rke2_helmchartconfigs:
 
 | Variable | Default | Description |
 |---|---|---|
-| `rke2_private_registries_config` | `""` | YAML string for `/etc/rancher/rke2/registries.yaml`. |
+| `rke2_private_registries_config` | `""` | YAML string for `/etc/rancher/rke2/registries.yaml` (mode 0600) on servers and agents. RKE2 reads the file only at start, so a change restarts each node (one at a time). Empty or comment-only removes a file this role wrote earlier; a file without the role's `# Managed by Ansible - ansible-role-rke2` line is left alone. |
 
 **Example:**
 

@@ -394,6 +394,8 @@ rke2_helmchartconfigs: []
 # ----------------------------------------------------------------------------
 # Private registry configuration (optional)
 # ----------------------------------------------------------------------------
+# A change restarts RKE2 on each node, one at a time. Comment-only (as below)
+# or empty removes a registries.yaml this role wrote earlier.
 rke2_private_registries_config: |
 #   mirrors:
 #     docker.io:

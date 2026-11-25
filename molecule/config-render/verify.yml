@@ -430,6 +430,24 @@
         that: "'disable-kube-proxy' not in server_config_parsed"
         fail_msg: "disable-kube-proxy should not be present when rke2_disable_kube_proxy is false"
 
+    - name: Stat registries.yaml
+      ansible.builtin.stat:
+        path: /etc/rancher/rke2/registries.yaml
+      register: registries_stat
+
+    - name: Read registries.yaml
+      ansible.builtin.slurp:
+        src: /etc/rancher/rke2/registries.yaml
+      register: registries_raw
+
+    - name: Assert registries.yaml is 0600, role-managed and valid YAML
+      ansible.builtin.assert:
+        that:
+          - registries_stat.stat.mode == '0600'
+          - (registries_raw.content | b64decode).startswith('# Managed by Ansible - ansible-role-rke2')
+          - "'docker.io' in (registries_raw.content | b64decode | from_yaml).mirrors"
+        fail_msg: "registries.yaml mode {{ registries_stat.stat.mode }} or content is wrong"
+
 # Renders the role templates directly for the choices the converge does not
 # use. Task vars win over the role defaults loaded from vars_files.
 - name: Verify ingress rendering for every rke2_ingress_controller choice
