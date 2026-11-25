@@ -12,7 +12,7 @@
 #     rke2_airgapped_additional_image_tarballs)
 #
 # If rke2_airgapped_artifacts_dir is not set, this role will attempt to download
-# the install script from the internet (partial air-gap — only binaries are local).
+# the install script from the internet (partial air-gap - only binaries are local).
 
 - name: Check that local artifacts directory exists
   ansible.builtin.stat:

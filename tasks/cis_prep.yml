@@ -1,5 +1,5 @@
 ---
-# CIS hardening prerequisites — run BEFORE RKE2 install.
+# CIS hardening prerequisites - run BEFORE RKE2 install.
 # Without these, rke2-server fatal-errors when profile: cis is set.
 # profile: etcd only needs the etcd user and group.
 - name: Create etcd system group

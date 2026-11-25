@@ -1,5 +1,5 @@
 ---
-# Real cluster preparation — no mocks.
+# Real cluster preparation - no mocks.
 # Requires reachable hosts provided via the delegated driver inventory.
 - name: Prepare cluster hosts
   hosts: all

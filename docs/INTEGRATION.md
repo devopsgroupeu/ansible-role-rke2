@@ -18,7 +18,7 @@ sequenceDiagram
     participant S3 as server3
     participant AG as agent1
 
-    A->>S1: Install RKE2, write config (bootstrap — no server URL)
+    A->>S1: Install RKE2, write config (bootstrap - no server URL)
     A->>S1: Start rke2-server
     A->>S1: wait_for node-token (timeout 300 s)
     A->>S1: Fetch node-token via slurp
@@ -40,8 +40,8 @@ sequenceDiagram
 
 The role requires two inventory groups:
 
-- `server_nodes` — control plane nodes (1 for single-node, 3 for HA)
-- `agent_nodes` — worker nodes (optional)
+- `server_nodes` - control plane nodes (1 for single-node, 3 for HA)
+- `agent_nodes` - worker nodes (optional)
 
 ```yaml
 # site.yml
@@ -58,7 +58,7 @@ The role requires two inventory groups:
 ## Inventory
 
 ```yaml
-# inventory.yml (illustrative — ready-made examples: examples/inventory/{single-node,ha-kubevip,ha-keepalived}.yml)
+# inventory.yml (illustrative - ready-made examples: examples/inventory/{single-node,ha-kubevip,ha-keepalived}.yml)
 all:
   children:
     server_nodes:

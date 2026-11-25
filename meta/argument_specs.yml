@@ -198,7 +198,7 @@ argument_specs:
           - none
         description: >
           CNI plugin. default (canal), canal, cilium, calico, flannel, or none
-          (BYO CNI — skips cni config and emits cni: none).
+          (BYO CNI - skips cni config and emits cni: none).
 
       rke2_cni_configs:
         type: dict
@@ -1012,7 +1012,7 @@ argument_specs:
         type: bool
         required: false
         default: false
-        description: Enable RKE2 debug logging (very verbose — for troubleshooting only).
+        description: Enable RKE2 debug logging (very verbose - for troubleshooting only).
 
       # -----------------------------------------------------------------------
       # Extra configuration

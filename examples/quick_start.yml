@@ -9,7 +9,7 @@
 # -----------------------------------------------------------------------------
 # Example 1: Single Node (development / testing)
 # -----------------------------------------------------------------------------
-# Inventory — use the ready-made examples/inventory/single-node.yml, or create
+# Inventory - use the ready-made examples/inventory/single-node.yml, or create
 # your own equivalent:
 #
 #   all:
@@ -37,7 +37,7 @@
 # -----------------------------------------------------------------------------
 # Example 2: HA cluster (3 server nodes + worker nodes)
 # -----------------------------------------------------------------------------
-# Inventory — use the ready-made examples/inventory/ha-kubevip.yml (kube-vip)
+# Inventory - use the ready-made examples/inventory/ha-kubevip.yml (kube-vip)
 # or examples/inventory/ha-keepalived.yml (keepalived), or create your own:
 #
 #   all:
@@ -73,7 +73,7 @@
 #     rke2_vip_interface: "eth0"
 #     rke2_vip_manager: "kubevip"
 #     rke2_tls_san:
-#       - "10.0.0.100"     # VIP — also added automatically when rke2_vip_enabled: true
+#       - "10.0.0.100"     # VIP - also added automatically when rke2_vip_enabled: true
 #       - "rke2.example.com"
 #   roles:
 #     - role: devopsgroupeu.rke2

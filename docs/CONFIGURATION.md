@@ -84,7 +84,7 @@ rke2_no_proxy: "localhost,127.0.0.1,10.0.0.0/8,192.168.0.0/16"
 | `rke2_cni` | `"default"` | CNI plugin: `canal`, `cilium`, `calico`, `flannel`, or `default` (canal). |
 | `rke2_cni_configs` | `{}` | CNI-specific HelmChartConfig values. Keyed by CNI name. |
 
-**Example — Calico with jumbo frames:**
+**Example - Calico with jumbo frames:**
 
 ```yaml
 rke2_cni: calico
@@ -137,7 +137,7 @@ rke2_kubevip_version: "v1.3.2"
 
 | Variable | Default | Description |
 |---|---|---|
-| `rke2_keepalived_router_id` | `51` | VRRP virtual router ID — must be unique per VRRP group on the subnet (1-255). |
+| `rke2_keepalived_router_id` | `51` | VRRP virtual router ID - must be unique per VRRP group on the subnet (1-255). |
 | `rke2_keepalived_priority_master` | `101` | VRRP priority for the first server node (MASTER state). |
 | `rke2_keepalived_priority_backup` | `100` | VRRP priority for additional server nodes (BACKUP state). |
 | `rke2_keepalived_auth_pass` | `"rke2vip"` | VRRP authentication password (max 8 characters). Store with Ansible Vault. `keepalived.conf` is deployed mode 0600. VRRP PASS auth is cleartext on the wire. |
@@ -250,11 +250,11 @@ signing keys never reach them.
 You may seed the CA in either of two ways:
 
 ```yaml
-# Option A — full root CA (cert + key):
+# Option A - full root CA (cert + key):
 rke2_custom_root_ca_cert: "{{ lookup('file', 'root-ca.pem') | b64encode }}"
 rke2_custom_root_ca_key: "{{ lookup('file', 'root-ca.key') | b64encode }}"
 
-# Option B — root cert + intermediate (cert + key); the root private key can stay
+# Option B - root cert + intermediate (cert + key); the root private key can stay
 # offline (e.g. in HashiCorp Vault), and RKE2 signs leaf CAs with the intermediate:
 rke2_custom_root_ca_cert: "{{ lookup('file', 'root-ca.pem') | b64encode }}"
 rke2_custom_intermediate_ca_cert: "{{ lookup('file', 'intermediate-ca.pem') | b64encode }}"
@@ -263,7 +263,7 @@ rke2_custom_intermediate_ca_key: "{{ lookup('file', 'intermediate-ca.key') | b64
 
 | Variable | Default | Description |
 |---|---|---|
-| `rke2_custom_root_ca_cert` | `""` | Base64-encoded PEM root CA certificate. The role generates RKE2 cluster certificates signed by this CA on the first server node when a signing key is available — either `rke2_custom_root_ca_key`, or an intermediate (`rke2_custom_intermediate_ca_cert` + `rke2_custom_intermediate_ca_key`). Store with Ansible Vault. |
+| `rke2_custom_root_ca_cert` | `""` | Base64-encoded PEM root CA certificate. The role generates RKE2 cluster certificates signed by this CA on the first server node when a signing key is available - either `rke2_custom_root_ca_key`, or an intermediate (`rke2_custom_intermediate_ca_cert` + `rke2_custom_intermediate_ca_key`). Store with Ansible Vault. |
 | `rke2_custom_root_ca_key` | `""` | Base64-encoded PEM private key for the root CA. |
 | `rke2_custom_intermediate_ca_cert` | `""` | Base64-encoded PEM intermediate CA certificate (optional). |
 | `rke2_custom_intermediate_ca_key` | `""` | Base64-encoded PEM private key for the intermediate CA (optional). |
@@ -280,8 +280,8 @@ rke2_custom_intermediate_ca_key: "{{ lookup('file', 'intermediate-ca.key') | b64
 | `rke2_cert_rotation_schedule_type` | `"weekly"` | Schedule type: `daily`, `weekly`, or `monthly`. |
 | `rke2_cert_rotation_schedule_hour` | `"20"` | Hour to run rotation (0-23). |
 | `rke2_cert_rotation_schedule_minute` | `"0"` | Minute to run rotation (0-59). |
-| `rke2_cert_rotation_schedule_day_of_week` | `"1"` | Day of week (1=Monday) — used when `type=weekly`. |
-| `rke2_cert_rotation_schedule_day_of_month` | `"1"` | Day of month — used when `type=monthly`. |
+| `rke2_cert_rotation_schedule_day_of_week` | `"1"` | Day of week (1=Monday) - used when `type=weekly`. |
+| `rke2_cert_rotation_schedule_day_of_month` | `"1"` | Day of month - used when `type=monthly`. |
 | `rke2_cert_rotation_log_retention_days` | `7` | How many days to keep rotation logs. |
 | `rke2_cert_rotation_stagger_minutes` | `30` | Minutes between the rotation jobs of consecutive nodes (servers in `server_nodes` order, then agents; wraps around midnight). The script stops RKE2 while it rotates, so this keeps etcd members from stopping together. `0` runs every node at the same time. |
 
@@ -457,7 +457,7 @@ rke2_selinux: true
 | Variable | Default | Description |
 |---|---|---|
 | `rke2_node_name` | `""` | Override the Kubernetes node name. When empty, servers register with their lowercased hostname and agents with their `inventory_hostname`. Useful when hostnames are not unique or not DNS-resolvable. |
-| `rke2_debug` | `false` | Enable RKE2 debug logging. Very verbose — use only for troubleshooting. |
+| `rke2_debug` | `false` | Enable RKE2 debug logging. Very verbose - use only for troubleshooting. |
 
 ---
 

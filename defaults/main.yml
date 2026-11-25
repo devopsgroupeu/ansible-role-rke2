@@ -39,7 +39,7 @@ rke2_cluster_token: ""
 # the first server's host vars for the agents.
 rke2_agent_token: ""
 
-# Downgrade protection — refuses to install a version older than what is
+# Downgrade protection - refuses to install a version older than what is
 # already running. Set true only when a deliberate rollback is required.
 rke2_allow_downgrade: false
 
@@ -112,9 +112,9 @@ rke2_cni_configs: {}
 # Set rke2_vip_enabled: true to configure a stable API endpoint across control plane nodes.
 #
 # rke2_vip_manager options:
-#   - kubevip    — deploys kube-vip as a DaemonSet via server/manifests on the
+#   - kubevip    - deploys kube-vip as a DaemonSet via server/manifests on the
 #                  control-plane nodes (recommended for on-prem/bare-metal)
-#   - keepalived — this role installs and configures keepalived directly
+#   - keepalived - this role installs and configures keepalived directly
 #                  (unicast VRRP) on each server node
 #
 # The VIP address is automatically added to rke2_tls_san.
@@ -127,7 +127,7 @@ rke2_vip_manager: "kubevip"  # options: kubevip, keepalived
 # Override the server address used in the agent config.
 # Defaults to rke2_vip_address (when VIP enabled) or the first server's ansible_host.
 # Useful on cloud SDN environments (e.g. Hetzner private networks) where gratuitous
-# ARP-based VIPs are not routable — set this to a load balancer address or a
+# ARP-based VIPs are not routable - set this to a load balancer address or a
 # directly reachable server IP instead.
 rke2_agent_server_address: ""
 
@@ -141,7 +141,7 @@ rke2_agent_server_address: ""
 rke2_server_join_address: ""
 
 # kube-vip version (only used when rke2_vip_manager=kubevip).
-# v1.x defaults to EndpointSlices for service watch — the kube-vip RBAC in this
+# v1.x defaults to EndpointSlices for service watch - the kube-vip RBAC in this
 # role grants discovery.k8s.io/endpointslices accordingly.
 # Since v1.3.0 kube-vip restricts shared service VIPs to Services in the same
 # lease; read the kube-vip v1.3.0 release notes if you share service VIPs.
@@ -173,10 +173,10 @@ rke2_kubevip_cloud_provider_image: "ghcr.io/kube-vip/kube-vip-cloud-provider:v0.
 rke2_kubevip_load_balancer_ip_range: ""
 
 # keepalived settings (only used when rke2_vip_manager=keepalived)
-# Unicast VRRP is used automatically — works on cloud SDN networks (Hetzner, AWS VPC, etc.)
+# Unicast VRRP is used automatically - works on cloud SDN networks (Hetzner, AWS VPC, etc.)
 # where multicast (224.0.0.18) is filtered. Each host must have a 'private_ip' inventory
 # variable set to its private/LAN IP so peers can be resolved for unicast peer list.
-rke2_keepalived_router_id: 51          # Virtual router ID — must be unique per VRRP group on the subnet (1-255)
+rke2_keepalived_router_id: 51          # Virtual router ID - must be unique per VRRP group on the subnet (1-255)
 rke2_keepalived_priority_master: 101   # Priority for the first server node (MASTER)
 rke2_keepalived_priority_backup: 100   # Priority for additional server nodes (BACKUP)
 rke2_keepalived_auth_pass: "rke2vip"  # VRRP authentication password (max 8 chars)
@@ -184,7 +184,7 @@ rke2_keepalived_auth_pass: "rke2vip"  # VRRP authentication password (max 8 char
 # auth is cleartext on the wire, so this is hygiene, not real protection.
 rke2_keepalived_require_custom_auth_pass: false
 
-# Floating IP failover hook — runs a script when this node becomes keepalived MASTER.
+# Floating IP failover hook - runs a script when this node becomes keepalived MASTER.
 # Use this to reassign a cloud floating IP to the current active node.
 # Provider-agnostic: supply your own script content and env vars.
 # The role deploys the script + env file and wires it into keepalived notify_master.
@@ -205,7 +205,7 @@ rke2_keepalived_failover_script: "/etc/keepalived/notify-master.sh"
 rke2_keepalived_failover_script_content: ""
 
 # Environment variables written to a protected file sourced by the notify script.
-# Put API tokens and IDs here — file is deployed mode 0600 owned by root.
+# Put API tokens and IDs here - file is deployed mode 0600 owned by root.
 rke2_keepalived_failover_env: {}
   # API_TOKEN: "secret"
   # FLOATING_IP_ID: "12345"
@@ -215,7 +215,7 @@ rke2_keepalived_failover_env: {}
 # ----------------------------------------------------------------------------
 rke2_tls_san: []
   # - "rke2.example.com"
-  # - "10.0.0.100"  # VIP address — added automatically when rke2_vip_enabled: true
+  # - "10.0.0.100"  # VIP address - added automatically when rke2_vip_enabled: true
 
 rke2_cluster_cidr: ""   # Default: 10.42.0.0/16
 rke2_service_cidr: ""   # Default: 10.43.0.0/16
@@ -242,7 +242,7 @@ rke2_etcd_snapshot_schedule: ""  # cron format, e.g. "0 */6 * * *"
 # etcd snapshot retention (number of local snapshots to keep). RKE2 default is 5.
 rke2_etcd_snapshot_retention: 5
 
-# Off-cluster (S3-compatible) etcd snapshot target — DR-grade backup.
+# Off-cluster (S3-compatible) etcd snapshot target - DR-grade backup.
 # Source the access/secret keys from Vault; this role marks the rendering task no_log.
 rke2_etcd_s3_enabled: false
 rke2_etcd_s3_endpoint: ""          # e.g. "s3.amazonaws.com" or "minio.example.com:9000"
@@ -376,7 +376,7 @@ rke2_ingress_nginx_config: |
 # Each addon requires: name, enabled, repo, chart (optional, defaults to name),
 #                      version, namespace, values (optional dict)
 #
-# Examples — uncomment and adjust to enable:
+# Examples - uncomment and adjust to enable:
 
 rke2_addons: []
 # rke2_addons:
@@ -404,7 +404,7 @@ rke2_addons: []
 # When an addon has enabled: false, the role removes its manifest file. By
 # itself this does NOT uninstall the running release (the HelmChart CR + Helm
 # release persist). Set this true to additionally run
-# `kubectl delete helmchart <name> -n kube-system` — DATA-AFFECTING.
+# `kubectl delete helmchart <name> -n kube-system` - DATA-AFFECTING.
 rke2_addons_delete_on_disable: false
 
 # HelmChartConfig overrides for RKE2's BUNDLED charts (rke2-canal, rke2-coredns,
@@ -492,7 +492,7 @@ rke2_external_ccm_deployed: false
 # Hardening
 # ----------------------------------------------------------------------------
 # CIS Kubernetes benchmark hardening profile.
-# Activates RKE2's built-in CIS hardening — sets secure defaults for
+# Activates RKE2's built-in CIS hardening - sets secure defaults for
 # API server, controller-manager, scheduler, etcd and kubelet.
 # Rendered on servers AND agents.
 # Options: "cis" (CIS kernel parameters + etcd user) or "etcd" (etcd user and
@@ -516,7 +516,7 @@ rke2_selinux: false
 # hostnames are not unique or DNS-resolvable.
 rke2_node_name: ""
 
-# Enable RKE2 debug logging (very verbose — use only for troubleshooting).
+# Enable RKE2 debug logging (very verbose - use only for troubleshooting).
 rke2_debug: false
 
 # ----------------------------------------------------------------------------
@@ -530,7 +530,7 @@ rke2_drain_node_during_upgrade: false
 rke2_drain_additional_args: "--timeout=120s"
 
 # Pass --force to kubectl drain (evicts pods not managed by a controller).
-# Off by default — a drain that needs --force usually signals a misconfigured workload.
+# Off by default - a drain that needs --force usually signals a misconfigured workload.
 rke2_drain_force: false
 
 # When true, wait for all pods to reach Running/Succeeded phase after uncordon.

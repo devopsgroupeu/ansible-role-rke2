@@ -46,7 +46,7 @@
     - inventory_hostname == groups['server_nodes'][0]
     - rke2_custom_root_ca_cert | default('') | length > 0
     # A custom CA can be seeded either as a full root (cert + key) or as a root
-    # cert plus an intermediate (cert + key) — e.g. an intermediate issued by
+    # cert plus an intermediate (cert + key) - e.g. an intermediate issued by
     # Vault while the root private key never leaves Vault. generate_ca.sh signs
     # the leaf CAs with whichever signing key is present.
     - >-

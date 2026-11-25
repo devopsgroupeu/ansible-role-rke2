@@ -119,7 +119,7 @@
     - name: Assert keepalived.conf uses unicast mode
       ansible.builtin.assert:
         that: "'unicast_src_ip' in (keepalived_conf_raw.content | b64decode)"
-        fail_msg: "unicast_src_ip not found in keepalived.conf — unicast VRRP not configured"
+        fail_msg: "unicast_src_ip not found in keepalived.conf - unicast VRRP not configured"
 
     - name: Stat keepalived.conf
       ansible.builtin.stat:
@@ -213,7 +213,7 @@
     - name: Assert check-apiserver.sh.j2 does not exist
       ansible.builtin.assert:
         that: not check_j2_leftover.stat.exists
-        fail_msg: "/etc/keepalived/check-apiserver.sh.j2 leftover found — scripts deployed with wrong extension"
+        fail_msg: "/etc/keepalived/check-apiserver.sh.j2 leftover found - scripts deployed with wrong extension"
 
     # ---- failover hook ------------------------------------------------------
 

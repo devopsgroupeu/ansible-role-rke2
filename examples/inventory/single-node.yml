@@ -1,5 +1,5 @@
 # Single-node RKE2 inventory
-# One server node — no HA, no VIP required
+# One server node - no HA, no VIP required
 
 all:
   children:

@@ -1,9 +1,9 @@
 ---
 # ============================================================================
-# ansible-role-rke2 — example group_vars/all.yml
+# ansible-role-rke2 - example group_vars/all.yml
 # ============================================================================
 # Copy this file to your inventory's group_vars/ directory and adjust values.
-# All variables are optional — only set what you need to change from defaults.
+# All variables are optional - only set what you need to change from defaults.
 # Full reference: docs/CONFIGURATION.md
 # ============================================================================
 
@@ -13,7 +13,7 @@
 rke2_version: "v1.36.6+rke2r2"
 
 # ----------------------------------------------------------------------------
-# VIP / HA — choose kubevip OR keepalived
+# VIP / HA - choose kubevip OR keepalived
 # ----------------------------------------------------------------------------
 rke2_vip_enabled: true
 rke2_vip_address: "10.0.0.100"
@@ -29,7 +29,7 @@ rke2_vip_manager: "kubevip"   # options: kubevip, keepalived
 # ----------------------------------------------------------------------------
 rke2_tls_san:
   - "rke2.example.com"
-  # VIP is added automatically — no need to list it here
+  # VIP is added automatically - no need to list it here
 
 # rke2_cluster_cidr: "10.42.0.0/16"
 # rke2_service_cidr: "10.43.0.0/16"

@@ -1,5 +1,5 @@
 ---
-# Real cluster installation — no mocks, no binary stubs.
+# Real cluster installation - no mocks, no binary stubs.
 # Set rke2_cluster_vip and rke2_cluster_vip_interface at run time, e.g.:
 #   molecule converge -s cluster -- -e rke2_cluster_vip=10.0.0.100 -e rke2_cluster_vip_interface=eth0
 - name: Converge real RKE2 cluster

@@ -36,7 +36,7 @@ flowchart TD
     q4 -->|No| fix2["Re-run playbook\nto resync token"]
     q4 -->|Yes| q5{server1 fully\nstarted?}
 
-    q5 -->|No| fix3["journalctl -u rke2-server -f\non server1 — wait or fix"]
+    q5 -->|No| fix3["journalctl -u rke2-server -f\non server1 - wait or fix"]
     q5 -->|Yes| fix4["Check config.yaml server URL\nverify ansible_host is correct"]
 
     q3 -->|No| fix5["Check rke2_vip_address and\nrke2_vip_interface are correct\nCheck firewall port 9345"]
@@ -66,9 +66,9 @@ journalctl -u rke2-server -n 100 --no-pager
 
 | Error in logs | Cause | Fix |
 |---------------|-------|-----|
-| `address already in use :6443` | Another process is using port 6443 | `ss -tlnp \| grep 6443` — stop the conflicting process |
+| `address already in use :6443` | Another process is using port 6443 | `ss -tlnp \| grep 6443` - stop the conflicting process |
 | `failed to find memory cgroup` | cgroups v2 not enabled | Add `systemd.unified_cgroup_hierarchy=1` to kernel cmdline or use a supported OS image |
-| `etcd cluster is unavailable` | etcd failed to start | Check disk space: `df -h /var/lib/rancher` — etcd requires fast storage |
+| `etcd cluster is unavailable` | etcd failed to start | Check disk space: `df -h /var/lib/rancher` - etcd requires fast storage |
 | `x509: certificate signed by unknown authority` | Custom CA not trusted | Re-run with `rke2_custom_root_ca_cert` set correctly |
 
 ---
@@ -80,10 +80,10 @@ journalctl -u rke2-server -n 100 --no-pager
 **Steps:**
 
 ```bash
-# On the FIRST server node — verify the token
+# On the FIRST server node - verify the token
 cat /var/lib/rancher/rke2/server/node-token
 
-# On the FAILING node — check the config
+# On the FAILING node - check the config
 cat /etc/rancher/rke2/config.yaml
 
 # Verify the first server is reachable on port 9345 (cluster join port)
@@ -92,9 +92,9 @@ curl -k https://<first-server-ip>:9345/ping
 
 **Common causes:**
 
-- `server` URL in config points to wrong IP — verify `ansible_host` is set correctly in inventory
-- Token mismatch — the token in `config.yaml` on additional nodes must match `node-token` on first server
-- Firewall blocking port 9345 — ensure this port is open between server nodes
+- `server` URL in config points to wrong IP - verify `ansible_host` is set correctly in inventory
+- Token mismatch - the token in `config.yaml` on additional nodes must match `node-token` on first server
+- Firewall blocking port 9345 - ensure this port is open between server nodes
 
 ---
 
@@ -111,8 +111,8 @@ cat /etc/rancher/rke2/config.yaml
 **Common causes:**
 
 - Port 9345 blocked between agent and server nodes
-- Wrong VIP address in `server` URL — if using VIP, ensure it is reachable from agents
-- Token mismatch — token must match the first server's `node-token`
+- Wrong VIP address in `server` URL - if using VIP, ensure it is reachable from agents
+- Token mismatch - token must match the first server's `node-token`
 
 ---
 
@@ -139,8 +139,8 @@ ip addr show | grep <vip-address>
 
 **Common causes:**
 
-- Wrong `rke2_vip_interface` — must match the interface name on server nodes (check with `ip link`)
-- VIP address already in use on the network — choose a free IP in the same subnet
+- Wrong `rke2_vip_interface` - must match the interface name on server nodes (check with `ip link`)
+- VIP address already in use on the network - choose a free IP in the same subnet
 - kube-vip manifest not deployed - the role writes it on every server node in `server_nodes`; check that the node is in that group and that `rke2_vip_manager` is `kubevip`
 
 ---
@@ -184,7 +184,7 @@ rke2_tls_san:
   - "rke2.example.com" # DNS name
 ```
 
-> The VIP is added automatically when `rke2_vip_enabled: true` — no need to list it manually.
+> The VIP is added automatically when `rke2_vip_enabled: true` - no need to list it manually.
 
 **Symptom:** Certificates are expiring.
 
@@ -212,13 +212,13 @@ ls -la /tmp/rke2-install.sh
 
 **Common causes:**
 
-- Controller has no internet access and `rke2_airgapped: true` — pre-download the script:
+- Controller has no internet access and `rke2_airgapped: true` - pre-download the script:
   ```bash
   mkdir -p rke2-airgap-files
   curl -sfL https://get.rke2.io -o rke2-airgap-files/rke2-install.sh
   chmod +x rke2-airgap-files/rke2-install.sh
   ```
-- The install script requires RKE2 artifacts — configure a private registry via `rke2_private_registries_config`
+- The install script requires RKE2 artifacts - configure a private registry via `rke2_private_registries_config`
 
 ---
 
@@ -237,9 +237,9 @@ export KUBECONFIG=/etc/rancher/rke2/rke2.yaml
 
 **Common causes:**
 
-- CNI not initialized yet — wait 2-3 minutes after first start
-- Wrong CNI configured — verify `rke2_cni` matches what was specified at cluster init (changing CNI requires full cluster re-install)
-- Network interface issue — check `rke2_vip_interface` is correct
+- CNI not initialized yet - wait 2-3 minutes after first start
+- Wrong CNI configured - verify `rke2_cni` matches what was specified at cluster init (changing CNI requires full cluster re-install)
+- Network interface issue - check `rke2_vip_interface` is correct
 
 ---
 

@@ -10,7 +10,7 @@
 [![LinkedIn](https://img.shields.io/badge/linkedin-%230077B5.svg?style=for-the-badge&logo=linkedin&logoColor=white)](https://www.linkedin.com/company/devopsgroup8/)
 ![RKE2](https://img.shields.io/badge/RKE2-0075A8?logo=rancher&logoColor=fff&style=for-the-badge)
 
-Ansible role for installing and configuring [RKE2](https://docs.rke2.io/) — Rancher's next-generation Kubernetes distribution. Supports single-node, server+agent, and 3-server HA deployments with kube-vip or keepalived VIP management, air-gapped installs, kube-vip LoadBalancer cloud provider, rolling upgrades, custom CA certificates, and automatic certificate rotation.
+Ansible role for installing and configuring [RKE2](https://docs.rke2.io/) - Rancher's next-generation Kubernetes distribution. Supports single-node, server+agent, and 3-server HA deployments with kube-vip or keepalived VIP management, air-gapped installs, kube-vip LoadBalancer cloud provider, rolling upgrades, custom CA certificates, and automatic certificate rotation.
 
 ---
 
@@ -185,7 +185,7 @@ all:
 
 ### HA Cluster with keepalived
 
-keepalived manages the VIP via VRRP directly on the server nodes. Health checks verify the API server and RKE2 registration port before failing over. **Unicast VRRP** is used — works on cloud SDN networks (Hetzner, AWS VPC, GCP) where multicast `224.0.0.18` is filtered.
+keepalived manages the VIP via VRRP directly on the server nodes. Health checks verify the API server and RKE2 registration port before failing over. **Unicast VRRP** is used - works on cloud SDN networks (Hetzner, AWS VPC, GCP) where multicast `224.0.0.18` is filtered.
 
 **Inventory requirement:** each server node must have a `private_ip` host variable set to its LAN/private IP. keepalived uses it to build the unicast peer list. If omitted, `ansible_host` (or else the inventory name) is used as fallback.
 
@@ -237,7 +237,7 @@ The role uses two inventory groups:
 | Group | Purpose |
 |-------|---------|
 | `server_nodes` | RKE2 control plane nodes (etcd + API server). First host in group bootstraps the cluster. |
-| `agent_nodes` | RKE2 worker nodes. Optional — omit for control-plane-only clusters. |
+| `agent_nodes` | RKE2 worker nodes. Optional - omit for control-plane-only clusters. |
 
 The **first host** in `server_nodes` is the bootstrap node. All other server nodes and agents join through it.
 
@@ -409,7 +409,7 @@ RKE2 takes local etcd snapshots by default; set `rke2_etcd_disable_snapshots: tr
 
 When using `rke2_vip_manager: keepalived`, the role can automatically reassign a cloud provider floating IP to whichever node becomes the keepalived MASTER. This combines the internal VRRP VIP (for private traffic) with an external floating IP (for public traffic) so both always point to the same active node.
 
-The mechanism is provider-agnostic — you supply the script and credentials, the role deploys and wires them into keepalived's `notify_master` directive.
+The mechanism is provider-agnostic - you supply the script and credentials, the role deploys and wires them into keepalived's `notify_master` directive.
 
 ```yaml
 rke2_keepalived_failover_enabled: true
@@ -424,7 +424,7 @@ rke2_keepalived_failover_env:
   CLOUD_API: "https://api.your-cloud.example/v1"   # your provider's API base URL
   METADATA_URL: "http://169.254.169.254/metadata"  # provider metadata service
 
-# Script body — executed when this node becomes MASTER
+# Script body - executed when this node becomes MASTER
 # Sources failover.env automatically (same directory as the script).
 # This is an example for a generic cloud floating-IP API; adapt the metadata
 # lookup and the reassign call to your provider.
@@ -444,12 +444,12 @@ rke2_keepalived_failover_script_content: |
 
 **Failover sequence:**
 1. A server node fails its health checks (API server or port 9345 unreachable)
-2. keepalived VRRP elects a new MASTER — internal VIP moves automatically
+2. keepalived VRRP elects a new MASTER - internal VIP moves automatically
 3. `notify_master` fires the script on the new MASTER
 4. Script calls the cloud API to reassign the floating IP
 5. Both the private VIP and the public floating IP now point to the same node
 
-**The env file** (`failover.env`) is deployed with `mode: 0600`, owned by root — API tokens are never written to the script body or visible in process listings.
+**The env file** (`failover.env`) is deployed with `mode: 0600`, owned by root - API tokens are never written to the script body or visible in process listings.
 
 ---
 
@@ -463,7 +463,7 @@ kube-vip runs as a **DaemonSet** on every control plane node and uses ARP + lead
 graph TD
     client(["kubectl / API clients"])
 
-    subgraph cp["Control Plane — kube-vip leader election"]
+    subgraph cp["Control Plane - kube-vip leader election"]
         vip["VIP 10.0.0.100:6443"]
         s1["server1\nbootstrap"]
         s2["server2"]
@@ -493,7 +493,7 @@ keepalived manages the VIP directly via VRRP. The role installs keepalived, depl
 graph TD
     client(["kubectl / API clients"])
 
-    subgraph cp["Control Plane — keepalived VRRP"]
+    subgraph cp["Control Plane - keepalived VRRP"]
         vip["VIP 10.0.0.100"]
         s1["server1\nMASTER"]
         s2["server2\nBACKUP"]
@@ -547,7 +547,7 @@ rke2-artifacts/
   rke2-install.sh           # from https://get.rke2.io
   rke2.linux-amd64.tar.gz   # from GitHub releases
   sha256sum-amd64.txt        # from GitHub releases
-  rke2-images.linux-amd64.tar.zst  # optional — for fully offline image loading
+  rke2-images.linux-amd64.tar.zst  # optional - for fully offline image loading
   rke2-images-ingress-nginx.linux-amd64.tar.zst  # optional extra tarball
 ```
 
@@ -568,7 +568,7 @@ additional tarballs only when they are named `rke2-images-*.linux-<arch>.tar.zst
 (or `.tar.gz`) and the full `rke2-images.linux-<arch>.tar.zst` is staged too;
 the role fails early otherwise.
 
-The role copies all artifacts to the target nodes and runs the install script locally — no outbound internet required from the nodes.
+The role copies all artifacts to the target nodes and runs the install script locally - no outbound internet required from the nodes.
 
 ---
 
@@ -786,7 +786,7 @@ rke2_addons:
 
 | Key | Required | Description |
 |-----|----------|-------------|
-| `name` | yes | Unique name — used for the manifest filename |
+| `name` | yes | Unique name - used for the manifest filename |
 | `enabled` | yes | `false` removes the manifest file. The running release is NOT uninstalled unless `rke2_addons_delete_on_disable: true` |
 | `repo` | yes | Helm chart repository URL |
 | `version` | yes | Chart version to pin |
@@ -813,9 +813,9 @@ The role ships four [Molecule](https://molecule.readthedocs.io/) scenarios:
 | Scenario | Driver | Validates |
 |----------|--------|-----------|
 | `config-render` | docker | Single-node config/template rendering (proxy, CNI, etcd, CIS, kube-vip, audit, addons, HelmChartConfigs). NOT a running cluster. |
-| `config-render-ha` | docker | HA kube-vip manifest rendering — DaemonSet kind, svc_enable, RBAC endpointslices, cloud provider, agent token. NOT a running cluster. |
-| `config-render-keepalived` | docker | keepalived.conf VRRP path — unicast, state BACKUP, nopreempt, health scripts, failover.env, kube-vip cleanup. NOT a running cluster. |
-| `cluster` | VM (delegated) | Real RKE2 cluster end-to-end — all nodes Ready, /healthz ok, etcd member count, VIP ports, etcd snapshot key. |
+| `config-render-ha` | docker | HA kube-vip manifest rendering - DaemonSet kind, svc_enable, RBAC endpointslices, cloud provider, agent token. NOT a running cluster. |
+| `config-render-keepalived` | docker | keepalived.conf VRRP path - unicast, state BACKUP, nopreempt, health scripts, failover.env, kube-vip cleanup. NOT a running cluster. |
+| `cluster` | VM (delegated) | Real RKE2 cluster end-to-end - all nodes Ready, /healthz ok, etcd member count, VIP ports, etcd snapshot key. |
 
 The `config-render*` scenarios use a mock rke2 binary and only assert that the
 role generates correct files. They run on every PR on Debian 12 / 13 and
@@ -836,7 +836,7 @@ molecule test -s config-render-ha
 # Run keepalived render scenario
 molecule test -s config-render-keepalived
 
-# Run real cluster scenario (requires VMs — NOT run in PR CI)
+# Run real cluster scenario (requires VMs - NOT run in PR CI)
 # Provide hosts via delegated inventory and set cluster variables:
 #   MOLECULE_CLUSTER_VIP=10.0.0.100 \
 #   MOLECULE_CLUSTER_VIP_IFACE=eth0 \
@@ -846,7 +846,7 @@ molecule test -s config-render-keepalived
 > The `cluster` scenario uses Molecule's `delegated` driver and runs a real
 > install. Provide reachable hosts via a delegated inventory (any cloud or
 > local libvirt/vagrant) and set `rke2_cluster_vip` / `rke2_cluster_vip_interface`.
-> It is NOT run on every PR — it requires dedicated infrastructure.
+> It is NOT run on every PR - it requires dedicated infrastructure.
 
 ---
 

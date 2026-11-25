@@ -11,7 +11,7 @@
 # seeded signing keys. The signing keys (*.key) are written below only on the
 # first run and removed after generation; gating their (re)creation on this check
 # keeps the role idempotent (otherwise copy re-creates them every run and the
-# removal task deletes them again — a perpetual changed/changed ping-pong).
+# removal task deletes them again - a perpetual changed/changed ping-pong).
 - name: Check whether the RKE2 server CA has already been generated
   ansible.builtin.stat:
     path: "{{ rke2_data_dir }}/server/tls/server-ca.crt"
