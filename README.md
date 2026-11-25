@@ -318,6 +318,11 @@ All variables are defined in [`defaults/main.yml`](defaults/main.yml) with inlin
 | `rke2_http_proxy` | `""` | HTTP proxy for RKE2 and containerd |
 | `rke2_https_proxy` | `""` | HTTPS proxy for RKE2 and containerd |
 | `rke2_no_proxy` | `""` | Comma-separated no-proxy list |
+| `rke2_containerd_http_proxy` / `_https_proxy` / `_no_proxy` | `""` | containerd-only proxy settings (image pulls) |
+
+Any of these writes `/etc/default/rke2-server` or `/etc/default/rke2-agent`
+(mode 0600, since proxy URLs may carry credentials); with none set the file is
+removed.
 
 ### Cloud Provider
 

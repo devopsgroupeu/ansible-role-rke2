@@ -62,6 +62,8 @@ rke2-images.linux-amd64.tar.zst   # optional — for fully offline image loading
 | `rke2_containerd_https_proxy` | `""` | HTTPS proxy for containerd. |
 | `rke2_containerd_no_proxy` | `""` | No-proxy list for containerd. |
 
+Setting any of these variables, including only a containerd one, writes `/etc/default/rke2-server` or `/etc/default/rke2-agent` with mode 0600 (proxy URLs may carry credentials). With none set, the file is removed.
+
 **Example:**
 
 ```yaml

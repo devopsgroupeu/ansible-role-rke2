@@ -17,7 +17,8 @@
     - rke2_setup
 
 - name: Configure proxy settings
-  ansible.builtin.include_tasks: proxy_setup.yml
+  # import, not include: tags on include_tasks do not reach the included tasks.
+  ansible.builtin.import_tasks: proxy_setup.yml
   tags:
     - rke2_proxy
 

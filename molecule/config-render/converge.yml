@@ -85,6 +85,11 @@
     rke2_cert_rotation_enabled: true
     rke2_disable_kube_proxy: false
   tasks:
+    # Tagged always: tags on a dynamic include do not reach the role's tasks,
+    # so `--tags rke2_proxy` must not skip the include itself; the role's own
+    # task tags then select what runs.
     - name: Include rke2 role
       ansible.builtin.include_role:
         name: ansible-role-rke2
+      tags:
+        - always

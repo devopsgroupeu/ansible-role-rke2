@@ -26,6 +26,8 @@
       source "$(dirname "$0")/failover.env"
       echo "failover: API_TOKEN=${API_TOKEN} FLOATING_IP_ID=${FLOATING_IP_ID}"
     rke2_cert_rotation_enabled: false
+    # Only a containerd proxy: the env file must still be written.
+    rke2_containerd_https_proxy: "http://proxy.example.com:3128"
     rke2_cis_profile: etcd
     rke2_additional_packages: []
   tasks:

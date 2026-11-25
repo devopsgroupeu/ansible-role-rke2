@@ -278,3 +278,27 @@
       ansible.builtin.assert:
         that: "'nopreempt' in (keepalived_conf_raw.content | b64decode)"
         fail_msg: "nopreempt directive not found in keepalived.conf VRRP instance"
+
+- name: Verify a containerd-only proxy setting
+  hosts: server_nodes
+  gather_facts: false
+  tasks:
+    - name: Stat the rke2-server proxy env file
+      ansible.builtin.stat:
+        path: /etc/default/rke2-server
+      register: proxy_env_stat
+
+    - name: Read the rke2-server proxy env file
+      ansible.builtin.slurp:
+        src: /etc/default/rke2-server
+      register: proxy_env_raw
+
+    - name: Assert the env file carries only the containerd proxy and is 0600
+      vars:
+        _env: "{{ proxy_env_raw.content | b64decode }}"
+      ansible.builtin.assert:
+        that:
+          - proxy_env_stat.stat.mode == '0600'
+          - _env is search('(?m)^CONTAINERD_HTTPS_PROXY=http://proxy.example.com:3128$')
+          - _env is not search('(?m)^(HTTP|HTTPS|NO)_PROXY=')
+        fail_msg: "unexpected proxy env file (mode {{ proxy_env_stat.stat.mode }}): {{ _env }}"
