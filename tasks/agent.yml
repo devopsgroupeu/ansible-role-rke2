@@ -38,10 +38,11 @@
     - not (rke2_airgapped | default(false) | bool)
     - _rke2_install_needed | bool
 
+# The installer gets the resolved version, see the server install tasks.
 - name: Install or upgrade RKE2 agent (internet)
   ansible.builtin.command: sh /tmp/rke2-install.sh
   environment:
-    INSTALL_RKE2_VERSION: "{{ rke2_version }}"
+    INSTALL_RKE2_VERSION: "{{ _rke2_target_version }}"
     INSTALL_RKE2_CHANNEL: "{{ rke2_channel if (rke2_version | default('') | length == 0) else '' }}"
     INSTALL_RKE2_TYPE: "agent"
     INSTALL_RKE2_METHOD: "{{ rke2_install_method }}"
@@ -54,7 +55,7 @@
 - name: Install or upgrade RKE2 agent (air-gapped)
   ansible.builtin.command: sh /tmp/rke2-install.sh
   environment:
-    INSTALL_RKE2_VERSION: "{{ rke2_version }}"
+    INSTALL_RKE2_VERSION: "{{ _rke2_target_version }}"
     INSTALL_RKE2_CHANNEL: "{{ rke2_channel if (rke2_version | default('') | length == 0) else '' }}"
     INSTALL_RKE2_TYPE: "agent"
     INSTALL_RKE2_METHOD: "{{ rke2_install_method }}"

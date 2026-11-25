@@ -59,6 +59,10 @@
     - rke2_cluster_token | default('') | length > 0
     - _rke2_existing_token_file.stat.exists
 
+# INSTALL_RKE2_VERSION is the version version.yml resolved (also in channel
+# mode), so get.rke2.io installs exactly what the role compared against
+# instead of resolving the channel again from its own default URL. The
+# channel is still passed: the RPM method picks its repository from it.
 - name: Install RKE2 server (internet)
   ansible.builtin.shell: |
     set -o pipefail
@@ -66,7 +70,7 @@
   args:
     executable: /bin/bash
   environment:
-    INSTALL_RKE2_VERSION: "{{ rke2_version }}"
+    INSTALL_RKE2_VERSION: "{{ _rke2_target_version }}"
     INSTALL_RKE2_CHANNEL: "{{ rke2_channel if (rke2_version | default('') | length == 0) else '' }}"
     INSTALL_RKE2_TYPE: "server"
     INSTALL_RKE2_METHOD: "{{ rke2_install_method }}"
@@ -79,7 +83,7 @@
 - name: Install RKE2 server (air-gapped)
   ansible.builtin.command: sh /tmp/rke2-install.sh
   environment:
-    INSTALL_RKE2_VERSION: "{{ rke2_version }}"
+    INSTALL_RKE2_VERSION: "{{ _rke2_target_version }}"
     INSTALL_RKE2_CHANNEL: "{{ rke2_channel if (rke2_version | default('') | length == 0) else '' }}"
     INSTALL_RKE2_TYPE: "server"
     INSTALL_RKE2_METHOD: "{{ rke2_install_method }}"
