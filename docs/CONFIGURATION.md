@@ -27,6 +27,8 @@ All variables are defined in `defaults/main.yml` and can be overridden in your p
 | `rke2_airgapped` | `false` | Set `true` for air-gapped environments. |
 | `rke2_airgapped_artifacts_dir` | `""` | Path on the Ansible controller to pre-downloaded RKE2 artifacts. |
 | `rke2_require_artifacts_dir` | `true` | Require `rke2_airgapped_artifacts_dir` when `rke2_airgapped` is true. Set `false` for a deliberate partial air-gap. |
+| `rke2_architecture` | node CPU architecture | Architecture suffix of the air-gap artifacts: `amd64` on x86_64, `arm64` on aarch64. |
+| `rke2_airgapped_additional_image_tarballs` | `[]` | Extra image tarballs in `rke2_airgapped_artifacts_dir` (e.g. `rke2-images-ingress-nginx.linux-amd64.tar.zst`). They must be named `rke2-images-*.linux-<arch>.tar.zst` (or `.tar.gz`), and `rke2-images.linux-<arch>.tar.zst` must be staged too, because get.rke2.io installs them only then. |
 | `rke2_disable_firewalld` | `true` | Stop and disable firewalld before install. Set `false` to manage firewall rules yourself. |
 | `rke2_system_default_registry` | `""` | Mirror registry for all RKE2 system images (e.g. `registry.example.com:5000`). Honored on servers and agents. |
 
@@ -34,9 +36,10 @@ All variables are defined in `defaults/main.yml` and can be overridden in your p
 
 ```
 rke2-install.sh
-rke2.linux-amd64.tar.gz
-sha256sum-amd64.txt
-rke2-images.linux-amd64.tar.zst   # optional — for fully offline image loading
+rke2.linux-<arch>.tar.gz
+sha256sum-<arch>.txt
+rke2-images.linux-<arch>.tar.zst   # optional - for fully offline image loading
+rke2-images-*.linux-<arch>.tar.zst # optional, see rke2_airgapped_additional_image_tarballs
 ```
 
 ---
@@ -110,6 +113,7 @@ rke2_cni_configs:
 | Variable | Default | Description |
 |---|---|---|
 | `rke2_kubevip_version` | `"v1.3.2"` | kube-vip image tag. Since kube-vip v1.3.0, shared service VIPs are restricted to Services in the same lease (see the kube-vip v1.3.0 release notes). |
+| `rke2_kubevip_image_repository` | `"ghcr.io/kube-vip/kube-vip"` | kube-vip image repository, e.g. an internal mirror for air-gapped clusters. |
 | `rke2_kubevip_port` | `"6443"` | Control-plane port kube-vip advertises the VIP on. |
 | `rke2_kubevip_svc_enable` | `false` | Enable kube-vip watching of LoadBalancer-type Services (`svc_enable`). Automatically set when `rke2_kubevip_cloud_provider_enabled` is `true`. |
 | `rke2_kubevip_service_election_enable` | `false` | Enable per-service leader election (`svc_election`). |

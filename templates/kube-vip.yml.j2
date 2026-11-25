@@ -24,7 +24,7 @@ spec:
           operator: Exists
       containers:
         - name: kube-vip
-          image: ghcr.io/kube-vip/kube-vip:{{ rke2_kubevip_version }}
+          image: {{ rke2_kubevip_image_repository }}:{{ rke2_kubevip_version }}
           resources:
             requests:
               cpu: "50m"

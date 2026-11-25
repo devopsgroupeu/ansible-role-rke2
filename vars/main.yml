@@ -55,3 +55,11 @@ _rke2_managed_config_keys:
   - kube-controller-manager-arg
   - kubelet-arg
   - kube-proxy-arg
+
+# ansible_facts['architecture'] -> the architecture suffix of RKE2 artifacts.
+_rke2_architecture_map:
+  x86_64: amd64
+  amd64: amd64
+  aarch64: arm64
+  arm64: arm64
+  s390x: s390x

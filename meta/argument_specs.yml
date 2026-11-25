@@ -112,8 +112,27 @@ argument_specs:
         description: >
           Path on the Ansible controller to a directory containing
           pre-downloaded RKE2 artifacts (rke2-install.sh,
-          rke2.linux-amd64.tar.gz, sha256sum-amd64.txt). Leave empty to
-          download only the install script from the internet.
+          rke2.linux-<arch>.tar.gz, sha256sum-<arch>.txt, where <arch> is
+          rke2_architecture). Leave empty to download only the install script
+          from the internet.
+
+      rke2_architecture:
+        type: str
+        required: false
+        description: >
+          Architecture suffix of the air-gap artifacts (amd64, arm64). Defaults
+          to the node's CPU architecture (x86_64 -> amd64, aarch64 -> arm64).
+
+      rke2_airgapped_additional_image_tarballs:
+        type: list
+        elements: str
+        required: false
+        default: []
+        description: >
+          Extra image tarballs in rke2_airgapped_artifacts_dir to stage for the
+          installer, e.g. rke2-images-ingress-nginx.linux-amd64.tar.zst. They
+          must be named rke2-images-*.linux-<arch>.tar.zst (or .tar.gz), and
+          rke2-images.linux-<arch>.tar.zst must be staged too.
 
       rke2_system_default_registry:
         type: str
@@ -225,6 +244,14 @@ argument_specs:
         required: false
         default: v1.3.2
         description: kube-vip image tag. Only used when rke2_vip_manager is 'kubevip'.
+
+      rke2_kubevip_image_repository:
+        type: str
+        required: false
+        default: ghcr.io/kube-vip/kube-vip
+        description: >
+          kube-vip image repository, e.g. an internal mirror for air-gapped
+          clusters. The tag is rke2_kubevip_version.
 
       rke2_kubevip_port:
         type: str

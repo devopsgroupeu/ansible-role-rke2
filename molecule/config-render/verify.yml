@@ -202,7 +202,7 @@
     - name: Assert kube-vip image is the default tag and vip_nodename uses the node name
       ansible.builtin.assert:
         that:
-          - kubevip_ds.spec.template.spec.containers[0].image == 'ghcr.io/kube-vip/kube-vip:v1.3.2'
+          - kubevip_ds.spec.template.spec.containers[0].image == 'registry.example.com:5000/kube-vip/kube-vip:v1.3.2'
           - >-
             (kubevip_ds.spec.template.spec.containers[0].env | selectattr('name', 'equalto', 'vip_nodename')
              | map(attribute='valueFrom') | first).fieldRef.fieldPath == 'spec.nodeName'

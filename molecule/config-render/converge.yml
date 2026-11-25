@@ -26,6 +26,7 @@
     rke2_vip_enabled: true
     rke2_vip_address: "10.0.0.100"
     rke2_vip_manager: kubevip
+    rke2_kubevip_image_repository: "registry.example.com:5000/kube-vip/kube-vip"
     rke2_tls_san:
       - "rke2-render"
       - "*.example.com"

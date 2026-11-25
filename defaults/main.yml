@@ -59,11 +59,22 @@ rke2_airgapped: false
 rke2_require_artifacts_dir: true
 
 # Path on the Ansible controller to a directory containing pre-downloaded RKE2 artifacts.
-# Required files: rke2-install.sh, rke2.linux-amd64.tar.gz, sha256sum-amd64.txt
-# Optional file:  rke2-images.linux-amd64.tar.zst  (for fully offline container image loading)
+# Required files: rke2-install.sh, rke2.linux-<arch>.tar.gz, sha256sum-<arch>.txt
+# Optional file:  rke2-images.linux-<arch>.tar.zst  (for fully offline container image loading)
+# <arch> is rke2_architecture (amd64 or arm64).
 # Download artifacts from: https://github.com/rancher/rke2/releases
 # Leave empty to download only the install script from the internet (partial air-gap).
 rke2_airgapped_artifacts_dir: ""  # e.g. "{{ playbook_dir }}/rke2-artifacts"
+
+# Architecture suffix of the air-gap artifacts. Defaults to the node's CPU
+# architecture (x86_64 -> amd64, aarch64 -> arm64).
+rke2_architecture: "{{ _rke2_architecture_map[ansible_facts['architecture'] | default('x86_64')] | default(ansible_facts['architecture'] | default('x86_64')) }}"
+
+# Extra image tarballs in rke2_airgapped_artifacts_dir, e.g. the CNI or
+# ingress-nginx images: ["rke2-images-ingress-nginx.linux-amd64.tar.zst"].
+# get.rke2.io installs them only when named rke2-images-*.linux-<arch>.tar.zst
+# (or .tar.gz) and when rke2-images.linux-<arch>.tar.zst is staged too.
+rke2_airgapped_additional_image_tarballs: []
 
 # Point all RKE2 system images at an internal mirror (e.g. Harbor/Nexus).
 # Honored on servers AND agents. Empty = pull from upstream registries.
@@ -131,6 +142,9 @@ rke2_server_join_address: ""
 # Since v1.3.0 kube-vip restricts shared service VIPs to Services in the same
 # lease; read the kube-vip v1.3.0 release notes if you share service VIPs.
 rke2_kubevip_version: "v1.3.2"
+
+# kube-vip image repository, e.g. an internal mirror for air-gapped clusters.
+rke2_kubevip_image_repository: "ghcr.io/kube-vip/kube-vip"
 
 # Control-plane port kube-vip advertises the VIP on (RKE2 apiserver = 6443).
 rke2_kubevip_port: "6443"

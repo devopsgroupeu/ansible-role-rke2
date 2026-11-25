@@ -211,3 +211,92 @@
         tasks_from: registries.yml
       vars:
         rke2_private_registries_config: "{{ _changed_registries }}"
+
+# Air-gap staging: the artifact names follow the node architecture and the
+# extra image tarballs are staged next to them for get.rke2.io.
+- name: Stage air-gap artifacts for the node architecture
+  hosts: server_nodes
+  gather_facts: true
+  gather_subset:
+    - "!all"
+    - "!min"
+    - architecture
+  vars:
+    _airgap_dir: "{{ lookup('ansible.builtin.env', 'MOLECULE_EPHEMERAL_DIRECTORY') }}/airgap"
+    _arch: "{{ {'x86_64': 'amd64', 'aarch64': 'arm64'}[ansible_facts['architecture']] }}"
+    _extra: "rke2-images-ingress-nginx.linux-{{ _arch }}.tar.zst"
+    _artifacts:
+      - rke2-install.sh
+      - "rke2.linux-{{ _arch }}.tar.gz"
+      - "sha256sum-{{ _arch }}.txt"
+      - "rke2-images.linux-{{ _arch }}.tar.zst"
+      - "{{ _extra }}"
+  tasks:
+    - name: Create the artifacts directory on the controller
+      ansible.builtin.file:
+        path: "{{ _airgap_dir }}"
+        state: directory
+        mode: "0700"
+      delegate_to: localhost
+      become: false
+
+    - name: Write dummy artifacts on the controller
+      ansible.builtin.copy:
+        dest: "{{ _airgap_dir }}/{{ item }}"
+        content: "dummy {{ item }}\n"
+        mode: "0600"
+      loop: "{{ _artifacts }}"
+      delegate_to: localhost
+      become: false
+
+    - name: Run the air-gap staging tasks
+      ansible.builtin.include_role:
+        name: ansible-role-rke2
+        tasks_from: network_environment.yml
+      vars:
+        rke2_airgapped: true
+        rke2_airgapped_artifacts_dir: "{{ _airgap_dir }}"
+        rke2_airgapped_additional_image_tarballs:
+          - "{{ _extra }}"
+
+    - name: Stat the staged artifacts
+      ansible.builtin.stat:
+        path: "/tmp/rke2-artifacts/{{ item }}"
+      loop: "{{ _artifacts[1:] }}"
+      register: _staged
+
+    - name: Assert every artifact was staged with the node architecture
+      ansible.builtin.assert:
+        that: _staged.results | rejectattr('stat.exists') | list | length == 0
+        fail_msg: >-
+          missing in /tmp/rke2-artifacts:
+          {{ _staged.results | rejectattr('stat.exists') | map(attribute='item') | join(', ') }}
+
+    - name: Stage a tarball the installer would ignore
+      block:
+        - name: Run the air-gap staging tasks with a misnamed tarball
+          ansible.builtin.include_role:
+            name: ansible-role-rke2
+            tasks_from: network_environment.yml
+          vars:
+            rke2_airgapped: true
+            rke2_airgapped_artifacts_dir: "{{ _airgap_dir }}"
+            rke2_airgapped_additional_image_tarballs:
+              - "{{ _artifacts[1] }}"
+
+        - name: Fail when the guard did not fire
+          ansible.builtin.fail:
+            msg: a misnamed additional image tarball was not rejected
+      rescue:
+        - name: Assert the tarball name guard fired
+          ansible.builtin.assert:
+            that: ansible_failed_result.msg is search('get.rke2.io ignores other files')
+            fail_msg: "unexpected failure: {{ ansible_failed_result.msg }}"
+
+    - name: Remove the staged air-gap artifacts
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /tmp/rke2-artifacts
+        - /tmp/rke2-install.sh

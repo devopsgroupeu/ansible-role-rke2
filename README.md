@@ -271,6 +271,8 @@ All variables are defined in [`defaults/main.yml`](defaults/main.yml) with inlin
 | `rke2_install_method` | `""` | `INSTALL_RKE2_METHOD` for get.rke2.io: `""` (installer default), `rpm` or `tar` |
 | `rke2_airgapped` | `false` | Enable air-gapped installation mode |
 | `rke2_airgapped_artifacts_dir` | `""` | Path on controller to pre-downloaded artifacts |
+| `rke2_architecture` | node CPU (`amd64`/`arm64`) | Architecture suffix of the air-gap artifacts |
+| `rke2_airgapped_additional_image_tarballs` | `[]` | Extra `rke2-images-*.linux-<arch>.tar.zst` files from the artifacts dir to stage |
 
 ### VIP / HA
 
@@ -281,6 +283,7 @@ All variables are defined in [`defaults/main.yml`](defaults/main.yml) with inlin
 | `rke2_vip_interface` | `eth0` | Network interface for VIP |
 | `rke2_vip_manager` | `kubevip` | VIP manager: `kubevip` or `keepalived` |
 | `rke2_kubevip_version` | `v1.3.2` | kube-vip image tag. Since v1.3.0 shared service VIPs are restricted to Services in the same lease |
+| `rke2_kubevip_image_repository` | `ghcr.io/kube-vip/kube-vip` | kube-vip image repository (e.g. an internal mirror) |
 | `rke2_kubevip_svc_enable` | `false` | Enable kube-vip watching of LoadBalancer Services |
 | `rke2_kubevip_service_election_enable` | `false` | Per-service leader election |
 | `rke2_kubevip_metrics_port` | `0` | Prometheus metrics port (0 = disabled) |
@@ -538,13 +541,25 @@ rke2-artifacts/
   rke2.linux-amd64.tar.gz   # from GitHub releases
   sha256sum-amd64.txt        # from GitHub releases
   rke2-images.linux-amd64.tar.zst  # optional — for fully offline image loading
+  rke2-images-ingress-nginx.linux-amd64.tar.zst  # optional extra tarball
 ```
 
 ```yaml
 vars:
   rke2_airgapped: true
   rke2_airgapped_artifacts_dir: "{{ playbook_dir }}/rke2-artifacts"
+  # Optional: images that are not in rke2-images.linux-<arch>.tar.zst
+  rke2_airgapped_additional_image_tarballs:
+    - rke2-images-ingress-nginx.linux-amd64.tar.zst
+  # Optional: pull kube-vip from an internal mirror
+  rke2_kubevip_image_repository: registry.example.com/kube-vip/kube-vip
 ```
+
+The artifact names follow `rke2_architecture`, which defaults to the node's CPU
+architecture (`amd64` on x86_64, `arm64` on aarch64). get.rke2.io installs the
+additional tarballs only when they are named `rke2-images-*.linux-<arch>.tar.zst`
+(or `.tar.gz`) and the full `rke2-images.linux-<arch>.tar.zst` is staged too;
+the role fails early otherwise.
 
 The role copies all artifacts to the target nodes and runs the install script locally — no outbound internet required from the nodes.
 
