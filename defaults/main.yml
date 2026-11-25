@@ -133,8 +133,11 @@ rke2_agent_server_address: ""
 
 # Fixed registration address (host or IP, port 9345) that additional servers and
 # agents join through, e.g. a load balancer, DNS name or VIP. Lets new servers
-# join while the first server is down. Agents still prefer
-# rke2_agent_server_address and the VIP. Empty = the first server's ansible_host.
+# join while the first server is down, provided rke2_cluster_token is set (an
+# auto-generated token is read from the first server's node-token); the
+# restart handler then refuses to restart them until every server answers
+# /ping again. Agents still prefer rke2_agent_server_address and the VIP.
+# Empty = the first server's ansible_host.
 rke2_server_join_address: ""
 
 # kube-vip version (only used when rke2_vip_manager=kubevip).

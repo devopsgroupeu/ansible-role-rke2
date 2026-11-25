@@ -106,7 +106,7 @@ rke2_cni_configs:
 | `rke2_vip_interface` | `"eth0"` | Network interface for the VIP on control plane nodes. |
 | `rke2_vip_manager` | `"kubevip"` | VIP manager: `kubevip` or `keepalived`. |
 | `rke2_agent_server_address` | `""` | Override the server address in the agent `config.yaml` `server` field. Defaults to `rke2_vip_address` (when VIP enabled) or the first server's `ansible_host`. Useful on cloud SDN networks where gratuitous-ARP VIPs are not directly routable. |
-| `rke2_server_join_address` | `""` | Fixed registration address (host or IP, port 9345) for additional servers and agents, e.g. a load balancer or DNS name, so new servers can join while the first server is down. Agents still prefer `rke2_agent_server_address` and the VIP. Empty uses the first server's `ansible_host`. |
+| `rke2_server_join_address` | `""` | Fixed registration address (host or IP, port 9345) for additional servers and agents, e.g. a load balancer or DNS name, so new servers can join while the first server is down. That needs `rke2_cluster_token`: an auto-generated token is read from the first server's node-token, so the first server must be reachable otherwise. While any server is down, the restart handler refuses to restart the joining server (see `rke2_handler_wait_for_ready`). Agents still prefer `rke2_agent_server_address` and the VIP. Empty uses the first server's `ansible_host`. |
 
 ### kube-vip tuning (when `rke2_vip_manager=kubevip`)
 

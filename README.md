@@ -303,7 +303,7 @@ All variables are defined in [`defaults/main.yml`](defaults/main.yml) with inlin
 | `rke2_keepalived_failover_script_content` | `""` | Shell script body executed when this node becomes MASTER |
 | `rke2_keepalived_failover_env` | `{}` | Key/value pairs written to a protected env file (mode 0600) |
 | `rke2_agent_server_address` | `""` | Override server address in agent config (useful on cloud SDN networks) |
-| `rke2_server_join_address` | `""` | Fixed registration address for additional servers and agents (load balancer, DNS name) |
+| `rke2_server_join_address` | `""` | Fixed registration address for additional servers and agents (load balancer, DNS name). Joining while the first server is down needs `rke2_cluster_token` |
 
 ### Networking
 

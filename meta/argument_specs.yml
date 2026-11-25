@@ -323,8 +323,11 @@ argument_specs:
         default: ""
         description: >
           Fixed registration address (host or IP, port 9345) for additional
-          servers and agents, e.g. a load balancer or DNS name. Agents still
-          prefer rke2_agent_server_address and the VIP. Empty uses the first
+          servers and agents, e.g. a load balancer or DNS name. New servers
+          can join through it while the first server is down only when
+          rke2_cluster_token is set, because an auto-generated token is read
+          from the first server's node-token. Agents still prefer
+          rke2_agent_server_address and the VIP. Empty uses the first
           server's ansible_host.
 
       rke2_keepalived_router_id:
