@@ -193,7 +193,7 @@ rke2_keepalived_auth_pass: "s3cur3pw"
 | `rke2_etcd_s3_folder` | `""` | Optional path prefix inside the S3 bucket. |
 | `rke2_etcd_s3_access_key` | `""` | S3 access key. Source from Vault; rendered with `no_log`. |
 | `rke2_etcd_s3_secret_key` | `""` | S3 secret key. Source from Vault; rendered with `no_log`. |
-| `rke2_etcd_s3_endpoint_ca` | `""` | Optional PEM CA bundle for a private S3 endpoint. |
+| `rke2_etcd_s3_endpoint_ca` | `""` | Optional CA for a private S3 endpoint. Accepts a PEM bundle (the role writes it to `/etc/rancher/rke2/etcd-s3-endpoint-ca.pem`, mode 0600, and references that path), a path to a CA file on the servers, or base64-encoded PEM. |
 | `rke2_etcd_s3_skip_ssl_verify` | `false` | Skip TLS verification of the S3 endpoint (lab/self-signed only). |
 
 ---
@@ -395,7 +395,7 @@ Each list entry is a string in `"key=value"` format.
 | `rke2_kube_scheduler_args` | `[]` | Extra flags for `kube-scheduler`. |
 | `rke2_kube_controller_manager_args` | `[]` | Extra flags for `kube-controller-manager`. |
 | `rke2_kubelet_args` | `[]` | Extra flags for `kubelet` (applies to both server and agent nodes). |
-| `rke2_kube_proxy_args` | `[]` | Extra flags for `kube-proxy` (applies to both server and agent nodes). |
+| `rke2_kube_proxy_args` | `[]` | Extra flags for `kube-proxy` (applies to both server and agent nodes). Not rendered when `rke2_disable_kube_proxy: true`. |
 
 ```yaml
 rke2_kube_apiserver_args:
@@ -457,7 +457,7 @@ rke2_selinux: true
 
 ## Extra Configuration (catch-all)
 
-`rke2_extra_config` accepts any key/value pairs that are merged into `config.yaml` **after** all other settings. Use this for RKE2 options not yet exposed as dedicated role variables. Values here take precedence over everything above.
+`rke2_extra_config` accepts any key/value pairs that are merged into `config.yaml` **after** all other settings. Use this for RKE2 options not yet exposed as dedicated role variables. Keys the role already renders (for example `profile`, `kubelet-arg`, `node-label`, `data-dir`; the full list is `_rke2_managed_config_keys` in `vars/main.yml`) are rejected on servers and agents, because a duplicate YAML key would make `config.yaml` ambiguous. Use the dedicated variable for those.
 
 ```yaml
 rke2_extra_config:

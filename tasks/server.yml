@@ -18,16 +18,6 @@
       ingress-nginx+traefik to migrate (nginx stays the default class) or traefik.
   when: rke2_ingress_controller == 'ingress-nginx'
 
-- name: Assert rke2_extra_config does not collide with dedicated keys
-  vars:
-    _managed_keys: ['disable', 'tls-san', 'cni', 'node-ip', 'cluster-dns', 'system-default-registry', 'ingress-controller']
-  ansible.builtin.assert:
-    that:
-      - (rke2_extra_config | default({})).keys() | list | intersect(_managed_keys) | length == 0
-    fail_msg: >-
-      rke2_extra_config sets a key already managed by a dedicated variable;
-      use the dedicated variable instead to avoid duplicate YAML keys.
-
 - name: Check for the token of an existing cluster on the first server
   ansible.builtin.stat:
     path: "{{ rke2_data_dir }}/server/token"
@@ -119,6 +109,20 @@
   notify: Restart rke2-server
   when:
     - rke2_audit_policy | default('') | length > 0
+
+# RKE2 reads etcd-s3-endpoint-ca as a file path or as base64 data, so a PEM
+# bundle is written to a file and the config references the file.
+- name: Write the etcd S3 endpoint CA bundle
+  ansible.builtin.copy:
+    content: "{{ rke2_etcd_s3_endpoint_ca | trim }}\n"
+    dest: /etc/rancher/rke2/etcd-s3-endpoint-ca.pem
+    owner: root
+    group: root
+    mode: "0600"
+  notify: Restart rke2-server
+  when:
+    - rke2_etcd_s3_enabled | default(false) | bool
+    - "'BEGIN CERTIFICATE' in rke2_etcd_s3_endpoint_ca | default('')"
 
 - name: Configure RKE2 server (first node)
   ansible.builtin.template:

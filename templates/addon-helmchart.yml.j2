@@ -1,13 +1,13 @@
 apiVersion: helm.cattle.io/v1
 kind: HelmChart
 metadata:
-  name: {{ item.name }}
+  name: {{ item.name | to_json }}
   namespace: kube-system
 spec:
-  repo: {{ item.repo }}
-  chart: {{ item.chart | default(item.name) }}
-  version: {{ item.version | default('') }}
-  targetNamespace: {{ item.namespace | default(item.name) }}
+  repo: {{ item.repo | to_json }}
+  chart: {{ item.chart | default(item.name) | to_json }}
+  version: {{ item.version | default('') | string | to_json }}
+  targetNamespace: {{ item.namespace | default(item.name) | to_json }}
   createNamespace: true
 {% if item.bootstrap is defined %}
   bootstrap: {{ item.bootstrap | bool | lower }}

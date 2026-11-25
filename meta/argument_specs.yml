@@ -472,7 +472,10 @@ argument_specs:
         type: str
         required: false
         default: ""
-        description: Optional PEM CA bundle for a private S3 endpoint.
+        description: >
+          Optional CA for a private S3 endpoint: a PEM bundle (written to
+          /etc/rancher/rke2/etcd-s3-endpoint-ca.pem, mode 0600, and referenced
+          by path), a path to a CA file on the servers, or base64-encoded PEM.
 
       rke2_etcd_s3_skip_ssl_verify:
         type: bool
@@ -828,7 +831,7 @@ argument_specs:
         elements: str
         required: false
         default: []
-        description: Extra flags passed to kube-proxy.
+        description: Extra flags passed to kube-proxy. Not rendered when rke2_disable_kube_proxy is true.
 
       # -----------------------------------------------------------------------
       # Cloud provider
@@ -969,6 +972,6 @@ argument_specs:
         required: false
         default: {}
         description: >
-          Catch-all dict merged last into config.yaml. Any RKE2 option not
-          exposed by a dedicated variable can go here and will take precedence
-          over all other settings.
+          Catch-all dict appended to config.yaml on servers and agents for RKE2
+          options not exposed by a dedicated variable. Keys the role already
+          renders (_rke2_managed_config_keys in vars/main.yml) are rejected.

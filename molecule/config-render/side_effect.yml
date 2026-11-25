@@ -118,3 +118,26 @@
           ansible.builtin.assert:
             that: ansible_failed_result.msg is search('ingress-nginx[+]traefik')
             fail_msg: "unexpected failure: {{ ansible_failed_result.msg }}"
+
+- name: Reject rke2_extra_config keys the role already renders
+  hosts: server_nodes
+  gather_facts: false
+  tasks:
+    - name: Run the setup tasks with profile in rke2_extra_config
+      block:
+        - name: Include the setup tasks
+          ansible.builtin.include_role:
+            name: ansible-role-rke2
+            tasks_from: setup.yml
+          vars:
+            rke2_extra_config:
+              profile: cis
+
+        - name: Fail when the guard did not fire
+          ansible.builtin.fail:
+            msg: rke2_extra_config with profile was not rejected
+      rescue:
+        - name: Assert the collision guard fired and names the key
+          ansible.builtin.assert:
+            that: ansible_failed_result.msg is search('rke2_extra_config sets profile,')
+            fail_msg: "unexpected failure: {{ ansible_failed_result.msg }}"

@@ -62,6 +62,32 @@
           - server_config_parsed['etcd-snapshot-retention'] == 10
         fail_msg: "etcd S3 / retention keys not rendered in config.yaml"
 
+    - name: Assert a wildcard tls-san renders as valid YAML
+      ansible.builtin.assert:
+        that: "'*.example.com' in server_config_parsed['tls-san']"
+        fail_msg: "tls-san lacks *.example.com: {{ server_config_parsed['tls-san'] }}"
+
+    - name: Stat the etcd S3 endpoint CA file
+      ansible.builtin.stat:
+        path: /etc/rancher/rke2/etcd-s3-endpoint-ca.pem
+      register: s3_ca_stat
+
+    - name: Check the etcd S3 endpoint CA file is a certificate
+      ansible.builtin.command: openssl x509 -noout -in /etc/rancher/rke2/etcd-s3-endpoint-ca.pem
+      register: s3_ca_openssl
+      changed_when: false
+      failed_when: false
+
+    - name: Assert a PEM etcd S3 endpoint CA is written to a 0600 file and referenced by path
+      ansible.builtin.assert:
+        that:
+          - server_config_parsed['etcd-s3-endpoint-ca'] == '/etc/rancher/rke2/etcd-s3-endpoint-ca.pem'
+          - s3_ca_stat.stat.mode == '0600'
+          - s3_ca_openssl.rc == 0
+        fail_msg: >-
+          etcd-s3-endpoint-ca is {{ server_config_parsed['etcd-s3-endpoint-ca'] }},
+          mode {{ s3_ca_stat.stat.mode | default('missing') }}, openssl rc {{ s3_ca_openssl.rc }}
+
     - name: Read kube-vip RBAC manifest
       ansible.builtin.slurp:
         src: /data/rke2/server/manifests/kube-vip-rbac.yml
@@ -445,3 +471,34 @@
           - _values.controller.kind == 'DaemonSet'
           - _values.defaultBackend.enabled | bool
         fail_msg: "rke2-ingress-nginx HelmChartConfig valuesContent is mis-indented"
+
+    - name: Render the server and agent configs with kube-proxy disabled and kube-proxy args set
+      ansible.builtin.template:
+        src: "{{ lookup('ansible.builtin.env', 'MOLECULE_PROJECT_DIRECTORY') }}/templates/{{ item }}-config.yml.j2"
+        dest: "/tmp/rke2-no-kube-proxy-{{ item }}.yaml"
+        mode: "0600"
+      vars:
+        rke2_disable_kube_proxy: true
+        rke2_kube_proxy_args:
+          - "metrics-bind-address=0.0.0.0:10249"
+        _rke2_cluster_token: "mock-token"
+        _rke2_agent_join_token: ""
+      loop: &config_kinds
+        - server
+        - agent
+
+    - name: Read the configs rendered with kube-proxy disabled
+      ansible.builtin.slurp:
+        src: "/tmp/rke2-no-kube-proxy-{{ item }}.yaml"
+      loop: *config_kinds
+      register: no_kube_proxy_renders
+
+    - name: Assert kube-proxy-arg is dropped when kube-proxy is disabled
+      vars:
+        _cfg: "{{ item.content | b64decode | from_yaml }}"
+      ansible.builtin.assert:
+        that: "'kube-proxy-arg' not in _cfg"
+        fail_msg: "{{ item.item }} config renders kube-proxy-arg although kube-proxy is disabled"
+      loop: "{{ no_kube_proxy_renders.results }}"
+      loop_control:
+        label: "{{ item.item }}"

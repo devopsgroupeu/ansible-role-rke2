@@ -8,3 +8,50 @@ _rke2_cis_sysctls:
   kernel.panic: 10
   kernel.panic_on_oops: 1
   kernel.keys.root_maxbytes: 25000000
+
+# Keys server-config.yml.j2 and agent-config.yml.j2 render themselves;
+# rke2_extra_config must not repeat them (duplicate YAML keys).
+_rke2_managed_config_keys:
+  - token
+  - server
+  - agent-token
+  - cni
+  - tls-san
+  - cluster-cidr
+  - service-cidr
+  - cluster-dns
+  - cluster-domain
+  - node-ip
+  - node-external-ip
+  - system-default-registry
+  - etcd-disable-snapshots
+  - etcd-snapshot-schedule-cron
+  - etcd-snapshot-retention
+  - etcd-s3
+  - etcd-s3-endpoint
+  - etcd-s3-bucket
+  - etcd-s3-region
+  - etcd-s3-folder
+  - etcd-s3-access-key
+  - etcd-s3-secret-key
+  - etcd-s3-endpoint-ca
+  - etcd-s3-skip-ssl-verify
+  - node-label
+  - node-taint
+  - data-dir
+  - write-kubeconfig-mode
+  - node-name
+  - debug
+  - profile
+  - audit-policy-file
+  - disable-cloud-controller
+  - cloud-provider-name
+  - selinux
+  - ingress-controller
+  - disable
+  - disable-kube-proxy
+  - kube-apiserver-arg
+  - kube-scheduler-arg
+  - kube-controller-manager-arg
+  - kubelet-arg
+  - kube-proxy-arg

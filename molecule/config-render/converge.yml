@@ -28,12 +28,14 @@
     rke2_vip_manager: kubevip
     rke2_tls_san:
       - "rke2-render"
+      - "*.example.com"
     rke2_etcd_s3_enabled: true
     rke2_etcd_s3_endpoint: "s3.example.com"
     rke2_etcd_s3_bucket: "rke2-backups"
     rke2_etcd_s3_region: "eu-central-1"
     rke2_etcd_s3_access_key: "AKIAEXAMPLE"
     rke2_etcd_s3_secret_key: "secretexample"
+    rke2_etcd_s3_endpoint_ca: "{{ lookup('ansible.builtin.file', 'test-root-ca.pem') }}"
     rke2_etcd_snapshot_retention: 10
     rke2_cis_profile: cis
     rke2_custom_root_ca_cert: "{{ lookup('ansible.builtin.file', 'test-root-ca.pem') | b64encode }}"

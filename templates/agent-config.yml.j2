@@ -1,12 +1,12 @@
 token: {{ (_rke2_agent_join_token if _rke2_agent_join_token | default('') | length > 0 else _rke2_cluster_token) | to_json }}
 {% if rke2_agent_server_address | default('') | length > 0 %}
-server: https://{{ rke2_agent_server_address }}:9345
+server: {{ ('https://' ~ rke2_agent_server_address ~ ':9345') | to_json }}
 {% elif (rke2_vip_enabled | default(false) | bool) and rke2_vip_address | default('') | length > 0 %}
-server: https://{{ rke2_vip_address }}:9345
+server: {{ ('https://' ~ rke2_vip_address ~ ':9345') | to_json }}
 {% elif rke2_server_join_address | default('') | length > 0 %}
-server: https://{{ rke2_server_join_address }}:9345
+server: {{ ('https://' ~ rke2_server_join_address ~ ':9345') | to_json }}
 {% else %}
-server: https://{{ hostvars[groups['server_nodes'][0]]['ansible_host'] | default(groups['server_nodes'][0]) }}:9345
+server: {{ ('https://' ~ hostvars[groups['server_nodes'][0]]['ansible_host'] | default(groups['server_nodes'][0]) ~ ':9345') | to_json }}
 {% endif %}
 
 node-name: "{{ rke2_node_name if rke2_node_name | default('') | length > 0 else inventory_hostname }}"
@@ -63,7 +63,7 @@ kubelet-arg:
 {% endfor %}
 {% endif %}
 
-{% if rke2_kube_proxy_args | default([]) | length > 0 %}
+{% if rke2_kube_proxy_args | default([]) | length > 0 and not (rke2_disable_kube_proxy | default(false) | bool) %}
 kube-proxy-arg:
 {% for arg in rke2_kube_proxy_args %}
   - "{{ arg }}"

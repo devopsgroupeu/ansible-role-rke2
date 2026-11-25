@@ -71,7 +71,8 @@ provisioner:
           ansible_user: root
     group_vars:
       server_nodes:
-        rke2_agent_token: "mock-agent-token-ha"
+        # ':' and '#' break unquoted YAML; the templates must quote tokens.
+        rke2_agent_token: "0123:#mock-agent-token-ha"
 
 verifier:
   name: ansible

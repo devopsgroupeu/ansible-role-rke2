@@ -233,7 +233,7 @@ rke2_etcd_s3_region: ""             # optional; defaults to us-east-1 in RKE2
 rke2_etcd_s3_folder: ""            # optional path prefix inside the bucket
 rke2_etcd_s3_access_key: ""        # vault_rke2_etcd_s3_access_key
 rke2_etcd_s3_secret_key: ""        # vault_rke2_etcd_s3_secret_key
-rke2_etcd_s3_endpoint_ca: ""       # optional PEM CA bundle for a private S3 endpoint
+rke2_etcd_s3_endpoint_ca: ""       # optional: PEM bundle (written to a 0600 file), CA file path or base64 PEM
 rke2_etcd_s3_skip_ssl_verify: false
 
 # ----------------------------------------------------------------------------
@@ -528,7 +528,8 @@ rke2_agent_restart_throttle: 1
 # ----------------------------------------------------------------------------
 # Any key/value pairs here are merged into config.yaml after all other
 # settings. Use this for RKE2 options not yet exposed as role variables.
-# Values here take precedence over everything above.
+# Keys the role already renders (see _rke2_managed_config_keys in
+# vars/main.yml) are rejected; use the dedicated variable for those.
 rke2_extra_config: {}
   # protect-kernel-defaults: true
   # snapshotter: "overlayfs"

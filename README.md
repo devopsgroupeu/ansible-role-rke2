@@ -374,7 +374,7 @@ RKE2 takes local etcd snapshots by default; set `rke2_etcd_disable_snapshots: tr
 | `rke2_etcd_s3_folder` | `""` | Optional path prefix inside the S3 bucket |
 | `rke2_etcd_s3_access_key` | `""` | S3 access key. Source from Vault; rendered with `no_log` |
 | `rke2_etcd_s3_secret_key` | `""` | S3 secret key. Source from Vault; rendered with `no_log` |
-| `rke2_etcd_s3_endpoint_ca` | `""` | Optional PEM CA bundle for a private S3 endpoint |
+| `rke2_etcd_s3_endpoint_ca` | `""` | Optional CA for a private S3 endpoint: a PEM bundle (written to `/etc/rancher/rke2/etcd-s3-endpoint-ca.pem`, mode 0600), a CA file path on the servers, or base64-encoded PEM |
 | `rke2_etcd_s3_skip_ssl_verify` | `false` | Skip TLS verification of the S3 endpoint (lab/self-signed only) |
 
 ### Hardening
