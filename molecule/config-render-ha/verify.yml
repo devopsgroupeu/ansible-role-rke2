@@ -347,6 +347,13 @@
           - rke2_agent_config_parsed['token'] != 'preset-token-ha'
         fail_msg: "agent config does not use the rke2_agent_token defined for server_nodes"
 
+    - name: Assert system-default-registry is rendered on servers only
+      ansible.builtin.assert:
+        that:
+          - "'system-default-registry' not in rke2_agent_config_parsed"
+          - hostvars[groups['server_nodes'][0]]['rke2_config_parsed']['system-default-registry'] == 'registry.example.com:5000'
+        fail_msg: "system-default-registry must be in the server config and absent from the agent config"
+
     - name: Assert agent config has profile and cloud-provider-name
       ansible.builtin.assert:
         that:

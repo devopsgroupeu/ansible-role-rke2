@@ -140,7 +140,8 @@ argument_specs:
         default: ""
         description: >
           Mirror registry for all RKE2 system images (system-default-registry).
-          Applied to servers and agents. Empty = upstream registries.
+          Rendered on servers only; RKE2 no longer supports it on agents.
+          Empty = upstream registries.
 
       # -----------------------------------------------------------------------
       # Proxy settings
@@ -833,8 +834,9 @@ argument_specs:
         required: false
         default: []
         description: >
-          List of built-in RKE2 components to disable (e.g. rke2-ingress-nginx,
-          rke2-metrics-server, rke2-coredns).
+          List of built-in RKE2 components to disable (e.g. rke2-metrics-server,
+          rke2-coredns). The bundled ingress is selected with
+          rke2_ingress_controller.
 
       # -----------------------------------------------------------------------
       # Kubernetes component arguments

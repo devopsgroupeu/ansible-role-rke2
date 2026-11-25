@@ -30,7 +30,7 @@ All variables are defined in `defaults/main.yml` and can be overridden in your p
 | `rke2_architecture` | node CPU architecture | Architecture suffix of the air-gap artifacts: `amd64` on x86_64, `arm64` on aarch64. |
 | `rke2_airgapped_additional_image_tarballs` | `[]` | Extra image tarballs in `rke2_airgapped_artifacts_dir` (e.g. `rke2-images-ingress-nginx.linux-amd64.tar.zst`). They must be named `rke2-images-*.linux-<arch>.tar.zst` (or `.tar.gz`), and `rke2-images.linux-<arch>.tar.zst` must be staged too, because get.rke2.io installs them only then. |
 | `rke2_disable_firewalld` | `true` | Stop and disable firewalld before install. Set `false` to manage firewall rules yourself. |
-| `rke2_system_default_registry` | `""` | Mirror registry for all RKE2 system images (e.g. `registry.example.com:5000`). Honored on servers and agents. |
+| `rke2_system_default_registry` | `""` | Mirror registry for all RKE2 system images (e.g. `registry.example.com:5000`). Rendered on servers only; RKE2 no longer supports the flag on agents. |
 
 **Required artifacts** (place in `rke2_airgapped_artifacts_dir`):
 
@@ -381,11 +381,10 @@ Disable RKE2 built-in components when you want to replace them (e.g. use a custo
 | `rke2_disable` | `[]` | List of built-in components to disable. |
 | `rke2_disable_kube_proxy` | `false` | Disable kube-proxy entirely (for Cilium kube-proxy replacement mode). |
 
-Available components: `rke2-ingress-nginx`, `rke2-metrics-server`, `rke2-coredns`, `rke2-snapshot-controller`, `rke2-snapshot-validation-webhook`
+Available components: `rke2-metrics-server`, `rke2-coredns`, `rke2-snapshot-controller`, `rke2-snapshot-validation-webhook`. The bundled ingress controller is selected with `rke2_ingress_controller` (use `none` for no bundled ingress).
 
 ```yaml
 rke2_disable:
-  - rke2-ingress-nginx
   - rke2-metrics-server
 ```
 
@@ -443,7 +442,7 @@ rke2_kubelet_args:
 | Variable | Default | Description |
 |---|---|---|
 | `rke2_cis_profile` | `""` | Hardening profile, rendered on servers and agents. Options: `cis` (activates RKE2's built-in CIS hardened defaults; the role sets the required kernel parameters live and in `/etc/sysctl.d/60-rke2-cis.conf` before RKE2 starts, and creates the etcd user) or `etcd` (etcd user and group only). |
-| `rke2_selinux` | `false` | Enable SELinux mode in RKE2 and containerd. On RHEL-family nodes the role automatically installs `container-selinux`. When `false` on RHEL, SELinux is set to `permissive`. |
+| `rke2_selinux` | `false` | Enable SELinux mode in RKE2 and containerd. On RHEL-family nodes the role automatically installs `container-selinux` and leaves the host in its current SELinux mode. When `false` on RHEL, SELinux is set to `permissive`. |
 | `rke2_audit_policy` | `""` | Full YAML body of a Kubernetes audit policy. When set, the role deploys `/etc/rancher/rke2/audit-policy.yaml` (mode 0600) and emits `audit-policy-file` in `config.yaml`. |
 
 ```yaml

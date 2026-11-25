@@ -77,7 +77,8 @@ rke2_architecture: "{{ _rke2_architecture_map[ansible_facts['architecture'] | de
 rke2_airgapped_additional_image_tarballs: []
 
 # Point all RKE2 system images at an internal mirror (e.g. Harbor/Nexus).
-# Honored on servers AND agents. Empty = pull from upstream registries.
+# Rendered on servers only: RKE2 no longer supports the flag on agents, which
+# get the images through the servers' manifests. Empty = upstream registries.
 rke2_system_default_registry: ""  # e.g. "registry.example.com:5000"
 
 # ----------------------------------------------------------------------------
@@ -437,8 +438,8 @@ rke2_private_registries_config: |
 # Disable kube-proxy entirely (e.g. when using Cilium in kube-proxy replacement mode).
 rke2_disable_kube_proxy: false
 
+# The bundled ingress is chosen with rke2_ingress_controller, not here.
 rke2_disable: []
-  # - rke2-ingress-nginx
   # - rke2-metrics-server
   # - rke2-coredns
   # - rke2-snapshot-controller

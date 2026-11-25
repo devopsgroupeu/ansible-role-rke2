@@ -131,7 +131,7 @@ export KUBECONFIG=/etc/rancher/rke2/rke2.yaml
 /var/lib/rancher/rke2/bin/kubectl logs -n kube-system -l app.kubernetes.io/name=kube-vip
 
 # Verify kube-vip manifest exists
-ls -la /var/lib/rancher/rke2/server/manifests/kube-vip.yaml
+ls -la /var/lib/rancher/rke2/server/manifests/kube-vip.yml
 
 # Check which node owns the VIP
 ip addr show | grep <vip-address>
@@ -141,7 +141,7 @@ ip addr show | grep <vip-address>
 
 - Wrong `rke2_vip_interface` — must match the interface name on server nodes (check with `ip link`)
 - VIP address already in use on the network — choose a free IP in the same subnet
-- kube-vip manifest not deployed — only deployed on the **first** server node; verify `inventory_hostname == groups['server_nodes'][0]`
+- kube-vip manifest not deployed - the role writes it on every server node in `server_nodes`; check that the node is in that group and that `rke2_vip_manager` is `kubevip`
 
 ---
 

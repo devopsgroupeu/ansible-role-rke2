@@ -43,9 +43,9 @@ Ansible role for installing and configuring [RKE2](https://docs.rke2.io/) — Ra
 
 ## Requirements
 
-- ansible-core >= 2.19
-- Python >= 3.9
-- Target nodes: Ubuntu 24.04, Debian 12 / 13, Rocky Linux 9
+- ansible-core >= 2.19 on the controller, which needs Python >= 3.11 (2.19),
+  >= 3.12 (2.20, 2.21) or >= 3.13 (2.22)
+- Target nodes: Ubuntu 22.04 / 24.04, Debian 12 / 13, Rocky Linux 9
 - `become: true` (root access required)
 - For HA: odd number of server nodes (3 recommended), reachable by each other on ports 9345 (join) and 6443 (API)
 
@@ -65,7 +65,7 @@ Or pin a specific version via `requirements.yml`:
 roles:
   - name: devopsgroupeu.rke2
     src: https://github.com/devopsgroupeu/ansible-role-rke2
-    version: "v1.0.0"
+    version: "v1.2.0"
     scm: git
 ```
 
@@ -257,7 +257,7 @@ Run subsets with `--tags`:
 
 ## Variables
 
-All variables are defined in [`defaults/main.yml`](defaults/main.yml) with inline documentation. Full type and constraint information is in [`meta/argument_specs.yml`](meta/argument_specs.yml).
+All variables are defined in [`defaults/main.yml`](defaults/main.yml) with inline documentation. Full type and constraint information is in [`meta/argument_specs.yml`](meta/argument_specs.yml), and [`docs/CONFIGURATION.md`](docs/CONFIGURATION.md) describes every variable.
 
 ### Core
 
@@ -392,6 +392,11 @@ RKE2 takes local etcd snapshots by default; set `rke2_etcd_disable_snapshots: tr
 |----------|---------|-------------|
 | `rke2_cis_profile` | `""` | Hardening profile for servers and agents: `cis` (kernel parameters + etcd user) or `etcd` (etcd user only) |
 | `rke2_selinux` | `false` | Enable SELinux mode for RKE2 and containerd |
+
+> **SELinux on EL:** with `rke2_selinux: false` (the default) the role sets
+> SELinux to permissive on RHEL-family nodes. `rke2_selinux: true` keeps the
+> host in its current SELinux mode, installs `container-selinux` and renders
+> `selinux: true` for RKE2 and containerd.
 
 > **Secrets encryption at rest:** RKE2 enables secrets encryption (aescbc) by
 > default; no role variable is needed to turn it on.
@@ -802,7 +807,8 @@ The role ships four [Molecule](https://molecule.readthedocs.io/) scenarios:
 | `cluster` | VM (delegated) | Real RKE2 cluster end-to-end — all nodes Ready, /healthz ok, etcd member count, VIP ports, etcd snapshot key. |
 
 The `config-render*` scenarios use a mock rke2 binary and only assert that the
-role generates correct files. They run on every PR across 5 distros.
+role generates correct files. They run on every PR on Debian 12 / 13 and
+Ubuntu 22.04 / 24.04.
 The `cluster` scenario installs a real cluster and is run manually or nightly with dedicated VMs.
 
 ```bash

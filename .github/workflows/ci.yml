@@ -18,6 +18,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          # Tags, for the README version check below.
+          fetch-depth: 0
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
@@ -48,6 +51,18 @@ jobs:
           if grep -rnE 'rke2_version`? *[:|] *`?"?v[0-9]+[.][0-9]+[.][0-9]+[+]rke2r[0-9]+' \
               --include='*.yml' --include='*.md' --exclude='side_effect.yml' . | grep -vF "$v"; then
             echo "The lines above name another RKE2 version than $v"; rc=1
+          fi
+          exit $rc
+      - name: Every default is documented
+        run: |
+          rc=0
+          for v in $(grep -oE '^rke2_[a-z0-9_]+' defaults/main.yml); do
+            grep -qw "$v" README.md docs/CONFIGURATION.md || { echo "$v is not documented"; rc=1; }
+          done
+          tag=$(git describe --tags --abbrev=0 2>/dev/null || echo v0.0.0)
+          doc=$(sed -n 's/^    version: "\(v[0-9.]*\)"$/\1/p' README.md | head -1)
+          if [ "$(printf '%s\n%s\n' "$tag" "$doc" | sort -V | tail -1)" != "$doc" ]; then
+            echo "README requirements.yml example $doc is older than the latest tag $tag"; rc=1
           fi
           exit $rc
 

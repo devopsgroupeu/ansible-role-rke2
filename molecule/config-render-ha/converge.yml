@@ -24,6 +24,8 @@
     _test_ca: "{{ lookup('ansible.builtin.env', 'MOLECULE_EPHEMERAL_DIRECTORY') }}/test-root-ca"
     rke2_cis_profile: cis
     rke2_cloud_provider_name: external
+    # Server-only flag: agents must not render it.
+    rke2_system_default_registry: "registry.example.com:5000"
     rke2_disable_cloud_controller: true
     # Stands for a third-party CCM (e.g. hcloud CCM) that initialises nodes;
     # without it the kube-vip cloud provider + disabled CCM combination fails.
