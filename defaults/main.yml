@@ -539,8 +539,12 @@ rke2_wait_for_all_pods_to_be_ready: false
 # A version or config change restarts servers one at a time. With this true,
 # each server restart waits for the supervisor (https://127.0.0.1:9345/ping)
 # and for the node to report Ready before the next server restarts, and each
-# agent restart waits for the kubelet port (10250). Set false only when the
-# nodes cannot answer these probes (e.g. render-only test containers).
+# agent restart waits for the kubelet port (10250). Before it restarts, each
+# server also checks that every other server answers
+# https://<private_ip or ansible_host>:9345/ping and refuses to restart
+# otherwise, so a server that did not come back stops the remaining server
+# restarts. Set false only when the nodes cannot answer these probes (e.g.
+# render-only test containers).
 rke2_handler_wait_for_ready: true
 
 # How many agents may restart at the same time when their config or version

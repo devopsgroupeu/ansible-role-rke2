@@ -195,6 +195,66 @@
           rolling_restart used {{ _rke2_node_name }}, the agent registered as {{ _registered }}
           (hostname {{ ansible_facts['nodename'] }})
 
+# throttle alone still runs the restart handler on every server after one of
+# them failed. The handler refuses to restart while another server's
+# supervisor is down, so a server that did not come back stops the rollout.
+- name: Refuse to restart servers while another server is down
+  hosts: rke2-server2:rke2-server3
+  gather_facts: false
+  tasks:
+    - name: Read the rke2-server start time before
+      ansible.builtin.command: systemctl show rke2-server -p ActiveEnterTimestampMonotonic --value # noqa: command-instead-of-module
+      register: _started_before
+      changed_when: false
+
+    - name: Notify the restart handler with the first server down
+      block:
+        - name: Stop rke2-server on the first server
+          ansible.builtin.systemd_service:
+            name: rke2-server
+            state: stopped
+          delegate_to: rke2-server1
+          run_once: true
+
+        - name: Load the role handlers
+          ansible.builtin.include_role:
+            name: ansible-role-rke2
+            tasks_from: version.yml
+
+        - name: Trigger a server restart
+          ansible.builtin.command: "true"
+          changed_when: true
+          notify: Restart rke2-server
+
+        - name: Run the restart handler now
+          ansible.builtin.meta: flush_handlers
+
+        - name: Fail when the handler did not refuse
+          ansible.builtin.fail:
+            msg: the restart handler ran while rke2-server1 was down
+      rescue:
+        - name: Assert the peer check refused the restart
+          ansible.builtin.assert:
+            that: ansible_failed_result.stderr | default('') is search('rke2-server1 does not answer')
+            fail_msg: "unexpected failure: {{ ansible_failed_result.msg | default('') }}"
+      always:
+        - name: Start rke2-server on the first server again
+          ansible.builtin.systemd_service:
+            name: rke2-server
+            state: started
+          delegate_to: rke2-server1
+          run_once: true
+
+    - name: Read the rke2-server start time after
+      ansible.builtin.command: systemctl show rke2-server -p ActiveEnterTimestampMonotonic --value # noqa: command-instead-of-module
+      register: _started_after
+      changed_when: false
+
+    - name: Assert rke2-server was not restarted
+      ansible.builtin.assert:
+        that: _started_after.stdout == _started_before.stdout
+        fail_msg: rke2-server restarted on {{ inventory_hostname }} while rke2-server1 was down
+
 # Last on purpose: add_host changes the inventory for the rest of this run.
 # A server that is down must not end the play for the other hosts: the
 # bootstrap check probes every server with run_once, where any unreachable

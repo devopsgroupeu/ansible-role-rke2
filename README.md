@@ -343,7 +343,7 @@ removed.
 | `rke2_drain_node_during_upgrade` | `false` | Cordon and drain nodes before restarting during upgrades |
 | `rke2_drain_additional_args` | `--timeout=120s` | Extra arguments passed to `kubectl drain` |
 | `rke2_wait_for_all_pods_to_be_ready` | `false` | Wait for all pods to be Running/Succeeded after uncordon |
-| `rke2_handler_wait_for_ready` | `true` | Restart handlers wait for the supervisor `/ping` and node Ready (servers) or the kubelet port (agents) before the next node restarts |
+| `rke2_handler_wait_for_ready` | `true` | Restart handlers wait for the supervisor `/ping` and node Ready (servers) or the kubelet port (agents) before the next node restarts; a server does not restart while another server's `/ping` fails |
 | `rke2_agent_restart_throttle` | `1` | Maximum number of agents restarted at the same time |
 
 ### Kubeconfig
@@ -577,10 +577,19 @@ The role copies all artifacts to the target nodes and runs the install script lo
 When a run changes the RKE2 version or `config.yaml`, the restart handlers
 restart **servers one at a time**: each restart waits for the supervisor
 (`https://127.0.0.1:9345/ping`) and for the node to report Ready before the
-next server restarts. Agents restart `rke2_agent_restart_throttle` at a time
+next server restarts. Before it restarts, each server checks that every
+other server in `server_nodes` answers `https://<private_ip or ansible_host>:9345/ping` and
+refuses to restart otherwise, so a server that did not come back (or was
+already down) stops the remaining server restarts instead of breaking the
+etcd quorum. Agents restart `rke2_agent_restart_throttle` at a time
 (default `1`) and wait for the kubelet port. Set
 `rke2_handler_wait_for_ready: false` only for nodes that cannot answer these
 probes.
+
+The handlers only serialise the restarts: a server that comes back with its
+supervisor up but stays NotReady, or an agent that fails its restart, fails
+only that host, and the remaining nodes still restart. To stop at the first
+failure, run the role with `serial: 1` as in the upgrade example below.
 
 RKE2 upstream: "Upgrade the server nodes first, one at a time. Once all servers
 have been upgraded, you may then upgrade agent nodes." A real upgrade therefore

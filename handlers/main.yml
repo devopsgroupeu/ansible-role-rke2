@@ -5,9 +5,31 @@
 # therefore restarts one server at a time (waiting for the supervisor /ping
 # and the node to be Ready) and rke2_agent_restart_throttle agents at a time
 # (waiting for the kubelet port), as the RKE2 upgrade docs require.
+#
+# throttle only serialises: when one server fails its restart, Ansible still
+# runs the handler on the remaining servers. Each server therefore first
+# checks that every other server's supervisor answers /ping (at its
+# private_ip, else ansible_host, as for the keepalived peers) and refuses to
+# restart otherwise, so a server that did not come back (or was already down)
+# stops the rollout instead of costing etcd its quorum.
 - name: Restart rke2-server
   ansible.builtin.shell: |
     set -o pipefail
+    {% if rke2_handler_wait_for_ready | bool %}
+    peer_up() {
+      for _ in $(seq 1 6); do
+        curl -ksf --max-time 5 -o /dev/null "$1" && return 0
+        sleep 5
+      done
+      return 1
+    }
+    {% for peer in groups['server_nodes'] | default([]) if peer != inventory_hostname %}
+    {% set addr = hostvars[peer]['private_ip'] | default(hostvars[peer]['ansible_host'] | default(peer)) | string %}
+    {% set url = 'https://' ~ (('[' ~ addr ~ ']') if ':' in addr else addr) ~ ':9345/ping' %}
+    peer_up {{ url | quote }} \
+      || { echo "not restarting rke2-server: {{ peer }} does not answer {{ url }}; restarting this server too could break the etcd quorum" >&2; exit 1; }
+    {% endfor %}
+    {% endif %}
     systemctl daemon-reload
     systemctl restart rke2-server
     {% if rke2_handler_wait_for_ready | bool %}

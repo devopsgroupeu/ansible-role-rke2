@@ -949,8 +949,12 @@ argument_specs:
           Health-gate the restart handlers. Each server restart (one server at
           a time) waits for https://127.0.0.1:9345/ping and for the node to be
           Ready before the next server restarts; each agent restart waits for
-          the kubelet port 10250. Set false only when the nodes cannot answer
-          these probes (e.g. render-only test containers).
+          the kubelet port 10250. Before it restarts, each server checks that
+          every other server answers
+          https://<private_ip or ansible_host>:9345/ping and refuses to
+          restart otherwise, so a server that did not come back stops the
+          remaining server restarts. Set false only when the nodes cannot
+          answer these probes (e.g. render-only test containers).
 
       rke2_agent_restart_throttle:
         type: int
