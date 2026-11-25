@@ -3,11 +3,11 @@
 # (serially, see handlers/main.yml). An empty or comment-only
 # rke2_private_registries_config removes the file, but only when this role
 # wrote it (marker line), so a file managed elsewhere is left alone.
+# Decided by content: an empty or comment-only value parses to null, while a
+# real configuration that starts with a comment line is still set.
 - name: Decide whether a private registry configuration is set
   ansible.builtin.set_fact:
-    _rke2_registries_set: >-
-      {{ rke2_private_registries_config | default('') | trim | length > 0
-         and not rke2_private_registries_config | trim | regex_search('^#') }}
+    _rke2_registries_set: "{{ (rke2_private_registries_config | default('', true) | from_yaml) is not none }}"
 
 - name: Validate private registry config is parseable YAML
   ansible.builtin.assert:

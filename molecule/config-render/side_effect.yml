@@ -143,7 +143,9 @@
             fail_msg: "unexpected failure: {{ ansible_failed_result.msg }}"
 
 # RKE2 reads registries.yaml only at start: a change and a removal must each
-# restart rke2-server. The last step writes the file again for verify.yml.
+# restart rke2-server. The last step writes the file again for verify.yml,
+# with a leading comment: a real configuration that starts with a comment
+# must be written, not treated as comment-only and removed.
 - name: Restart RKE2 when registries.yaml changes or is removed
   hosts: server_nodes
   gather_facts: false
@@ -205,12 +207,24 @@
           start times {{ _reg_t0.stdout }} / {{ _reg_t1.stdout }} / {{ _reg_t2.stdout }},
           registries.yaml removed: {{ not _reg_removed.stat.exists }}
 
-    - name: Write the registry configuration again
+    - name: Write the registry configuration again, starting with a comment
       ansible.builtin.include_role:
         name: ansible-role-rke2
         tasks_from: registries.yml
       vars:
-        rke2_private_registries_config: "{{ _changed_registries }}"
+        rke2_private_registries_config: "# docker.io mirror\n{{ _changed_registries }}"
+
+    - name: Read registries.yaml after the rewrite
+      ansible.builtin.slurp:
+        src: /etc/rancher/rke2/registries.yaml
+      register: _reg_commented
+
+    - name: Assert a configuration with a leading comment is kept
+      ansible.builtin.assert:
+        that:
+          - (_reg_commented.content | b64decode) is search('(?m)^# docker.io mirror$')
+          - "'docker.io' in (_reg_commented.content | b64decode | from_yaml).mirrors"
+        fail_msg: a registry configuration that starts with a comment was not written
 
 # Air-gap staging: the artifact names follow the node architecture and the
 # extra image tarballs are staged next to them for get.rke2.io.
