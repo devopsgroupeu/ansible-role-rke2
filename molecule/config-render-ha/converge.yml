@@ -14,7 +14,8 @@
     rke2_vip_manager: "kubevip"
     rke2_kubevip_svc_enable: true
     rke2_kubevip_cloud_provider_enabled: true
-    rke2_kubevip_load_balancer_ip_range: "10.0.0.200-10.0.0.220"
+    # CIDR form: the VIP-outside-the-range assert needs ansible.utils.ipaddr.
+    rke2_kubevip_load_balancer_ip_range: "10.0.0.200/29"
     # rke2_agent_token is set for server_nodes only (molecule.yml group_vars).
     rke2_cluster_token: "preset-token-ha"
     rke2_agent_server_address: "rke2-server1"

@@ -45,6 +45,8 @@ Ansible role for installing and configuring [RKE2](https://docs.rke2.io/) — Ra
 
 - ansible-core >= 2.19 on the controller, which needs Python >= 3.11 (2.19),
   >= 3.12 (2.20, 2.21) or >= 3.13 (2.22)
+- The `netaddr` Python library on the controller when
+  `rke2_kubevip_load_balancer_ip_range` is a CIDR (`pip install netaddr`)
 - Target nodes: Ubuntu 22.04 / 24.04, Debian 12 / 13, Rocky Linux 9
 - `become: true` (root access required)
 - For HA: odd number of server nodes (3 recommended), reachable by each other on ports 9345 (join) and 6443 (API)
@@ -808,7 +810,8 @@ The role ships four [Molecule](https://molecule.readthedocs.io/) scenarios:
 
 The `config-render*` scenarios use a mock rke2 binary and only assert that the
 role generates correct files. They run on every PR on Debian 12 / 13 and
-Ubuntu 22.04 / 24.04.
+Ubuntu 22.04 / 24.04 (`config-render` also on Rocky Linux 9, and once with
+ansible-core 2.22 on Python 3.13), with injected fact variables turned off.
 The `cluster` scenario installs a real cluster and is run manually or nightly with dedicated VMs.
 
 ```bash
