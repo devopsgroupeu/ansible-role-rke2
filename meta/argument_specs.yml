@@ -743,7 +743,10 @@ argument_specs:
         description: >
           List of Helm addons to deploy via RKE2 HelmChart CRDs. Each entry
           requires: name, enabled (bool), repo, version, namespace. Optional
-          keys: chart (defaults to name), values (dict).
+          keys: chart (defaults to name), values (dict), set (dict), bootstrap,
+          failurePolicy, authSecret, repoCA (PEM certificates; a value without
+          BEGIN CERTIFICATE is rendered as repoCAConfigMap) and
+          repoCAConfigMap (ConfigMap name).
 
       rke2_addons_delete_on_disable:
         type: bool

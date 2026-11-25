@@ -336,10 +336,34 @@
         that:
           - "'bootstrap: true' in (addon_argocd_raw.content | b64decode)"
           - "'failurePolicy: reinstall' in (addon_argocd_raw.content | b64decode)"
-          - "'repoCA: harbor-ca' in (addon_argocd_raw.content | b64decode)"
           - "'name: nexus-pull' in (addon_argocd_raw.content | b64decode)"
           - "'server.replicas' in (addon_argocd_raw.content | b64decode)"
         fail_msg: "Addon CRD fields (bootstrap/failurePolicy/repoCA/authSecret/set) not rendered (E11)"
+
+    - name: Read the addon manifests with a repository CA
+      ansible.builtin.slurp:
+        src: "/data/rke2/server/manifests/addon-{{ item }}.yml"
+      loop:
+        - argocd
+        - pem-ca-addon
+        - cm-ca-addon
+      register: addon_ca_raw
+
+    - name: Assert repoCA carries PEM and ConfigMap names go to repoCAConfigMap (E11)
+      vars:
+        _specs: "{{ addon_ca_raw.results | map(attribute='content') | map('b64decode') | map('from_yaml') | map(attribute='spec') | list }}"
+      ansible.builtin.assert:
+        that:
+          # legacy: repoCA holding a ConfigMap name
+          - _specs[0].repoCAConfigMap.name == 'harbor-ca'
+          - "'repoCA' not in _specs[0]"
+          - _specs[1].repoCA.startswith('-----BEGIN CERTIFICATE-----')
+          - _specs[1].repoCA.endswith('-----END CERTIFICATE-----')
+          - "'repoCAConfigMap' not in _specs[1]"
+          - _specs[1].version == '1.0'
+          - _specs[2].repoCAConfigMap.name == 'harbor-ca'
+          - "'repoCA' not in _specs[2]"
+        fail_msg: "addon repoCA / repoCAConfigMap rendering is wrong: {{ _specs | to_json }}"
 
     # --- E12: rke2_helmchartconfigs ---
     - name: Read HelmChartConfig override manifest for rke2-coredns (E12)

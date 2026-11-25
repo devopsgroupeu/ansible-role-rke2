@@ -767,7 +767,8 @@ rke2_addons:
 | `values` | no | Dict of Helm values merged into the HelmChart spec |
 | `bootstrap` | no | Apply during cluster bootstrap (before kube-apiserver is ready) |
 | `set` | no | Dict of scalar Helm overrides rendered under `spec.set` |
-| `repoCA` | no | ConfigMap name holding a CA bundle for the chart repo (air-gap) |
+| `repoCA` | no | PEM CA certificate(s) for the chart repo (air-gap). A value without `BEGIN CERTIFICATE` is treated as a ConfigMap name and rendered as `repoCAConfigMap` (compatibility) |
+| `repoCAConfigMap` | no | Name of a ConfigMap in `kube-system` holding CA certificates for the chart repo |
 | `authSecret` | no | Name of an existing Secret with repo credentials (air-gap Nexus/Harbor) |
 | `failurePolicy` | no | `reinstall` or `abort` on chart failure |
 

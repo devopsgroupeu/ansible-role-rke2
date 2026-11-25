@@ -71,6 +71,18 @@
           server:
             service:
               type: ClusterIP
+      - name: pem-ca-addon
+        enabled: true
+        repo: "https://charts.example.com"
+        version: "1.0"
+        namespace: pem-ca-addon
+        repoCA: "{{ lookup('ansible.builtin.file', 'test-root-ca.pem') }}"
+      - name: cm-ca-addon
+        enabled: true
+        repo: "https://charts.example.com"
+        version: "2.0.0"
+        namespace: cm-ca-addon
+        repoCAConfigMap: harbor-ca
       - name: disabled-addon
         enabled: false
         repo: "https://example.com/helm"
