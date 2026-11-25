@@ -82,11 +82,16 @@
   tags:
     - rke2_certs
 
-# Minimal and container images may ship without cron; there is then no job
-# to remove and the cron module would fail on the missing crontab binary.
-- name: Check whether crontab is available
-  ansible.builtin.shell: command -v crontab # noqa: command-instead-of-shell - command -v is a shell builtin
-  register: _rke2_crontab_probe
+# Only call the cron module when the job exists: minimal and container images
+# may ship without crontab, and systemd-cron's `crontab -l` exits 2 for an
+# empty crontab, which the cron module reports as "Unable to read crontab".
+- name: Check for the certificate rotation cron job
+  ansible.builtin.shell: |
+    set -o pipefail
+    crontab -l 2>/dev/null | grep -qxF '#Ansible: Rotate RKE2 certificates'
+  args:
+    executable: /bin/bash
+  register: _rke2_cert_cron_probe
   changed_when: false
   failed_when: false
   check_mode: false
@@ -100,7 +105,7 @@
     state: absent
   when:
     - not rke2_cert_rotation_enabled | default(false) | bool
-    - _rke2_crontab_probe.rc == 0
+    - _rke2_cert_cron_probe.rc == 0
   tags:
     - rke2_certs
 

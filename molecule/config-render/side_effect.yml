@@ -300,3 +300,28 @@
       loop:
         - /tmp/rke2-artifacts
         - /tmp/rke2-install.sh
+
+# Turning rotation off removes the cron job; the second converge restores it
+# for verify.yml.
+- name: Converge with certificate rotation disabled
+  ansible.builtin.import_playbook: converge.yml
+  vars:
+    rke2_cert_rotation_enabled: false
+
+- name: Check the rotation job was removed
+  hosts: server_nodes
+  gather_facts: false
+  tasks:
+    - name: Read root's crontab without the rotation job
+      ansible.builtin.command: crontab -l
+      register: _crontab_off
+      changed_when: false
+      failed_when: false
+
+    - name: Assert the rotation job is gone
+      ansible.builtin.assert:
+        that: "'Rotate RKE2 certificates' not in _crontab_off.stdout"
+        fail_msg: "the rotation job is still in root's crontab: {{ _crontab_off.stdout }}"
+
+- name: Converge with certificate rotation enabled again
+  ansible.builtin.import_playbook: converge.yml
