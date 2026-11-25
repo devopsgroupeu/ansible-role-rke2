@@ -270,6 +270,19 @@
         that: root_crontab.stdout is search('(?m)^0 20 \\* \\* 1 .*/etc/rancher/certs_rotation/rotate_rke2_certs.sh$')
         fail_msg: "certificate rotation job missing from root's crontab: {{ root_crontab.stdout }}"
 
+    # crond on EL, cron on Debian/Ubuntu; a package install alone does not
+    # start crond on EL.
+    - name: Check the cron daemon is running
+      ansible.builtin.command: systemctl is-active crond cron # noqa: command-instead-of-module
+      register: cron_active
+      changed_when: false
+      failed_when: false
+
+    - name: Assert the cron daemon is running
+      ansible.builtin.assert:
+        that: "'active' in cron_active.stdout_lines"
+        fail_msg: "no cron daemon is running: {{ cron_active.stdout_lines }}"
+
     - name: Stat audit policy file
       ansible.builtin.stat:
         path: /etc/rancher/rke2/audit-policy.yaml

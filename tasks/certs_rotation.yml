@@ -3,6 +3,18 @@
   ansible.builtin.package:
     name: "{{ 'cronie' if ansible_facts['os_family'] == 'RedHat' else 'cron' }}"
     state: present
+  register: _rke2_cron_package
+
+# Installing cronie on EL does not start crond, so the job would never run
+# until the next reboot.
+- name: Ensure the cron daemon is running
+  ansible.builtin.systemd_service:
+    name: "{{ 'crond' if ansible_facts['os_family'] == 'RedHat' else 'cron' }}"
+    state: started
+    enabled: true
+  # In check mode the package is not really installed yet (here and for the
+  # cron jobs below, which need crontab).
+  when: not (ansible_check_mode and _rke2_cron_package is changed)
 
 - name: Ensure cert rotation directory exists
   ansible.builtin.file:
@@ -42,7 +54,9 @@
     hour: "{{ _rke2_cert_rotation_hour }}"
     user: root
     state: present
-  when: rke2_cert_rotation_schedule_type == 'daily'
+  when:
+    - rke2_cert_rotation_schedule_type == 'daily'
+    - not (ansible_check_mode and _rke2_cron_package is changed)
 
 - name: Set up weekly certificate rotation cron job
   ansible.builtin.cron:
@@ -53,7 +67,9 @@
     weekday: "{{ rke2_cert_rotation_schedule_day_of_week }}"
     user: root
     state: present
-  when: rke2_cert_rotation_schedule_type == 'weekly'
+  when:
+    - rke2_cert_rotation_schedule_type == 'weekly'
+    - not (ansible_check_mode and _rke2_cron_package is changed)
 
 - name: Set up monthly certificate rotation cron job
   ansible.builtin.cron:
@@ -64,4 +80,6 @@
     day: "{{ rke2_cert_rotation_schedule_day_of_month }}"
     user: root
     state: present
-  when: rke2_cert_rotation_schedule_type == 'monthly'
+  when:
+    - rke2_cert_rotation_schedule_type == 'monthly'
+    - not (ansible_check_mode and _rke2_cron_package is changed)
