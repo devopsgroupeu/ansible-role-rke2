@@ -29,6 +29,15 @@ jobs:
         run: yamllint .
       - name: ansible-lint
         run: ansible-lint --profile production .
+      # Injected fact variables are deprecated since ansible-core 2.20 and
+      # scheduled for removal in 2.24; read them from ansible_facts instead.
+      - name: No injected fact variables
+        run: |
+          if grep -rnE '\bansible_(user_dir|nodename|hostname|date_time|default_ipv4|os_family|distribution[a-z_]*|architecture|fqdn)\b' \
+              tasks templates handlers vars defaults molecule; then
+            echo "Use ansible_facts['...'] instead of the injected variables above."
+            exit 1
+          fi
 
   molecule:
     name: molecule / ${{ matrix.scenario }} / ${{ matrix.distro }}

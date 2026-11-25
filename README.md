@@ -185,7 +185,7 @@ all:
 
 keepalived manages the VIP via VRRP directly on the server nodes. Health checks verify the API server and RKE2 registration port before failing over. **Unicast VRRP** is used — works on cloud SDN networks (Hetzner, AWS VPC, GCP) where multicast `224.0.0.18` is filtered.
 
-**Inventory requirement:** each server node must have a `private_ip` host variable set to its LAN/private IP. keepalived uses it to build the unicast peer list. If omitted, `ansible_host` is used as fallback.
+**Inventory requirement:** each server node must have a `private_ip` host variable set to its LAN/private IP. keepalived uses it to build the unicast peer list. If omitted, `ansible_host` (or else the inventory name) is used as fallback.
 
 ```yaml
 # examples/inventory/ha-keepalived.yml (or adapt the ready-made file directly,

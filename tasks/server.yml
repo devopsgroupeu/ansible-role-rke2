@@ -266,14 +266,14 @@
 
 - name: Ensure .kube directory exists
   ansible.builtin.file:
-    path: "{{ ansible_user_dir }}/.kube"
+    path: "{{ ansible_facts['user_dir'] }}/.kube"
     state: directory
     mode: "0755"
 
 - name: Copy RKE2 kubeconfig to user home
   ansible.builtin.copy:
     src: /etc/rancher/rke2/rke2.yaml
-    dest: "{{ ansible_user_dir }}/.kube/config"
+    dest: "{{ ansible_facts['user_dir'] }}/.kube/config"
     remote_src: true
     mode: "0600"
   when: inventory_hostname == groups['server_nodes'][0]

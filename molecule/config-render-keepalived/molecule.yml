@@ -54,6 +54,9 @@ provisioner:
       all:
         vars:
           ansible_user: root
+    host_vars:
+      rke2-server1:
+        private_ip: 192.0.2.11
 
 verifier:
   name: ansible

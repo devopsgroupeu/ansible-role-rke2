@@ -138,6 +138,18 @@
            | regex_findall('vrrp_script [a-z_]+ [{][^}]*[}]') | select('search', 'weight') | list | length) == 0
         fail_msg: "a vrrp_script block sets weight; failing checks would not release the VIP"
 
+    # rke2-server1 has private_ip. The others have neither private_ip nor
+    # ansible_host in the molecule inventory, so they fall back to the name.
+    - name: Assert unicast addresses use private_ip, then ansible_host or the name
+      vars:
+        _conf: "{{ keepalived_conf_raw.content | b64decode }}"
+      ansible.builtin.assert:
+        that: >-
+          ('unicast_src_ip 192.0.2.11' in _conf and 'rke2-server2' in _conf and 'rke2-server3' in _conf)
+          if inventory_hostname == 'rke2-server1'
+          else (('unicast_src_ip ' ~ inventory_hostname) in _conf and '192.0.2.11' in _conf)
+        fail_msg: "unexpected unicast addresses: {{ _conf | regex_search('unicast_src_ip[^}]*[}]') }}"
+
     - name: Assert keepalived.conf has VRRP instance
       ansible.builtin.assert:
         that: "'vrrp_instance RKE2_VIP' in (keepalived_conf_raw.content | b64decode)"

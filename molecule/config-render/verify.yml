@@ -4,7 +4,7 @@
   hosts: localhost
   gather_facts: false
   tasks:
-    - name: Search the templates for ansible_date_time
+    - name: Search the templates for the date_time fact
       ansible.builtin.command:
         argv:
           - grep

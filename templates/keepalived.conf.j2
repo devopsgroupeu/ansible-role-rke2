@@ -36,11 +36,11 @@ vrrp_instance RKE2_VIP {
   advert_int 1
   nopreempt
 
-  unicast_src_ip {{ hostvars[inventory_hostname]['private_ip'] | default(ansible_host) }}
+  unicast_src_ip {{ hostvars[inventory_hostname]['private_ip'] | default(hostvars[inventory_hostname]['ansible_host'] | default(inventory_hostname)) }}
   unicast_peer {
 {% for host in groups['server_nodes'] %}
 {% if host != inventory_hostname %}
-    {{ hostvars[host]['private_ip'] | default(hostvars[host]['ansible_default_ipv4']['address']) }}
+    {{ hostvars[host]['private_ip'] | default(hostvars[host]['ansible_host'] | default(host)) }}
 {% endif %}
 {% endfor %}
   }
