@@ -291,12 +291,17 @@
     - rke2_kubeconfig_download | default(false) | bool
 
 # Not delegated, so the address is this server's, never the controller's.
-- name: Choose the API server address for the downloaded kubeconfig
+# A relative output path is relative to the playbook directory, as it was
+# with fetch; the copy and file modules would resolve it against their cwd.
+- name: Choose the API server address and local path for the downloaded kubeconfig
   ansible.builtin.set_fact:
     _rke2_kubeconfig_endpoint: >-
       {{ rke2_kubeconfig_server if rke2_kubeconfig_server | length > 0
          else rke2_vip_address if (rke2_vip_enabled | bool and rke2_vip_address | length > 0)
          else hostvars[inventory_hostname]['ansible_host'] | default(inventory_hostname) }}
+    _rke2_kubeconfig_dest: >-
+      {{ (rke2_kubeconfig_output_path | expanduser) if (rke2_kubeconfig_output_path | expanduser) is abs
+         else playbook_dir ~ '/' ~ rke2_kubeconfig_output_path }}
   when:
     - inventory_hostname == groups['server_nodes'][0]
     - rke2_kubeconfig_download | default(false) | bool
@@ -304,7 +309,7 @@
 # No mode: an existing directory (e.g. playbook_dir) keeps its permissions.
 - name: Ensure the kubeconfig directory exists on the Ansible controller
   ansible.builtin.file: # noqa: risky-file-permissions
-    path: "{{ rke2_kubeconfig_output_path | dirname }}"
+    path: "{{ _rke2_kubeconfig_dest | dirname }}"
     state: directory
   delegate_to: localhost
   become: false
@@ -317,7 +322,7 @@
     content: >-
       {{ _rke2_kubeconfig.content | b64decode
          | replace('https://127.0.0.1:6443', 'https://' ~ _rke2_kubeconfig_endpoint ~ ':6443') }}
-    dest: "{{ rke2_kubeconfig_output_path }}"
+    dest: "{{ _rke2_kubeconfig_dest }}"
     mode: "0600"
   no_log: true
   delegate_to: localhost
