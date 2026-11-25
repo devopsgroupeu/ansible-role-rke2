@@ -66,6 +66,11 @@
           class Ping(http.server.BaseHTTPRequestHandler):
               def do_GET(self):
                   self.send_response(200)
+                  # The real supervisor sends Content-Length too. Without it
+                  # the body ends at connection close, which Python's ssl does
+                  # without a TLS close_notify, and curl 7.81 (Ubuntu 22.04)
+                  # and 8.14 (Debian 13) fail with exit 56 despite the 200.
+                  self.send_header("Content-Length", "4")
                   self.end_headers()
                   self.wfile.write(b"pong")
 
