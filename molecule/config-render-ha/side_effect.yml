@@ -194,3 +194,36 @@
         fail_msg: >-
           rolling_restart used {{ _rke2_node_name }}, the agent registered as {{ _registered }}
           (hostname {{ ansible_facts['nodename'] }})
+
+# Last on purpose: add_host changes the inventory for the rest of this run.
+# A server that is down must not end the play for the other hosts: the
+# bootstrap check probes every server with run_once, where any unreachable
+# result used to be fatal for all hosts (the run ended with rc 2 right
+# after that task, so this side effect failed).
+- name: Add a server that is down to server_nodes
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Add an unreachable server (closed port on 127.0.0.1)
+      ansible.builtin.add_host:
+        name: rke2-server-down
+        groups: server_nodes
+        ansible_connection: ssh
+        ansible_host: 127.0.0.1
+        ansible_port: 18922
+        ansible_ssh_common_args: "-o ConnectTimeout=3 -o BatchMode=yes"
+
+- name: Bootstrap check while a server is down
+  hosts: server_nodes:agent_nodes:!rke2-server-down
+  gather_facts: false
+  tasks:
+    - name: Include the bootstrap check
+      ansible.builtin.include_role:
+        name: ansible-role-rke2
+        tasks_from: bootstrap_check.yml
+
+    - name: Assert the play continued on every host
+      ansible.builtin.assert:
+        that: ansible_play_hosts | length == 4
+        fail_msg: "the bootstrap check removed hosts from the play: {{ ansible_play_hosts }}"
+      run_once: true

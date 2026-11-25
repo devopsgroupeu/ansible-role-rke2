@@ -11,7 +11,11 @@
   register: _rke2_etcd_data
   run_once: true
   check_mode: false
+  # run_once makes any failure fatal for the whole play, and an unreachable
+  # loop item still counts as one even with ignore_unreachable. ignore_errors
+  # keeps an unreachable server from ending the play for every host.
   ignore_unreachable: true
+  ignore_errors: true
   failed_when: false
 
 - name: Refuse to initialise a second cluster on the first server
