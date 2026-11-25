@@ -22,6 +22,21 @@
   tags:
     - rke2_proxy
 
+- name: Resolve target and installed RKE2 versions
+  # Unconditional on purpose: the channel lookup is run_once, and a group
+  # condition would skip it for every host when the first host is not a node.
+  ansible.builtin.import_tasks: version.yml
+  tags:
+    - rke2_setup
+
+- name: Check the cluster bootstrap state
+  # Unconditional on purpose: run_once, like the version lookup. Runs before
+  # the custom CA tasks, so a refused first server gets no fresh CA files in
+  # server/tls that would later be newer than the datastore.
+  ansible.builtin.import_tasks: bootstrap_check.yml
+  tags:
+    - rke2_setup
+
 - name: Configure custom CA certificates
   ansible.builtin.import_tasks: custom_ca_certs.yml
   when:
@@ -48,19 +63,6 @@
     - "'server_nodes' in group_names"
   tags:
     - rke2_vip
-
-- name: Resolve target and installed RKE2 versions
-  # Unconditional on purpose: the channel lookup is run_once, and a group
-  # condition would skip it for every host when the first host is not a node.
-  ansible.builtin.import_tasks: version.yml
-  tags:
-    - rke2_setup
-
-- name: Check the cluster bootstrap state
-  # Unconditional on purpose: run_once, like the version lookup.
-  ansible.builtin.import_tasks: bootstrap_check.yml
-  tags:
-    - rke2_setup
 
 - name: Run server node installation
   ansible.builtin.import_tasks: server.yml
