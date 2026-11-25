@@ -38,6 +38,18 @@ jobs:
             echo "Use ansible_facts['...'] instead of the injected variables above."
             exit 1
           fi
+      # side_effect.yml files test other versions on purpose.
+      - name: One default RKE2 version everywhere
+        run: |
+          v=$(sed -n 's/^rke2_version: //p' defaults/main.yml)
+          rc=0
+          grep -A3 '^      rke2_version:' meta/argument_specs.yml | grep -qF "default: $v" \
+            || { echo "meta/argument_specs.yml default differs from $v"; rc=1; }
+          if grep -rnE 'rke2_version`? *[:|] *`?"?v[0-9]+[.][0-9]+[.][0-9]+[+]rke2r[0-9]+' \
+              --include='*.yml' --include='*.md' --exclude='side_effect.yml' . | grep -vF "$v"; then
+            echo "The lines above name another RKE2 version than $v"; rc=1
+          fi
+          exit $rc
 
   molecule:
     name: molecule / ${{ matrix.scenario }} / ${{ matrix.distro }}

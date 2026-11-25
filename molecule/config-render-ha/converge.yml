@@ -4,7 +4,6 @@
   hosts: "{{ rke2_converge_hosts | default('all') }}"
   gather_facts: true
   vars:
-    rke2_version: v1.36.1+rke2r2
     rke2_airgapped: false
     rke2_cni: default
     rke2_tls_san:

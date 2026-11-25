@@ -7,7 +7,7 @@
   become: true
   gather_facts: true
   vars:
-    rke2_version: v1.36.1+rke2r2
+    rke2_version: v1.36.6+rke2r2
     rke2_vip_enabled: true
     rke2_vip_address: "{{ rke2_cluster_vip | default('10.0.0.100') }}"
     rke2_vip_interface: "{{ rke2_cluster_vip_interface | default('eth0') }}"

@@ -21,7 +21,7 @@
         mode: "0600"
         content: |
           {"data": [{"id": "latest", "latest": "v1.99.0+rke2r1"},
-                    {"id": "stable", "latest": "v1.36.1+rke2r2"}]}
+                    {"id": "stable", "latest": "{{ hostvars[groups['server_nodes'][0]]['rke2_version'] }}"}]}
 
     # Serves for at most 10 minutes, so it cannot outlive a failed run.
     - name: Start the mock channel server on 127.0.0.1:18345
@@ -72,7 +72,7 @@
     - name: Assert channel mode resolved the version and changed nothing
       ansible.builtin.assert:
         that:
-          - _rke2_target_version == 'v1.36.1+rke2r2'
+          - _rke2_target_version == rke2_version
           - not (_rke2_install_needed | bool)
           - _started_after.stdout == _started_before.stdout
         fail_msg: >-

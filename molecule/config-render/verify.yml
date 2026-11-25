@@ -434,7 +434,7 @@
 
     - name: Assert RKE2 version matches rke2_version
       ansible.builtin.assert:
-        that: "'v1.36.1+rke2r2' in rke2_version_check.stdout"
+        that: "rke2_version in rke2_version_check.stdout"
         fail_msg: "RKE2 version mismatch: {{ rke2_version_check.stdout }}"
 
     - name: Check kubeconfig exists in user home

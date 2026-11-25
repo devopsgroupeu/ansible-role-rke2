@@ -94,7 +94,7 @@
         content: |
           #!/bin/bash
           case "$1" in
-            --version) echo "rke2 version v1.36.1+rke2r2 (abc123)" ;;
+            --version) echo "rke2 version {{ rke2_version }} (abc123)" ;;
             server|agent) exec python3 /usr/local/bin/rke2-mock-listener.py "$1" ;;
           esac
 
@@ -111,7 +111,7 @@
           sleep 1
           case "$*" in
             *jsonpath*) echo -n True ;;
-            *) echo "mock-node Ready <none> 1m v1.36.1+rke2r2" ;;
+            *) echo "mock-node Ready <none> 1m {{ rke2_version }}" ;;
           esac
 
     - name: Create mock kubeconfig

@@ -8,7 +8,7 @@
 # ----------------------------------------------------------------------------
 # Check available versions: https://github.com/rancher/rke2/releases
 # Explicit version wins. Leave empty and set rke2_channel to track a channel.
-rke2_version: v1.36.1+rke2r2
+rke2_version: v1.36.6+rke2r2
 
 # Install channel used ONLY when rke2_version is empty.
 # Options: stable, latest, or a per-minor channel like "v1.35".
@@ -343,7 +343,9 @@ rke2_ingress_controller: "traefik"
 
 # Helm values (YAML string) for the bundled Traefik chart (rke2-traefik).
 # Applied as a HelmChartConfig on the first server node when the controller
-# includes traefik.
+# includes traefik. RKE2 v1.36.2+ ships Traefik chart v40, which renamed
+# service.type to service.spec.type and the kubernetesIngressNginx provider to
+# kubernetesIngressNGINX; update older values accordingly.
 rke2_traefik_config: ""
 
 # Helm values (YAML string) for rke2-ingress-nginx (controller includes ingress-nginx).
