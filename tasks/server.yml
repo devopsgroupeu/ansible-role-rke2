@@ -278,20 +278,48 @@
     mode: "0600"
   when: inventory_hostname == groups['server_nodes'][0]
 
-- name: Fetch kubeconfig to Ansible controller
-  ansible.builtin.fetch:
+# The kubeconfig is read and rewritten in memory and written once, so a rerun
+# compares the same content and reports no change.
+- name: Read the kubeconfig for the Ansible controller
+  ansible.builtin.slurp:
     src: /etc/rancher/rke2/rke2.yaml
-    dest: "{{ rke2_kubeconfig_output_path }}"
-    flat: true
+  register: _rke2_kubeconfig
+  no_log: true
+  check_mode: false
   when:
     - inventory_hostname == groups['server_nodes'][0]
     - rke2_kubeconfig_download | default(false) | bool
 
-- name: Fix kubeconfig server address
-  ansible.builtin.replace:
-    path: "{{ rke2_kubeconfig_output_path }}"
-    regexp: 'https://127\.0\.0\.1:6443'
-    replace: "https://{{ ansible_host }}:6443"
+# Not delegated, so the address is this server's, never the controller's.
+- name: Choose the API server address for the downloaded kubeconfig
+  ansible.builtin.set_fact:
+    _rke2_kubeconfig_endpoint: >-
+      {{ rke2_kubeconfig_server if rke2_kubeconfig_server | length > 0
+         else rke2_vip_address if (rke2_vip_enabled | bool and rke2_vip_address | length > 0)
+         else hostvars[inventory_hostname]['ansible_host'] | default(inventory_hostname) }}
+  when:
+    - inventory_hostname == groups['server_nodes'][0]
+    - rke2_kubeconfig_download | default(false) | bool
+
+# No mode: an existing directory (e.g. playbook_dir) keeps its permissions.
+- name: Ensure the kubeconfig directory exists on the Ansible controller
+  ansible.builtin.file: # noqa: risky-file-permissions
+    path: "{{ rke2_kubeconfig_output_path | dirname }}"
+    state: directory
+  delegate_to: localhost
+  become: false
+  when:
+    - inventory_hostname == groups['server_nodes'][0]
+    - rke2_kubeconfig_download | default(false) | bool
+
+- name: Write the kubeconfig on the Ansible controller
+  ansible.builtin.copy:
+    content: >-
+      {{ _rke2_kubeconfig.content | b64decode
+         | replace('https://127.0.0.1:6443', 'https://' ~ _rke2_kubeconfig_endpoint ~ ':6443') }}
+    dest: "{{ rke2_kubeconfig_output_path }}"
+    mode: "0600"
+  no_log: true
   delegate_to: localhost
   # Runs on the control node: do not inherit the play's become (sudo on the
   # controller is unnecessary and fails when it requires a password). The

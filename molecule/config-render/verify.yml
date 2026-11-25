@@ -15,6 +15,28 @@
       changed_when: false
       failed_when: date_time_grep.rc != 1
 
+- name: Verify the kubeconfig downloaded to the controller
+  hosts: localhost
+  gather_facts: false
+  vars:
+    _kubeconfig: "{{ lookup('ansible.builtin.env', 'MOLECULE_EPHEMERAL_DIRECTORY') }}/kubeconfig/rke2.yaml"
+  tasks:
+    - name: Stat the downloaded kubeconfig
+      ansible.builtin.stat:
+        path: "{{ _kubeconfig }}"
+      register: local_kubeconfig_stat
+
+    - name: Assert the downloaded kubeconfig is 0600 and points to the VIP
+      vars:
+        _cfg: "{{ lookup('ansible.builtin.file', _kubeconfig) | from_yaml }}"
+      ansible.builtin.assert:
+        that:
+          - local_kubeconfig_stat.stat.mode == '0600'
+          - _cfg.clusters[0].cluster.server == 'https://10.0.0.100:6443'
+        fail_msg: >-
+          downloaded kubeconfig mode {{ local_kubeconfig_stat.stat.mode | default('missing') }},
+          server {{ _cfg.clusters[0].cluster.server }} (expected the VIP, not 127.0.0.1 or localhost)
+
 - name: Verify rendered config
   hosts: server_nodes
   gather_facts: false

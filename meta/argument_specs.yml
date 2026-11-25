@@ -542,6 +542,15 @@ argument_specs:
           Local path on the Ansible controller where the kubeconfig is saved.
           Only used when rke2_kubeconfig_download is true.
 
+      rke2_kubeconfig_server:
+        type: str
+        required: false
+        default: ""
+        description: >
+          API server host name or IP (no scheme or port) written into the
+          downloaded kubeconfig. Empty uses rke2_vip_address when the VIP is
+          enabled, otherwise the first server's ansible_host or inventory name.
+
       # -----------------------------------------------------------------------
       # Server nodes
       # -----------------------------------------------------------------------

@@ -247,6 +247,10 @@ rke2_write_kubeconfig_mode: "0600"
 # Download kubeconfig to the Ansible controller after install
 rke2_kubeconfig_download: false
 rke2_kubeconfig_output_path: "{{ playbook_dir }}/rke2.yaml"  # local path on controller
+# API server address written into the downloaded kubeconfig (host name or IP,
+# without scheme or port). Empty = rke2_vip_address when the VIP is enabled,
+# otherwise the first server's ansible_host (or inventory name).
+rke2_kubeconfig_server: ""
 
 # ----------------------------------------------------------------------------
 # Server nodes configuration (control plane)

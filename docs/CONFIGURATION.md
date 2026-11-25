@@ -207,7 +207,8 @@ rke2_keepalived_auth_pass: "s3cur3pw"
 | `rke2_data_dir` | `"/var/lib/rancher/rke2"` | RKE2 data directory on servers and agents (`data-dir`). Custom CA files, the cert rotation script and air-gap images (`agent/images`) follow it. Changing it on an installed agent whose data is still in `/var/lib/rancher/rke2/agent` fails until the data is moved. |
 | `rke2_write_kubeconfig_mode` | `"0600"` | File mode for the generated kubeconfig. |
 | `rke2_kubeconfig_download` | `false` | Download kubeconfig to the Ansible controller after install. |
-| `rke2_kubeconfig_output_path` | `"{{ playbook_dir }}/rke2.yaml"` | Local path on the controller where kubeconfig is saved. |
+| `rke2_kubeconfig_output_path` | `"{{ playbook_dir }}/rke2.yaml"` | Local path on the controller where kubeconfig is saved (mode 0600). |
+| `rke2_kubeconfig_server` | `""` | API server host name or IP written into the downloaded kubeconfig. Empty uses `rke2_vip_address` when the VIP is enabled, otherwise the first server's `ansible_host` or inventory name. |
 
 ---
 

@@ -347,6 +347,7 @@ removed.
 |----------|---------|-------------|
 | `rke2_kubeconfig_download` | `false` | Fetch kubeconfig to Ansible controller after install |
 | `rke2_kubeconfig_output_path` | `{{ playbook_dir }}/rke2.yaml` | Local path on controller to write kubeconfig |
+| `rke2_kubeconfig_server` | `""` | API server address in the downloaded kubeconfig (default: VIP, else the first server's `ansible_host`) |
 
 ### Certificates
 
@@ -693,13 +694,9 @@ vars:
   rke2_kubeconfig_output_path: "~/.kube/rke2.yaml"
 ```
 
-The downloaded kubeconfig points to `127.0.0.1:6443`. Update the server address before using remotely:
-
-```bash
-kubectl config set-cluster default \
-  --server=https://10.0.0.100:6443 \
-  --kubeconfig ~/.kube/rke2.yaml
-```
+The role writes the file with mode 0600 and replaces `127.0.0.1` with
+`rke2_kubeconfig_server`, or with `rke2_vip_address` when the VIP is enabled,
+otherwise with the first server's `ansible_host` (or inventory name).
 
 ---
 
