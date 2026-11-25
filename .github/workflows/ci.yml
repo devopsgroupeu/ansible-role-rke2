@@ -18,6 +18,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          # Tags, for the README version check below.
+          fetch-depth: 0
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
@@ -29,17 +32,50 @@ jobs:
         run: yamllint .
       - name: ansible-lint
         run: ansible-lint --profile production .
+      # Injected fact variables are deprecated since ansible-core 2.20 and
+      # scheduled for removal in 2.24; read them from ansible_facts instead.
+      - name: No injected fact variables
+        run: |
+          if grep -rnE '\bansible_(user_dir|nodename|hostname|date_time|default_ipv4|os_family|distribution[a-z_]*|architecture|fqdn)\b' \
+              tasks templates handlers vars defaults molecule; then
+            echo "Use ansible_facts['...'] instead of the injected variables above."
+            exit 1
+          fi
+      # side_effect.yml files test other versions on purpose.
+      - name: One default RKE2 version everywhere
+        run: |
+          v=$(sed -n 's/^rke2_version: //p' defaults/main.yml)
+          rc=0
+          grep -A3 '^      rke2_version:' meta/argument_specs.yml | grep -qF "default: $v" \
+            || { echo "meta/argument_specs.yml default differs from $v"; rc=1; }
+          if grep -rnE 'rke2_version`? *[:|] *`?"?v[0-9]+[.][0-9]+[.][0-9]+[+]rke2r[0-9]+' \
+              --include='*.yml' --include='*.md' --exclude='side_effect.yml' . | grep -vF "$v"; then
+            echo "The lines above name another RKE2 version than $v"; rc=1
+          fi
+          exit $rc
+      - name: Every default is documented
+        run: |
+          rc=0
+          for v in $(grep -oE '^rke2_[a-z0-9_]+' defaults/main.yml); do
+            grep -qw "$v" README.md docs/CONFIGURATION.md || { echo "$v is not documented"; rc=1; }
+          done
+          tag=$(git describe --tags --abbrev=0 2>/dev/null || echo v0.0.0)
+          doc=$(sed -n 's/^    version: "\(v[0-9.]*\)"$/\1/p' README.md | head -1)
+          if [ "$(printf '%s\n%s\n' "$tag" "$doc" | sort -V | tail -1)" != "$doc" ]; then
+            echo "README requirements.yml example $doc is older than the latest tag $tag"; rc=1
+          fi
+          exit $rc
 
   molecule:
-    name: molecule / ${{ matrix.scenario }} / ${{ matrix.distro }}
+    name: molecule / ${{ matrix.scenario }} / ${{ matrix.distro }} / py${{ matrix.python }}
     runs-on: ubuntu-latest
     needs: lint
     strategy:
       fail-fast: false
-      # CI tests the container-reliable matrix (Debian + Ubuntu) on the
-      # deterministic render scenarios. EL9 is a supported platform but is
-      # validated on real hosts — RockyLinux containers have known systemd/PAM
-      # and curl-minimal packaging quirks. The real-cluster scenario needs VMs.
+      # The deterministic render scenarios on Debian + Ubuntu, plus
+      # config-render on Rocky Linux 9 (RPM install path, mock in /usr/bin)
+      # and once on Python 3.13, which resolves ansible-core 2.22.
+      # The real-cluster scenario needs VMs.
       matrix:
         scenario:
           - config-render
@@ -50,22 +86,49 @@ jobs:
           - debian13
           - ubuntu2204
           - ubuntu2404
+        python:
+          - "3.12"
+        include:
+          - scenario: config-render
+            distro: rockylinux9
+            python: "3.12"
+          - scenario: config-render
+            distro: debian12
+            python: "3.13"
+    env:
+      PY_COLORS: "1"
+      ANSIBLE_FORCE_COLOR: "1"
+      # Injected fact variables go away in ansible-core 2.24.
+      ANSIBLE_INJECT_FACT_VARS: "false"
+      MOLECULE_IMAGE: "geerlingguy/docker-${{ matrix.distro }}-ansible:latest"
     steps:
       - name: Checkout
         uses: actions/checkout@v7
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
-          python-version: "3.12"
+          python-version: ${{ matrix.python }}
           cache: pip
       - name: Install dependencies
         run: pip install -r requirements.txt
       - name: Run Molecule scenario
-        run: molecule test -s ${{ matrix.scenario }}
-        env:
-          PY_COLORS: "1"
-          ANSIBLE_FORCE_COLOR: "1"
-          MOLECULE_IMAGE: "geerlingguy/docker-${{ matrix.distro }}-ansible:latest"
+        run: molecule test -s ${{ matrix.scenario }} --destroy never
+      - name: Converge in check mode
+        if: matrix.scenario == 'config-render'
+        run: molecule converge -s config-render -- --check --diff
+      - name: Destroy the instances
+        if: always()
+        run: molecule destroy -s ${{ matrix.scenario }}
+      - name: Converge only the proxy tag on a fresh instance
+        if: matrix.scenario == 'config-render'
+        run: |
+          molecule create -s config-render
+          molecule prepare -s config-render
+          molecule converge -s config-render -- --tags rke2_proxy
+          docker exec rke2-render test -f /etc/default/rke2-server
+      - name: Destroy the proxy-tag instance
+        if: always() && matrix.scenario == 'config-render'
+        run: molecule destroy -s config-render
 
   ci-success:
     name: ci-success

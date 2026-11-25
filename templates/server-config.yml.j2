@@ -1,10 +1,13 @@
 {% if inventory_hostname != groups['server_nodes'][0] %}
-token: {{ hostvars[groups['server_nodes'][0]]['_rke2_cluster_token'] }}
-server: https://{{ hostvars[groups['server_nodes'][0]]['ansible_host'] | default(groups['server_nodes'][0]) }}:9345
+token: {{ _rke2_cluster_token | to_json }}
+server: {{ ('https://' ~ (rke2_server_join_address if rke2_server_join_address | default('') | length > 0 else hostvars[groups['server_nodes'][0]]['ansible_host'] | default(groups['server_nodes'][0])) ~ ':9345') | to_json }}
+{% elif rke2_cluster_token | default('') | length > 0 %}
+{# Without token: the first server creates a random one and joiners fail. #}
+token: {{ rke2_cluster_token | to_json }}
 {% endif %}
 
 {% if rke2_cni is defined and rke2_cni != 'default' %}
-cni: {{ rke2_cni }}
+cni: {{ rke2_cni | to_json }}
 {% endif %}
 
 {% set _tls_san = (rke2_tls_san | default([])) | list %}
@@ -14,7 +17,7 @@ cni: {{ rke2_cni }}
 {% if _tls_san | length > 0 %}
 tls-san:
 {% for san in _tls_san %}
-  - {{ san }}
+  - {{ san | to_json }}
 {% endfor %}
 {% endif %}
 
@@ -49,7 +52,7 @@ system-default-registry: "{{ rke2_system_default_registry }}"
 {% endif %}
 
 {% if rke2_agent_token | default('') | length > 0 %}
-agent-token: "{{ rke2_agent_token }}"
+agent-token: {{ rke2_agent_token | to_json }}
 {% endif %}
 
 {% if rke2_etcd_disable_snapshots | default(false) | bool %}
@@ -83,7 +86,8 @@ etcd-s3-access-key: "{{ rke2_etcd_s3_access_key }}"
 etcd-s3-secret-key: "{{ rke2_etcd_s3_secret_key }}"
 {% endif %}
 {% if rke2_etcd_s3_endpoint_ca | default('') | length > 0 %}
-etcd-s3-endpoint-ca: "{{ rke2_etcd_s3_endpoint_ca }}"
+{# RKE2 reads a file path or base64 data; a PEM bundle is written to a file. #}
+etcd-s3-endpoint-ca: {{ ('/etc/rancher/rke2/etcd-s3-endpoint-ca.pem' if 'BEGIN CERTIFICATE' in rke2_etcd_s3_endpoint_ca else rke2_etcd_s3_endpoint_ca) | to_json }}
 {% endif %}
 {% if rke2_etcd_s3_skip_ssl_verify | default(false) | bool %}
 etcd-s3-skip-ssl-verify: true
@@ -138,18 +142,23 @@ cloud-provider-name: "{{ rke2_cloud_provider_name }}"
 selinux: true
 {% endif %}
 
+{# RKE2 deploys only the controllers listed in ingress-controller and
+   truncates the others; the first entry is the default ingress class. #}
+{% set _ingress = {
+  'traefik': ['traefik'],
+  'ingress-nginx': ['ingress-nginx'],
+  'ingress-nginx+traefik': ['ingress-nginx', 'traefik'],
+  'none': ['none']}[rke2_ingress_controller | default('traefik')] %}
+ingress-controller:
+{% for item in _ingress %}
+  - {{ item }}
+{% endfor %}
+
 {% set _disable = (rke2_disable | default([])) %}
-{% if rke2_ingress_controller | default('traefik') == 'none' %}
-{% set _disable = (_disable + ['rke2-ingress-nginx', 'rke2-traefik']) | unique %}
-{% elif rke2_ingress_controller | default('traefik') == 'traefik' %}
-{% set _disable = (_disable + ['rke2-ingress-nginx']) | unique %}
-{% elif rke2_ingress_controller | default('traefik') == 'ingress-nginx' %}
-{% set _disable = (_disable + ['rke2-traefik']) | unique %}
-{% endif %}
 {% if _disable | length > 0 %}
 disable:
 {% for item in _disable %}
-  - {{ item }}
+  - {{ item | to_json }}
 {% endfor %}
 {% endif %}
 
@@ -185,7 +194,7 @@ kubelet-arg:
 {% endfor %}
 {% endif %}
 
-{% if rke2_kube_proxy_args | default([]) | length > 0 %}
+{% if rke2_kube_proxy_args | default([]) | length > 0 and not (rke2_disable_kube_proxy | default(false) | bool) %}
 kube-proxy-arg:
 {% for arg in rke2_kube_proxy_args %}
   - "{{ arg }}"

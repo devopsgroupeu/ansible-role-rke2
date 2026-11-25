@@ -1,0 +1,341 @@
+---
+# Channel mode on an already installed node: rke2_version empty, rke2_channel
+# set. The channel index comes from a mock served on the controller's
+# 127.0.0.1 and reports the version the mock binary prints, so the run must
+# succeed without installing or restarting anything.
+- name: Serve a mock RKE2 channel index on the controller
+  hosts: localhost
+  gather_facts: false
+  vars:
+    _channel_dir: "{{ lookup('ansible.builtin.env', 'MOLECULE_EPHEMERAL_DIRECTORY') }}/rke2-channels"
+  tasks:
+    - name: Create the mock channel directory
+      ansible.builtin.file:
+        path: "{{ _channel_dir }}"
+        state: directory
+        mode: "0700"
+
+    - name: Write the mock channel index
+      ansible.builtin.copy:
+        dest: "{{ _channel_dir }}/channels.json"
+        mode: "0600"
+        content: |
+          {"data": [{"id": "latest", "latest": "v1.99.0+rke2r1"},
+                    {"id": "stable", "latest": "{{ hostvars[groups['server_nodes'][0]]['rke2_version'] }}"}]}
+
+    # Serves for at most 10 minutes, so it cannot outlive a failed run.
+    - name: Start the mock channel server on 127.0.0.1:18345
+      ansible.builtin.shell: |
+        nohup python3 -c '
+        import functools, http.server, sys, time
+        handler = functools.partial(http.server.SimpleHTTPRequestHandler, directory=sys.argv[1])
+        server = http.server.HTTPServer(("127.0.0.1", 18345), handler)
+        server.timeout = 1
+        deadline = time.time() + 600
+        while time.time() < deadline:
+            server.handle_request()
+        ' "{{ _channel_dir }}" >/dev/null 2>&1 &
+        echo $! > "{{ _channel_dir }}/server.pid"
+      changed_when: true
+
+    - name: Wait for the mock channel server
+      ansible.builtin.wait_for:
+        host: 127.0.0.1
+        port: 18345
+        timeout: 15
+
+- name: Record the node state before the channel-mode run
+  hosts: server_nodes
+  gather_facts: false
+  tasks:
+    - name: Read rke2-server start time before
+      ansible.builtin.command: systemctl show rke2-server -p ActiveEnterTimestampMonotonic --value # noqa: command-instead-of-module
+      register: _started_before
+      changed_when: false
+
+- name: Converge in channel mode
+  ansible.builtin.import_playbook: converge.yml
+  vars:
+    rke2_version: ""
+    rke2_channel: stable
+    rke2_channel_url: "http://127.0.0.1:18345/channels.json"
+
+- name: Check the channel-mode run
+  hosts: server_nodes
+  gather_facts: false
+  tasks:
+    - name: Read rke2-server start time after
+      ansible.builtin.command: systemctl show rke2-server -p ActiveEnterTimestampMonotonic --value # noqa: command-instead-of-module
+      register: _started_after
+      changed_when: false
+
+    - name: Assert channel mode resolved the version and changed nothing
+      ansible.builtin.assert:
+        that:
+          - _rke2_target_version == rke2_version
+          - not (_rke2_install_needed | bool)
+          - _started_after.stdout == _started_before.stdout
+        fail_msg: >-
+          channel mode resolved {{ _rke2_target_version }} (install needed:
+          {{ _rke2_install_needed }}) or restarted rke2-server
+
+- name: Stop the mock channel server
+  hosts: localhost
+  gather_facts: false
+  vars:
+    _channel_dir: "{{ lookup('ansible.builtin.env', 'MOLECULE_EPHEMERAL_DIRECTORY') }}/rke2-channels"
+  tasks:
+    - name: Stop the mock channel server
+      ansible.builtin.shell: kill "$(cat '{{ _channel_dir }}/server.pid')" || true
+      changed_when: true
+
+- name: Reject standalone ingress-nginx on an RKE2 v1.37 target
+  hosts: server_nodes
+  gather_facts: false
+  tasks:
+    - name: Run the version and server checks with ingress-nginx and v1.37
+      block:
+        - name: Include the version tasks
+          ansible.builtin.include_role:
+            name: ansible-role-rke2
+            tasks_from: version.yml
+          vars:
+            rke2_version: v1.37.2+rke2r1
+
+        - name: Include the server tasks
+          ansible.builtin.include_role:
+            name: ansible-role-rke2
+            tasks_from: server.yml
+          vars:
+            rke2_version: v1.37.2+rke2r1
+            rke2_ingress_controller: ingress-nginx
+
+        - name: Fail when the guard did not fire
+          ansible.builtin.fail:
+            msg: ingress-nginx with a v1.37 target was not rejected
+      rescue:
+        - name: Assert the ingress guard fired and points to dual mode
+          ansible.builtin.assert:
+            that: ansible_failed_result.msg is search('ingress-nginx[+]traefik')
+            fail_msg: "unexpected failure: {{ ansible_failed_result.msg }}"
+
+- name: Reject rke2_extra_config keys the role already renders
+  hosts: server_nodes
+  gather_facts: false
+  tasks:
+    - name: Run the setup tasks with profile in rke2_extra_config
+      block:
+        - name: Include the setup tasks
+          ansible.builtin.include_role:
+            name: ansible-role-rke2
+            tasks_from: setup.yml
+          vars:
+            rke2_extra_config:
+              profile: cis
+
+        - name: Fail when the guard did not fire
+          ansible.builtin.fail:
+            msg: rke2_extra_config with profile was not rejected
+      rescue:
+        - name: Assert the collision guard fired and names the key
+          ansible.builtin.assert:
+            that: ansible_failed_result.msg is search('rke2_extra_config sets profile,')
+            fail_msg: "unexpected failure: {{ ansible_failed_result.msg }}"
+
+# RKE2 reads registries.yaml only at start: a change and a removal must each
+# restart rke2-server. The last step writes the file again for verify.yml,
+# with a leading comment: a real configuration that starts with a comment
+# must be written, not treated as comment-only and removed.
+- name: Restart RKE2 when registries.yaml changes or is removed
+  hosts: server_nodes
+  gather_facts: false
+  vars:
+    rke2_handler_wait_for_ready: false
+    _changed_registries: |
+      mirrors:
+        docker.io:
+          endpoint:
+            - "https://mirror2.example.com"
+  tasks:
+    - name: Read rke2-server start time before
+      ansible.builtin.command: systemctl show rke2-server -p ActiveEnterTimestampMonotonic --value # noqa: command-instead-of-module
+      register: _reg_t0
+      changed_when: false
+
+    - name: Change the registry configuration
+      ansible.builtin.include_role:
+        name: ansible-role-rke2
+        tasks_from: registries.yml
+      vars:
+        rke2_private_registries_config: "{{ _changed_registries }}"
+
+    - name: Run the restart handler
+      ansible.builtin.meta: flush_handlers
+
+    - name: Read rke2-server start time after the change
+      ansible.builtin.command: systemctl show rke2-server -p ActiveEnterTimestampMonotonic --value # noqa: command-instead-of-module
+      register: _reg_t1
+      changed_when: false
+
+    - name: Clear the registry configuration
+      ansible.builtin.include_role:
+        name: ansible-role-rke2
+        tasks_from: registries.yml
+      vars:
+        rke2_private_registries_config: "# no registries"
+
+    - name: Run the restart handler again
+      ansible.builtin.meta: flush_handlers
+
+    - name: Read rke2-server start time after the removal
+      ansible.builtin.command: systemctl show rke2-server -p ActiveEnterTimestampMonotonic --value # noqa: command-instead-of-module
+      register: _reg_t2
+      changed_when: false
+
+    - name: Stat registries.yaml after the removal
+      ansible.builtin.stat:
+        path: /etc/rancher/rke2/registries.yaml
+      register: _reg_removed
+
+    - name: Assert the change and the removal each restarted rke2-server
+      ansible.builtin.assert:
+        that:
+          - _reg_t1.stdout | int > _reg_t0.stdout | int
+          - _reg_t2.stdout | int > _reg_t1.stdout | int
+          - not _reg_removed.stat.exists
+        fail_msg: >-
+          start times {{ _reg_t0.stdout }} / {{ _reg_t1.stdout }} / {{ _reg_t2.stdout }},
+          registries.yaml removed: {{ not _reg_removed.stat.exists }}
+
+    - name: Write the registry configuration again, starting with a comment
+      ansible.builtin.include_role:
+        name: ansible-role-rke2
+        tasks_from: registries.yml
+      vars:
+        rke2_private_registries_config: "# docker.io mirror\n{{ _changed_registries }}"
+
+    - name: Read registries.yaml after the rewrite
+      ansible.builtin.slurp:
+        src: /etc/rancher/rke2/registries.yaml
+      register: _reg_commented
+
+    - name: Assert a configuration with a leading comment is kept
+      ansible.builtin.assert:
+        that:
+          - (_reg_commented.content | b64decode) is search('(?m)^# docker.io mirror$')
+          - "'docker.io' in (_reg_commented.content | b64decode | from_yaml).mirrors"
+        fail_msg: a registry configuration that starts with a comment was not written
+
+# Air-gap staging: the artifact names follow the node architecture and the
+# extra image tarballs are staged next to them for get.rke2.io.
+- name: Stage air-gap artifacts for the node architecture
+  hosts: server_nodes
+  gather_facts: true
+  gather_subset:
+    - "!all"
+    - "!min"
+    - architecture
+  vars:
+    _airgap_dir: "{{ lookup('ansible.builtin.env', 'MOLECULE_EPHEMERAL_DIRECTORY') }}/airgap"
+    _arch: "{{ {'x86_64': 'amd64', 'aarch64': 'arm64'}[ansible_facts['architecture']] }}"
+    _extra: "rke2-images-ingress-nginx.linux-{{ _arch }}.tar.zst"
+    _artifacts:
+      - rke2-install.sh
+      - "rke2.linux-{{ _arch }}.tar.gz"
+      - "sha256sum-{{ _arch }}.txt"
+      - "rke2-images.linux-{{ _arch }}.tar.zst"
+      - "{{ _extra }}"
+  tasks:
+    - name: Create the artifacts directory on the controller
+      ansible.builtin.file:
+        path: "{{ _airgap_dir }}"
+        state: directory
+        mode: "0700"
+      delegate_to: localhost
+      become: false
+
+    - name: Write dummy artifacts on the controller
+      ansible.builtin.copy:
+        dest: "{{ _airgap_dir }}/{{ item }}"
+        content: "dummy {{ item }}\n"
+        mode: "0600"
+      loop: "{{ _artifacts }}"
+      delegate_to: localhost
+      become: false
+
+    - name: Run the air-gap staging tasks
+      ansible.builtin.include_role:
+        name: ansible-role-rke2
+        tasks_from: network_environment.yml
+      vars:
+        rke2_airgapped: true
+        rke2_airgapped_artifacts_dir: "{{ _airgap_dir }}"
+        rke2_airgapped_additional_image_tarballs:
+          - "{{ _extra }}"
+
+    - name: Stat the staged artifacts
+      ansible.builtin.stat:
+        path: "/tmp/rke2-artifacts/{{ item }}"
+      loop: "{{ _artifacts[1:] }}"
+      register: _staged
+
+    - name: Assert every artifact was staged with the node architecture
+      ansible.builtin.assert:
+        that: _staged.results | rejectattr('stat.exists') | list | length == 0
+        fail_msg: >-
+          missing in /tmp/rke2-artifacts:
+          {{ _staged.results | rejectattr('stat.exists') | map(attribute='item') | join(', ') }}
+
+    - name: Stage a tarball the installer would ignore
+      block:
+        - name: Run the air-gap staging tasks with a misnamed tarball
+          ansible.builtin.include_role:
+            name: ansible-role-rke2
+            tasks_from: network_environment.yml
+          vars:
+            rke2_airgapped: true
+            rke2_airgapped_artifacts_dir: "{{ _airgap_dir }}"
+            rke2_airgapped_additional_image_tarballs:
+              - "{{ _artifacts[1] }}"
+
+        - name: Fail when the guard did not fire
+          ansible.builtin.fail:
+            msg: a misnamed additional image tarball was not rejected
+      rescue:
+        - name: Assert the tarball name guard fired
+          ansible.builtin.assert:
+            that: ansible_failed_result.msg is search('get.rke2.io ignores other files')
+            fail_msg: "unexpected failure: {{ ansible_failed_result.msg }}"
+
+    - name: Remove the staged air-gap artifacts
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /tmp/rke2-artifacts
+        - /tmp/rke2-install.sh
+
+# Turning rotation off removes the cron job; the second converge restores it
+# for verify.yml.
+- name: Converge with certificate rotation disabled
+  ansible.builtin.import_playbook: converge.yml
+  vars:
+    rke2_cert_rotation_enabled: false
+
+- name: Check the rotation job was removed
+  hosts: server_nodes
+  gather_facts: false
+  tasks:
+    - name: Read root's crontab without the rotation job
+      ansible.builtin.command: crontab -l
+      register: _crontab_off
+      changed_when: false
+      failed_when: false
+
+    - name: Assert the rotation job is gone
+      ansible.builtin.assert:
+        that: "'Rotate RKE2 certificates' not in _crontab_off.stdout"
+        fail_msg: "the rotation job is still in root's crontab: {{ _crontab_off.stdout }}"
+
+- name: Converge with certificate rotation enabled again
+  ansible.builtin.import_playbook: converge.yml

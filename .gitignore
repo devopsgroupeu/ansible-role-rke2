@@ -26,8 +26,8 @@ __pycache__/
 # Logs
 *.log
 
-# Local test inventory and kubeconfigs (contain real IPs/keys — never commit)
+# Local test inventory and kubeconfigs (contain real IPs/keys - never commit)
 tests/
 
-# Test CA PEMs generated for molecule scenarios — private keys, never commit
+# Test CA PEMs generated for molecule scenarios - private keys, never commit
 molecule/config-render/test-root-ca.*

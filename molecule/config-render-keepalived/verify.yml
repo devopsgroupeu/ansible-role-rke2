@@ -51,6 +51,29 @@
         fail_msg: "VIP 10.0.0.100 not found in tls-san: {{ rke2_config_parsed.get('tls-san', []) }}"
       when: inventory_hostname == groups['server_nodes'][0]
 
+    - name: Assert profile etcd is rendered
+      ansible.builtin.assert:
+        that: rke2_config_parsed['profile'] == 'etcd'
+        fail_msg: "profile: etcd missing from the server config"
+
+    - name: Check etcd user exists for profile etcd
+      ansible.builtin.command: id etcd
+      register: etcd_user_check
+      changed_when: false
+      failed_when: false
+
+    - name: Stat CIS sysctl drop-in for profile etcd
+      ansible.builtin.stat:
+        path: /etc/sysctl.d/60-rke2-cis.conf
+      register: cis_sysctl
+
+    - name: Assert profile etcd creates the etcd user but sets no CIS sysctls
+      ansible.builtin.assert:
+        that:
+          - etcd_user_check.rc == 0
+          - not cis_sysctl.stat.exists
+        fail_msg: "profile etcd must create the etcd user and skip the CIS sysctls"
+
     # ---- keepalived package -------------------------------------------------
 
     - name: Check keepalived is installed
@@ -96,7 +119,36 @@
     - name: Assert keepalived.conf uses unicast mode
       ansible.builtin.assert:
         that: "'unicast_src_ip' in (keepalived_conf_raw.content | b64decode)"
-        fail_msg: "unicast_src_ip not found in keepalived.conf — unicast VRRP not configured"
+        fail_msg: "unicast_src_ip not found in keepalived.conf - unicast VRRP not configured"
+
+    - name: Stat keepalived.conf
+      ansible.builtin.stat:
+        path: /etc/keepalived/keepalived.conf
+      register: keepalived_conf_stat
+
+    - name: Assert keepalived.conf is mode 0600 (holds auth_pass)
+      ansible.builtin.assert:
+        that: keepalived_conf_stat.stat.mode == '0600'
+        fail_msg: "keepalived.conf mode is {{ keepalived_conf_stat.stat.mode }}, expected 0600"
+
+    - name: Assert vrrp_script blocks have no weight (failing check means FAULT)
+      ansible.builtin.assert:
+        that: >-
+          (keepalived_conf_raw.content | b64decode
+           | regex_findall('vrrp_script [a-z_]+ [{][^}]*[}]') | select('search', 'weight') | list | length) == 0
+        fail_msg: "a vrrp_script block sets weight; failing checks would not release the VIP"
+
+    # rke2-server1 has private_ip. The others have neither private_ip nor
+    # ansible_host in the molecule inventory, so they fall back to the name.
+    - name: Assert unicast addresses use private_ip, then ansible_host or the name
+      vars:
+        _conf: "{{ keepalived_conf_raw.content | b64decode }}"
+      ansible.builtin.assert:
+        that: >-
+          ('unicast_src_ip 192.0.2.11' in _conf and 'rke2-server2' in _conf and 'rke2-server3' in _conf)
+          if inventory_hostname == 'rke2-server1'
+          else (('unicast_src_ip ' ~ inventory_hostname) in _conf and '192.0.2.11' in _conf)
+        fail_msg: "unexpected unicast addresses: {{ _conf | regex_search('unicast_src_ip[^}]*[}]') }}"
 
     - name: Assert keepalived.conf has VRRP instance
       ansible.builtin.assert:
@@ -136,6 +188,23 @@
         that: check_rke2server.stat.executable
         fail_msg: "/etc/keepalived/check-rke2server.sh is not executable"
 
+    - name: Read health check scripts
+      ansible.builtin.slurp:
+        src: "/etc/keepalived/{{ item }}"
+      loop:
+        - check-apiserver.sh
+        - check-rke2server.sh
+      register: check_scripts
+
+    - name: Assert health checks probe authenticated /readyz and supervisor /ping
+      ansible.builtin.assert:
+        that:
+          - "'get --raw /readyz' in (check_scripts.results[0].content | b64decode)"
+          - "'/etc/rancher/rke2/rke2.yaml' in (check_scripts.results[0].content | b64decode)"
+          - "'/healthz' not in (check_scripts.results[0].content | b64decode)"
+          - "'https://localhost:9345/ping' in (check_scripts.results[1].content | b64decode)"
+        fail_msg: "keepalived health checks do not probe /readyz (authenticated) and /ping"
+
     - name: Assert .j2 leftover files are NOT present
       ansible.builtin.stat:
         path: /etc/keepalived/check-apiserver.sh.j2
@@ -144,7 +213,7 @@
     - name: Assert check-apiserver.sh.j2 does not exist
       ansible.builtin.assert:
         that: not check_j2_leftover.stat.exists
-        fail_msg: "/etc/keepalived/check-apiserver.sh.j2 leftover found — scripts deployed with wrong extension"
+        fail_msg: "/etc/keepalived/check-apiserver.sh.j2 leftover found - scripts deployed with wrong extension"
 
     # ---- failover hook ------------------------------------------------------
 
@@ -221,3 +290,27 @@
       ansible.builtin.assert:
         that: "'nopreempt' in (keepalived_conf_raw.content | b64decode)"
         fail_msg: "nopreempt directive not found in keepalived.conf VRRP instance"
+
+- name: Verify a containerd-only proxy setting
+  hosts: server_nodes
+  gather_facts: false
+  tasks:
+    - name: Stat the rke2-server proxy env file
+      ansible.builtin.stat:
+        path: /etc/default/rke2-server
+      register: proxy_env_stat
+
+    - name: Read the rke2-server proxy env file
+      ansible.builtin.slurp:
+        src: /etc/default/rke2-server
+      register: proxy_env_raw
+
+    - name: Assert the env file carries only the containerd proxy and is 0600
+      vars:
+        _env: "{{ proxy_env_raw.content | b64decode }}"
+      ansible.builtin.assert:
+        that:
+          - proxy_env_stat.stat.mode == '0600'
+          - _env is search('(?m)^CONTAINERD_HTTPS_PROXY=http://proxy.example.com:3128$')
+          - _env is not search('(?m)^(HTTP|HTTPS|NO)_PROXY=')
+        fail_msg: "unexpected proxy env file (mode {{ proxy_env_stat.stat.mode }}): {{ _env }}"

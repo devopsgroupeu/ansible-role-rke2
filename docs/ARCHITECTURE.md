@@ -18,14 +18,14 @@ flowchart TD
     clients(["kubectl / API clients"])
     vip["VIP :6443\nkube-vip leader election"]
 
-    subgraph cp["Control Plane — server_nodes"]
+    subgraph cp["Control Plane - server_nodes"]
         s1["server1\nbootstrap"]
         s2["server2"]
         s3["server3"]
         etcd["etcd quorum\n3-node Raft"]
     end
 
-    subgraph workers["Worker nodes — agent_nodes"]
+    subgraph workers["Worker nodes - agent_nodes"]
         a1["agent1"]
         a2["agent2"]
     end
@@ -56,19 +56,19 @@ on `proxy_hosts` nodes and load-balances ports 6443 and 9345 across `server_node
 flowchart TD
     clients(["kubectl / API clients"])
 
-    subgraph lb["Load balancers — proxy_hosts"]
+    subgraph lb["Load balancers - proxy_hosts"]
         hap1["haproxy1\nkeepalived MASTER"]
         hap2["haproxy2\nkeepalived BACKUP"]
         vip_ext["External VIP :6443/:9345\nkeepalived VRRP"]
     end
 
-    subgraph cp["Control Plane — server_nodes"]
+    subgraph cp["Control Plane - server_nodes"]
         s1["server1"]
         s2["server2"]
         s3["server3"]
     end
 
-    subgraph workers["Worker nodes — agent_nodes"]
+    subgraph workers["Worker nodes - agent_nodes"]
         a1["agent1"]
         a2["agent2"]
     end

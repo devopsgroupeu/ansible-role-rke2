@@ -1,5 +1,5 @@
 ---
-# addons.yml — Deploy optional cluster addons via RKE2 HelmChart CRDs
+# addons.yml - Deploy optional cluster addons via RKE2 HelmChart CRDs
 # RKE2 watches {{ rke2_data_dir }}/server/manifests/ and applies HelmChart resources automatically.
 # Only runs on the first server node.
 

@@ -16,9 +16,9 @@ argument_specs:
       rke2_version:
         type: str
         required: false
-        default: v1.36.1+rke2r2
+        default: v1.36.6+rke2r2
         description: >
-          RKE2 release version to install (e.g. v1.36.1+rke2r2). Takes
+          RKE2 release version to install (e.g. v1.36.6+rke2r2). Takes
           precedence over rke2_channel. Leave empty to use rke2_channel.
 
       rke2_channel:
@@ -27,7 +27,27 @@ argument_specs:
         default: ""
         description: >
           RKE2 install channel used only when rke2_version is empty. Options:
-          stable, latest, or a per-minor channel like "v1.35".
+          stable, latest, or a per-minor channel like "v1.35". The role
+          resolves it to the channel's latest version (from the controller,
+          via rke2_channel_url) and upgrades only when that version changes.
+          Not supported with rke2_airgapped.
+
+      rke2_channel_url:
+        type: str
+        required: false
+        default: "https://update.rke2.io/v1-release/channels"
+        description: >
+          Channel index used on the controller to resolve rke2_channel to a
+          version.
+
+      rke2_install_method:
+        type: str
+        required: false
+        default: ""
+        choices: ["", "rpm", "tar"]
+        description: >
+          Exported to get.rke2.io as INSTALL_RKE2_METHOD. Empty uses the
+          installer default (rpm on yum/dnf hosts, tar elsewhere).
 
       rke2_agent_token:
         type: str
@@ -36,7 +56,8 @@ argument_specs:
         description: >
           Optional separate token for agent nodes. When set, agents authenticate
           with this token instead of rke2_cluster_token, giving them less cluster
-          access than server nodes.
+          access than server nodes. A value scoped to server_nodes only is read
+          from the first server's host vars for the agents.
 
       rke2_cluster_token:
         type: str
@@ -45,7 +66,9 @@ argument_specs:
         description: >
           Pre-set cluster token. When empty the role reads the auto-generated
           token from /var/lib/rancher/rke2/server/node-token on the first server
-          and distributes it to all other nodes.
+          and distributes it to all other nodes. When set, the first server is
+          configured with it as well, and the role fails if it differs from the
+          token of an existing cluster.
 
       rke2_allow_downgrade:
         type: bool
@@ -89,8 +112,27 @@ argument_specs:
         description: >
           Path on the Ansible controller to a directory containing
           pre-downloaded RKE2 artifacts (rke2-install.sh,
-          rke2.linux-amd64.tar.gz, sha256sum-amd64.txt). Leave empty to
-          download only the install script from the internet.
+          rke2.linux-<arch>.tar.gz, sha256sum-<arch>.txt, where <arch> is
+          rke2_architecture). Leave empty to download only the install script
+          from the internet.
+
+      rke2_architecture:
+        type: str
+        required: false
+        description: >
+          Architecture suffix of the air-gap artifacts (amd64, arm64). Defaults
+          to the node's CPU architecture (x86_64 -> amd64, aarch64 -> arm64).
+
+      rke2_airgapped_additional_image_tarballs:
+        type: list
+        elements: str
+        required: false
+        default: []
+        description: >
+          Extra image tarballs in rke2_airgapped_artifacts_dir to stage for the
+          installer, e.g. rke2-images-ingress-nginx.linux-amd64.tar.zst. They
+          must be named rke2-images-*.linux-<arch>.tar.zst (or .tar.gz), and
+          rke2-images.linux-<arch>.tar.zst must be staged too.
 
       rke2_system_default_registry:
         type: str
@@ -98,7 +140,8 @@ argument_specs:
         default: ""
         description: >
           Mirror registry for all RKE2 system images (system-default-registry).
-          Applied to servers and agents. Empty = upstream registries.
+          Rendered on servers only; RKE2 no longer supports it on agents.
+          Empty = upstream registries.
 
       # -----------------------------------------------------------------------
       # Proxy settings
@@ -155,7 +198,7 @@ argument_specs:
           - none
         description: >
           CNI plugin. default (canal), canal, cilium, calico, flannel, or none
-          (BYO CNI — skips cni config and emits cni: none).
+          (BYO CNI - skips cni config and emits cni: none).
 
       rke2_cni_configs:
         type: dict
@@ -200,8 +243,16 @@ argument_specs:
       rke2_kubevip_version:
         type: str
         required: false
-        default: v1.2.0
+        default: v1.3.2
         description: kube-vip image tag. Only used when rke2_vip_manager is 'kubevip'.
+
+      rke2_kubevip_image_repository:
+        type: str
+        required: false
+        default: ghcr.io/kube-vip/kube-vip
+        description: >
+          kube-vip image repository, e.g. an internal mirror for air-gapped
+          clusters. The tag is rke2_kubevip_version.
 
       rke2_kubevip_port:
         type: str
@@ -244,7 +295,7 @@ argument_specs:
       rke2_kubevip_cloud_provider_image:
         type: str
         required: false
-        default: ghcr.io/kube-vip/kube-vip-cloud-provider:v0.0.12
+        default: ghcr.io/kube-vip/kube-vip-cloud-provider:v0.0.13
         description: Image for the kube-vip cloud provider StatefulSet.
 
       rke2_kubevip_load_balancer_ip_range:
@@ -266,6 +317,19 @@ argument_specs:
           server node's ansible_host. Set this on cloud SDN environments (e.g. Hetzner
           private networks) where gratuitous-ARP VIPs are not directly routable.
 
+      rke2_server_join_address:
+        type: str
+        required: false
+        default: ""
+        description: >
+          Fixed registration address (host or IP, port 9345) for additional
+          servers and agents, e.g. a load balancer or DNS name. New servers
+          can join through it while the first server is down only when
+          rke2_cluster_token is set, because an auto-generated token is read
+          from the first server's node-token. Agents still prefer
+          rke2_agent_server_address and the VIP. Empty uses the first
+          server's ansible_host.
+
       rke2_keepalived_router_id:
         type: int
         required: false
@@ -283,6 +347,15 @@ argument_specs:
         required: false
         default: 100
         description: VRRP priority for additional server nodes (BACKUP state).
+
+      rke2_keepalived_require_custom_auth_pass:
+        type: bool
+        required: false
+        default: false
+        description: >
+          Fail when rke2_keepalived_auth_pass is still the role default
+          (rke2vip). VRRP PASS auth is cleartext on the wire, so this is
+          hygiene only.
 
       rke2_keepalived_auth_pass:
         type: str
@@ -430,7 +503,10 @@ argument_specs:
         type: str
         required: false
         default: ""
-        description: Optional PEM CA bundle for a private S3 endpoint.
+        description: >
+          Optional CA for a private S3 endpoint: a PEM bundle (written to
+          /etc/rancher/rke2/etcd-s3-endpoint-ca.pem, mode 0600, and referenced
+          by path), a path to a CA file on the servers, or base64-encoded PEM.
 
       rke2_etcd_s3_skip_ssl_verify:
         type: bool
@@ -445,7 +521,11 @@ argument_specs:
         type: str
         required: false
         default: /var/lib/rancher/rke2
-        description: RKE2 data directory.
+        description: >
+          RKE2 data directory, rendered as data-dir on servers and agents.
+          Custom CA files, the cert rotation script and air-gap images follow
+          it. An installed agent whose data is still in
+          /var/lib/rancher/rke2/agent fails until the data is moved.
 
       rke2_node_ip:
         type: str
@@ -492,6 +572,15 @@ argument_specs:
         description: >
           Local path on the Ansible controller where the kubeconfig is saved.
           Only used when rke2_kubeconfig_download is true.
+
+      rke2_kubeconfig_server:
+        type: str
+        required: false
+        default: ""
+        description: >
+          API server host name or IP (no scheme or port) written into the
+          downloaded kubeconfig. Empty uses rke2_vip_address when the VIP is
+          enabled, otherwise the first server's ansible_host or inventory name.
 
       # -----------------------------------------------------------------------
       # Server nodes
@@ -623,6 +712,16 @@ argument_specs:
         default: 7
         description: Number of days to retain certificate rotation log files.
 
+      rke2_cert_rotation_stagger_minutes:
+        type: int
+        required: false
+        default: 30
+        description: >
+          Minutes between the rotation jobs of consecutive nodes. Servers run
+          in server_nodes order starting at the configured hour and minute,
+          agents follow after the last server; the time wraps around midnight.
+          0 runs the job on every node at the same time.
+
       # -----------------------------------------------------------------------
       # Additional packages
       # -----------------------------------------------------------------------
@@ -647,10 +746,13 @@ argument_specs:
         choices:
           - traefik
           - ingress-nginx
+          - ingress-nginx+traefik
           - none
         description: >
-          Which ingress controller this role configures. traefik (v1.36 default),
-          ingress-nginx (legacy, EOL Mar 2026), or none (disables both built-ins).
+          Bundled ingress controller(s), rendered as the RKE2
+          ingress-controller key. traefik (default), ingress-nginx (retired
+          upstream, RKE2 < v1.37 only), ingress-nginx+traefik (dual mode for
+          migration, nginx stays the default class; also on v1.37), or none.
 
       rke2_traefik_config:
         type: str
@@ -658,7 +760,8 @@ argument_specs:
         default: ""
         description: >
           YAML string of Helm values for the bundled rke2-traefik chart, applied
-          as a HelmChartConfig on the first server node when controller=traefik.
+          as a HelmChartConfig on the first server node when the controller
+          includes traefik.
 
       rke2_ingress_nginx_config:
         type: str
@@ -666,7 +769,7 @@ argument_specs:
         default: ""
         description: >
           YAML string with Helm values for the rke2-ingress-nginx HelmChart
-          config. Applied when rke2_ingress_controller is ingress-nginx.
+          config. Applied when the controller includes ingress-nginx.
           Leave empty or comment-only to skip.
 
       # -----------------------------------------------------------------------
@@ -680,7 +783,10 @@ argument_specs:
         description: >
           List of Helm addons to deploy via RKE2 HelmChart CRDs. Each entry
           requires: name, enabled (bool), repo, version, namespace. Optional
-          keys: chart (defaults to name), values (dict).
+          keys: chart (defaults to name), values (dict), set (dict), bootstrap,
+          failurePolicy, authSecret, repoCA (PEM certificates; a value without
+          BEGIN CERTIFICATE is rendered as repoCAConfigMap) and
+          repoCAConfigMap (ConfigMap name).
 
       rke2_addons_delete_on_disable:
         type: bool
@@ -710,7 +816,9 @@ argument_specs:
         default: ""
         description: >
           YAML string for /etc/rancher/rke2/registries.yaml (mirrors and auth
-          config). Leave empty or comment-only to skip.
+          config). A change restarts RKE2 on each node, one at a time. Empty or
+          comment-only removes a file this role wrote earlier and leaves a file
+          managed elsewhere alone.
 
       # -----------------------------------------------------------------------
       # Built-in component management
@@ -729,8 +837,9 @@ argument_specs:
         required: false
         default: []
         description: >
-          List of built-in RKE2 components to disable (e.g. rke2-ingress-nginx,
-          rke2-metrics-server, rke2-coredns).
+          List of built-in RKE2 components to disable (e.g. rke2-metrics-server,
+          rke2-coredns). The bundled ingress is selected with
+          rke2_ingress_controller.
 
       # -----------------------------------------------------------------------
       # Kubernetes component arguments
@@ -768,7 +877,7 @@ argument_specs:
         elements: str
         required: false
         default: []
-        description: Extra flags passed to kube-proxy.
+        description: Extra flags passed to kube-proxy. Not rendered when rke2_disable_kube_proxy is true.
 
       # -----------------------------------------------------------------------
       # Cloud provider
@@ -778,8 +887,18 @@ argument_specs:
         required: false
         default: false
         description: >
-          Disable RKE2's built-in cloud controller manager. Required when using
-          an external cloud controller (e.g. kube-vip cloud provider, AWS CCM).
+          Disable RKE2's built-in cloud controller manager. Only when a real
+          external cloud controller manager (e.g. AWS CCM, hcloud CCM)
+          initialises the nodes; the kube-vip cloud provider is not one.
+
+      rke2_external_ccm_deployed:
+        type: bool
+        required: false
+        default: false
+        description: >
+          A third-party cloud controller manager initialises the nodes. Only
+          then does the role accept rke2_kubevip_cloud_provider_enabled with
+          rke2_disable_cloud_controller true.
 
       rke2_cloud_provider_name:
         type: str
@@ -823,16 +942,43 @@ argument_specs:
           ReplicaSet/Job/DaemonSet. Off by default.
 
       # -----------------------------------------------------------------------
+      # Restart handlers
+      # -----------------------------------------------------------------------
+      rke2_handler_wait_for_ready:
+        type: bool
+        required: false
+        default: true
+        description: >
+          Health-gate the restart handlers. Each server restart (one server at
+          a time) waits for https://127.0.0.1:9345/ping and for the node to be
+          Ready before the next server restarts; each agent restart waits for
+          the kubelet port 10250. Before it restarts, each server checks that
+          every other server answers
+          https://<private_ip or ansible_host>:9345/ping and refuses to
+          restart otherwise, so a server that did not come back stops the
+          remaining server restarts. Set false only when the nodes cannot
+          answer these probes (e.g. render-only test containers).
+
+      rke2_agent_restart_throttle:
+        type: int
+        required: false
+        default: 1
+        description: >
+          Maximum number of agents restarted at the same time when their
+          config or version changes. Servers always restart one at a time.
+
+      # -----------------------------------------------------------------------
       # Hardening
       # -----------------------------------------------------------------------
       rke2_cis_profile:
         type: str
         required: false
         default: ""
-        choices: ["", "cis", "cis-1.23"]
+        choices: ["", "cis", "etcd"]
         description: >
-          RKE2 CIS hardening profile. Options: cis (RKE2 >= 1.25) or cis-1.23
-          (legacy). Leave empty to disable.
+          RKE2 hardening profile, rendered on servers and agents. cis applies
+          the CIS kernel parameters and creates the etcd user; etcd only
+          creates the etcd user and group. Leave empty to disable.
 
       rke2_audit_policy:
         type: str
@@ -859,14 +1005,14 @@ argument_specs:
         required: false
         default: ""
         description: >
-          Override the Kubernetes node name. Defaults to the system hostname
-          when empty.
+          Override the Kubernetes node name. When empty, servers register with
+          their lowercased hostname and agents with their inventory_hostname.
 
       rke2_debug:
         type: bool
         required: false
         default: false
-        description: Enable RKE2 debug logging (very verbose — for troubleshooting only).
+        description: Enable RKE2 debug logging (very verbose - for troubleshooting only).
 
       # -----------------------------------------------------------------------
       # Extra configuration
@@ -876,6 +1022,6 @@ argument_specs:
         required: false
         default: {}
         description: >
-          Catch-all dict merged last into config.yaml. Any RKE2 option not
-          exposed by a dedicated variable can go here and will take precedence
-          over all other settings.
+          Catch-all dict appended to config.yaml on servers and agents for RKE2
+          options not exposed by a dedicated variable. Keys the role already
+          renders (_rke2_managed_config_keys in vars/main.yml) are rejected.

@@ -10,9 +10,14 @@
 #           name: ansible-role-rke2
 #           tasks_from: rolling_restart
 
+# Same name the node registered with: agent-config.yml.j2 renders
+# inventory_hostname, servers without node-name use the lowercased hostname.
 - name: Determine node name for drain/uncordon
   ansible.builtin.set_fact:
-    _rke2_node_name: "{{ rke2_node_name if rke2_node_name | default('') | length > 0 else ansible_nodename }}"
+    _rke2_node_name: >-
+      {{ rke2_node_name if rke2_node_name | default('') | length > 0
+         else (ansible_facts['nodename'] | lower if 'server_nodes' in group_names
+               else inventory_hostname) }}
   tags: [rke2_rolling_restart]
 
 - name: Determine a healthy server to drive kubectl from

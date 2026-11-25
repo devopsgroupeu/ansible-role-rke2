@@ -54,6 +54,11 @@ provisioner:
       all:
         vars:
           ansible_user: root
+          # The version the mock binary reports and converge installs.
+          rke2_version: v1.36.6+rke2r2
+    host_vars:
+      rke2-server1:
+        private_ip: 192.0.2.11
 
 verifier:
   name: ansible

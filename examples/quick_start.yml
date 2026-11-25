@@ -9,7 +9,7 @@
 # -----------------------------------------------------------------------------
 # Example 1: Single Node (development / testing)
 # -----------------------------------------------------------------------------
-# Inventory — use the ready-made examples/inventory/single-node.yml, or create
+# Inventory - use the ready-made examples/inventory/single-node.yml, or create
 # your own equivalent:
 #
 #   all:
@@ -28,7 +28,7 @@
   hosts: all
   become: true
   vars:
-    rke2_version: v1.36.1+rke2r2
+    rke2_version: v1.36.6+rke2r2
     rke2_tls_san:
       - "10.0.0.10"
   roles:
@@ -37,7 +37,7 @@
 # -----------------------------------------------------------------------------
 # Example 2: HA cluster (3 server nodes + worker nodes)
 # -----------------------------------------------------------------------------
-# Inventory — use the ready-made examples/inventory/ha-kubevip.yml (kube-vip)
+# Inventory - use the ready-made examples/inventory/ha-kubevip.yml (kube-vip)
 # or examples/inventory/ha-keepalived.yml (keepalived), or create your own:
 #
 #   all:
@@ -67,29 +67,28 @@
 #   hosts: all
 #   become: true
 #   vars:
-#     rke2_version: v1.36.1+rke2r2
+#     rke2_version: v1.36.6+rke2r2
 #     rke2_vip_enabled: true
 #     rke2_vip_address: "10.0.0.100"
 #     rke2_vip_interface: "eth0"
 #     rke2_vip_manager: "kubevip"
 #     rke2_tls_san:
-#       - "10.0.0.100"     # VIP — also added automatically when rke2_vip_enabled: true
+#       - "10.0.0.100"     # VIP - also added automatically when rke2_vip_enabled: true
 #       - "rke2.example.com"
 #   roles:
 #     - role: devopsgroupeu.rke2
 
 # -----------------------------------------------------------------------------
-# Example 3: HA cluster with keepalived (external VIP)
+# Example 3: HA cluster with keepalived VIP
 # -----------------------------------------------------------------------------
-# Set up an external keepalived-managed VIP in front of the control plane first,
-# then run this role with rke2_vip_manager: keepalived.
-# The role will add the VIP to tls-san but will NOT deploy kube-vip.
+# The role installs and configures keepalived on the server nodes (unicast
+# VRRP, health checks) and adds the VIP to tls-san. kube-vip is not deployed.
 
 # - name: Install RKE2 - HA with keepalived VIP
 #   hosts: all
 #   become: true
 #   vars:
-#     rke2_version: v1.36.1+rke2r2
+#     rke2_version: v1.36.6+rke2r2
 #     rke2_vip_enabled: true
 #     rke2_vip_address: "10.0.0.100"
 #     rke2_vip_manager: "keepalived"
@@ -110,7 +109,7 @@
 #   hosts: all
 #   become: true
 #   vars:
-#     rke2_version: v1.36.1+rke2r2
+#     rke2_version: v1.36.6+rke2r2
 #     rke2_airgapped: true
 #     rke2_airgapped_artifacts_dir: "{{ playbook_dir }}/rke2-artifacts"
 #     rke2_tls_san:
@@ -126,7 +125,7 @@
 #   hosts: all
 #   become: true
 #   vars:
-#     rke2_version: v1.36.1+rke2r2
+#     rke2_version: v1.36.6+rke2r2
 #     rke2_kubeconfig_download: true
 #     rke2_kubeconfig_output_path: "~/.kube/rke2.yaml"
 #   roles:

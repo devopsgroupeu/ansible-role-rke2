@@ -1,4 +1,4 @@
-# HA RKE2 inventory — 3 server nodes + 2 agent nodes, VIP managed by keepalived
+# HA RKE2 inventory - 3 server nodes + 2 agent nodes, VIP managed by keepalived
 # Set rke2_vip_enabled: true and rke2_vip_manager: keepalived in group_vars
 
 all:

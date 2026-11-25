@@ -3,8 +3,10 @@
   hosts: all
   gather_facts: true
   vars:
-    rke2_version: v1.36.1+rke2r2
     rke2_airgapped: false
+    # The mock rke2-server is a oneshot unit without a supervisor or kubectl,
+    # so the health-gated restart waits are exercised in config-render-ha.
+    rke2_handler_wait_for_ready: false
     rke2_additional_packages: []
     rke2_http_proxy: "http://proxy.example.com:3128"
     rke2_https_proxy: "http://proxy.example.com:3128"
@@ -23,14 +25,17 @@
     rke2_vip_enabled: true
     rke2_vip_address: "10.0.0.100"
     rke2_vip_manager: kubevip
+    rke2_kubevip_image_repository: "registry.example.com:5000/kube-vip/kube-vip"
     rke2_tls_san:
       - "rke2-render"
+      - "*.example.com"
     rke2_etcd_s3_enabled: true
     rke2_etcd_s3_endpoint: "s3.example.com"
     rke2_etcd_s3_bucket: "rke2-backups"
     rke2_etcd_s3_region: "eu-central-1"
     rke2_etcd_s3_access_key: "AKIAEXAMPLE"
     rke2_etcd_s3_secret_key: "secretexample"
+    rke2_etcd_s3_endpoint_ca: "{{ lookup('ansible.builtin.file', 'test-root-ca.pem') }}"
     rke2_etcd_snapshot_retention: 10
     rke2_cis_profile: cis
     rke2_custom_root_ca_cert: "{{ lookup('ansible.builtin.file', 'test-root-ca.pem') | b64encode }}"
@@ -66,6 +71,18 @@
           server:
             service:
               type: ClusterIP
+      - name: pem-ca-addon
+        enabled: true
+        repo: "https://charts.example.com"
+        version: "1.0"
+        namespace: pem-ca-addon
+        repoCA: "{{ lookup('ansible.builtin.file', 'test-root-ca.pem') }}"
+      - name: cm-ca-addon
+        enabled: true
+        repo: "https://charts.example.com"
+        version: "2.0.0"
+        namespace: cm-ca-addon
+        repoCAConfigMap: harbor-ca
       - name: disabled-addon
         enabled: false
         repo: "https://example.com/helm"
@@ -76,8 +93,22 @@
         valuesContent: |
           replicas: 2
     rke2_cluster_domain: "cluster.test"
+    rke2_private_registries_config: |
+      mirrors:
+        docker.io:
+          endpoint:
+            - "https://registry.example.com:5000"
+    rke2_data_dir: /data/rke2
+    rke2_cert_rotation_enabled: true
+    rke2_kubeconfig_download: true
+    rke2_kubeconfig_output_path: "{{ lookup('ansible.builtin.env', 'MOLECULE_EPHEMERAL_DIRECTORY') }}/kubeconfig/rke2.yaml"
     rke2_disable_kube_proxy: false
   tasks:
+    # Tagged always: tags on a dynamic include do not reach the role's tasks,
+    # so `--tags rke2_proxy` must not skip the include itself; the role's own
+    # task tags then select what runs.
     - name: Include rke2 role
       ansible.builtin.include_role:
         name: ansible-role-rke2
+      tags:
+        - always

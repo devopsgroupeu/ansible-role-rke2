@@ -1,20 +1,29 @@
 #!/bin/sh
 # Managed by Ansible - ansible-role-rke2
-# Keepalived health check: verify the Kubernetes API server is responding
+# Keepalived health check: the Kubernetes API server reports ready.
+# /readyz needs authentication (anonymous auth is off in RKE2), so the check
+# uses the node's admin kubeconfig. A server without a running API server has
+# no kubeconfig or kubectl yet and must not hold the VIP, so that fails too.
+# A failing check puts this node's VRRP instance into FAULT and releases the VIP.
+
+KUBECTL="{{ rke2_data_dir }}/bin/kubectl"
+KUBECONFIG_FILE="/etc/rancher/rke2/rke2.yaml"
 
 errorExit() {
     echo "*** $*" 1>&2
     exit 1
 }
 
-curl --silent --fail --max-time 5 --insecure \
-    https://localhost:6443/healthz \
-    -o /dev/null \
-    || errorExit "API server healthz check failed on localhost:6443"
+[ -x "${KUBECTL}" ] || errorExit "kubectl not found at ${KUBECTL}"
+[ -r "${KUBECONFIG_FILE}" ] || errorExit "kubeconfig not found at ${KUBECONFIG_FILE}"
+
+"${KUBECTL}" --kubeconfig "${KUBECONFIG_FILE}" --request-timeout=4s \
+    get --raw /readyz >/dev/null 2>&1 \
+    || errorExit "API server /readyz failed on localhost:6443"
 
 if ip addr | grep -qw "{{ rke2_vip_address }}"; then
-    curl --silent --fail --max-time 5 --insecure \
-        "https://{{ rke2_vip_address }}:6443/healthz" \
-        -o /dev/null \
-        || errorExit "API server healthz check failed on VIP {{ rke2_vip_address }}:6443"
+    "${KUBECTL}" --kubeconfig "${KUBECONFIG_FILE}" --request-timeout=4s \
+        --server "https://{{ rke2_vip_address }}:6443" \
+        get --raw /readyz >/dev/null 2>&1 \
+        || errorExit "API server /readyz failed on VIP {{ rke2_vip_address }}:6443"
 fi

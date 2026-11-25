@@ -1,6 +1,7 @@
 ---
-# CIS hardening prerequisites — run BEFORE RKE2 install.
+# CIS hardening prerequisites - run BEFORE RKE2 install.
 # Without these, rke2-server fatal-errors when profile: cis is set.
+# profile: etcd only needs the etcd user and group.
 - name: Create etcd system group
   ansible.builtin.group:
     name: etcd
@@ -18,12 +19,18 @@
     state: present
   tags: [rke2_setup]
 
-- name: Deploy RKE2 CIS sysctl configuration
-  ansible.builtin.template:
-    src: rke2-cis-sysctl.conf.j2
-    dest: /etc/sysctl.d/60-rke2-cis.conf
-    owner: root
-    group: root
-    mode: "0644"
-  notify: Apply CIS sysctl
+# Set live AND persisted before RKE2 first starts: rke2 validates the live
+# values at startup, so a deferred handler would be too late.
+- name: Apply RKE2 CIS kernel parameters
+  ansible.posix.sysctl:
+    name: "{{ item.key }}"
+    value: "{{ item.value }}"
+    sysctl_file: /etc/sysctl.d/60-rke2-cis.conf
+    sysctl_set: true
+    reload: true
+    state: present
+  loop: "{{ _rke2_cis_sysctls | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}={{ item.value }}"
+  when: rke2_cis_profile == 'cis'
   tags: [rke2_setup]

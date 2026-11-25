@@ -1,9 +1,9 @@
 ---
 - name: Converge
-  hosts: all
+  # side_effect.yml re-imports this play for an agents-only (--limit style) run.
+  hosts: "{{ rke2_converge_hosts | default('all') }}"
   gather_facts: true
   vars:
-    rke2_version: v1.36.1+rke2r2
     rke2_airgapped: false
     rke2_cni: default
     rke2_tls_san:
@@ -14,11 +14,29 @@
     rke2_vip_manager: "kubevip"
     rke2_kubevip_svc_enable: true
     rke2_kubevip_cloud_provider_enabled: true
-    rke2_kubevip_load_balancer_ip_range: "10.0.0.200-10.0.0.220"
-    rke2_agent_token: "mock-agent-token-ha"
+    # CIDR form: the VIP-outside-the-range assert needs ansible.utils.ipaddr.
+    rke2_kubevip_load_balancer_ip_range: "10.0.0.200/29"
+    # rke2_agent_token is set for server_nodes only (molecule.yml group_vars).
+    rke2_cluster_token: "preset-token-ha"
     rke2_agent_server_address: "rke2-server1"
-    rke2_cert_rotation_enabled: false
+    rke2_cert_rotation_enabled: true
+    rke2_custom_root_ca_cert: "{{ lookup('ansible.builtin.file', _test_ca + '.pem') | b64encode }}"
+    rke2_custom_root_ca_key: "{{ lookup('ansible.builtin.file', _test_ca + '.key') | b64encode }}"
+    _test_ca: "{{ lookup('ansible.builtin.env', 'MOLECULE_EPHEMERAL_DIRECTORY') }}/test-root-ca"
+    rke2_cis_profile: cis
+    rke2_cloud_provider_name: external
+    # Server-only flag: agents must not render it.
+    rke2_system_default_registry: "registry.example.com:5000"
+    rke2_disable_cloud_controller: true
+    # Stands for a third-party CCM (e.g. hcloud CCM) that initialises nodes;
+    # without it the kube-vip cloud provider + disabled CCM combination fails.
+    rke2_external_ccm_deployed: true
     rke2_additional_packages: []
+    rke2_private_registries_config: |
+      mirrors:
+        docker.io:
+          endpoint:
+            - "https://registry.example.com:5000"
     rke2_audit_policy: |
       apiVersion: audit.k8s.io/v1
       kind: Policy

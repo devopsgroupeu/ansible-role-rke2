@@ -1,0 +1,41 @@
+---
+# The first host in server_nodes always initialises the cluster (its config
+# has no server: key). If that host lost its data (rebuilt VM, new disk) while
+# another server still holds etcd data, starting it would create a second,
+# independent cluster. Fail instead of silently initialising.
+- name: Check which servers already hold etcd data
+  ansible.builtin.stat:
+    path: "{{ rke2_data_dir }}/server/db/etcd"
+  delegate_to: "{{ item }}"
+  loop: "{{ groups['server_nodes'] | default([]) }}"
+  register: _rke2_etcd_data
+  run_once: true
+  check_mode: false
+  # run_once makes any failure fatal for the whole play, and an unreachable
+  # loop item still counts as one even with ignore_unreachable. ignore_errors
+  # keeps an unreachable server from ending the play for every host.
+  ignore_unreachable: true
+  ignore_errors: true
+  failed_when: false
+
+- name: Refuse to initialise a second cluster on the first server
+  vars:
+    _first: "{{ groups['server_nodes'][0] }}"
+    # Unreachable or unreadable servers count as "unknown" and never block.
+    _first_initialised: >-
+      {{ _rke2_etcd_data.results | selectattr('item', 'equalto', _first)
+         | map(attribute='stat.exists', default=true) | first | default(true) }}
+    _initialised_peers: >-
+      {{ _rke2_etcd_data.results | rejectattr('item', 'equalto', _first)
+         | selectattr('stat', 'defined') | selectattr('stat.exists') | map(attribute='item') | list }}
+  ansible.builtin.assert:
+    that:
+      - _first_initialised | bool or _initialised_peers | length == 0
+    fail_msg: >-
+      {{ _first }} is first in server_nodes but has no etcd data, while
+      {{ _initialised_peers | join(', ') }} already run a cluster. Starting it would
+      initialise a second, independent cluster. Put an initialised server first in
+      server_nodes so {{ _first }} joins as an additional server.
+    quiet: true
+  run_once: true
+  when: groups['server_nodes'] | default([]) | length > 1

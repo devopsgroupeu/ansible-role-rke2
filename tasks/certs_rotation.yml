@@ -1,4 +1,21 @@
 ---
+- name: Ensure cron is installed for certificate rotation
+  ansible.builtin.package:
+    name: "{{ 'cronie' if ansible_facts['os_family'] == 'RedHat' else 'cron' }}"
+    state: present
+  register: _rke2_cron_package
+
+# Installing cronie on EL does not start crond, so the job would never run
+# until the next reboot.
+- name: Ensure the cron daemon is running
+  ansible.builtin.systemd_service:
+    name: "{{ 'crond' if ansible_facts['os_family'] == 'RedHat' else 'cron' }}"
+    state: started
+    enabled: true
+  # In check mode the package is not really installed yet (here and for the
+  # cron jobs below, which need crontab).
+  when: not (ansible_check_mode and _rke2_cron_package is changed)
+
 - name: Ensure cert rotation directory exists
   ansible.builtin.file:
     path: /etc/rancher/certs_rotation
@@ -15,34 +32,54 @@
     group: root
     mode: "0755"
 
+# The rotation script stops RKE2 while it rotates, so nodes must not run it at
+# the same time: servers are offset by their position in server_nodes, agents
+# follow after the last server. The offset wraps around midnight.
+- name: Compute the staggered rotation time for this node
+  vars:
+    _nodes: "{{ groups['server_nodes'] | default([]) + groups['agent_nodes'] | default([]) }}"
+    _index: "{{ _nodes.index(inventory_hostname) }}"
+    _offset: >-
+      {{ rke2_cert_rotation_schedule_hour | int * 60 + rke2_cert_rotation_schedule_minute | int
+         + _index | int * rke2_cert_rotation_stagger_minutes | int }}
+  ansible.builtin.set_fact:
+    _rke2_cert_rotation_hour: "{{ ((_offset | int) // 60) % 24 }}"
+    _rke2_cert_rotation_minute: "{{ (_offset | int) % 60 }}"
+
 - name: Set up daily certificate rotation cron job
   ansible.builtin.cron:
     name: "Rotate RKE2 certificates"
     job: "env -i SHELL=/bin/bash PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin /etc/rancher/certs_rotation/rotate_rke2_certs.sh"
-    minute: "{{ rke2_cert_rotation_schedule_minute | default('0') }}"
-    hour: "{{ rke2_cert_rotation_schedule_hour | default('23') }}"
+    minute: "{{ _rke2_cert_rotation_minute }}"
+    hour: "{{ _rke2_cert_rotation_hour }}"
     user: root
     state: present
-  when: rke2_cert_rotation_schedule_type | default('daily') == 'daily'
+  when:
+    - rke2_cert_rotation_schedule_type == 'daily'
+    - not (ansible_check_mode and _rke2_cron_package is changed)
 
 - name: Set up weekly certificate rotation cron job
   ansible.builtin.cron:
     name: "Rotate RKE2 certificates"
     job: "env -i SHELL=/bin/bash PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin /etc/rancher/certs_rotation/rotate_rke2_certs.sh"
-    minute: "{{ rke2_cert_rotation_schedule_minute | default('0') }}"
-    hour: "{{ rke2_cert_rotation_schedule_hour | default('23') }}"
-    weekday: "{{ rke2_cert_rotation_schedule_day_of_week | default('1') }}"
+    minute: "{{ _rke2_cert_rotation_minute }}"
+    hour: "{{ _rke2_cert_rotation_hour }}"
+    weekday: "{{ rke2_cert_rotation_schedule_day_of_week }}"
     user: root
     state: present
-  when: rke2_cert_rotation_schedule_type | default('daily') == 'weekly'
+  when:
+    - rke2_cert_rotation_schedule_type == 'weekly'
+    - not (ansible_check_mode and _rke2_cron_package is changed)
 
 - name: Set up monthly certificate rotation cron job
   ansible.builtin.cron:
     name: "Rotate RKE2 certificates"
     job: "env -i SHELL=/bin/bash PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin /etc/rancher/certs_rotation/rotate_rke2_certs.sh"
-    minute: "{{ rke2_cert_rotation_schedule_minute | default('0') }}"
-    hour: "{{ rke2_cert_rotation_schedule_hour | default('23') }}"
-    day: "{{ rke2_cert_rotation_schedule_day_of_month | default('1') }}"
+    minute: "{{ _rke2_cert_rotation_minute }}"
+    hour: "{{ _rke2_cert_rotation_hour }}"
+    day: "{{ rke2_cert_rotation_schedule_day_of_month }}"
     user: root
     state: present
-  when: rke2_cert_rotation_schedule_type | default('daily') == 'monthly'
+  when:
+    - rke2_cert_rotation_schedule_type == 'monthly'
+    - not (ansible_check_mode and _rke2_cron_package is changed)

@@ -15,6 +15,23 @@
       rke2_vip_address must be set, rke2_vip_manager must be kubevip|keepalived,
       and the VIP must NOT fall inside rke2_kubevip_load_balancer_ip_range.
 
+# kube-vip-cloud-provider only implements LoadBalancer Services. With the
+# built-in RKE2 CCM disabled and no other CCM, nothing clears the
+# node.cloudprovider.kubernetes.io/uninitialized taint and nothing schedules.
+- name: Assert the kube-vip cloud provider keeps a CCM that initialises nodes
+  ansible.builtin.assert:
+    that:
+      - not (rke2_disable_cloud_controller | default(false) | bool) or (rke2_external_ccm_deployed | bool)
+    fail_msg: >-
+      rke2_kubevip_cloud_provider_enabled with rke2_disable_cloud_controller: true
+      leaves every node tainted node.cloudprovider.kubernetes.io/uninitialized:
+      kube-vip-cloud-provider only implements LoadBalancer Services. Keep the
+      built-in RKE2 cloud controller (rke2_disable_cloud_controller: false), or set
+      rke2_external_ccm_deployed: true when a third-party CCM initialises the nodes.
+  when:
+    - rke2_vip_manager == 'kubevip'
+    - rke2_kubevip_cloud_provider_enabled | bool
+
 - name: Validate keepalived auth_pass length
   ansible.builtin.assert:
     that:
@@ -23,6 +40,18 @@
       rke2_keepalived_auth_pass is {{ rke2_keepalived_auth_pass | length }} chars;
       keepalived silently truncates VRRP auth_pass to 8 chars. Use <= 8 characters.
   when: rke2_vip_manager == 'keepalived'
+
+- name: Assert keepalived auth_pass is not the role default
+  ansible.builtin.assert:
+    that:
+      - rke2_keepalived_auth_pass != 'rke2vip'
+    fail_msg: >-
+      rke2_keepalived_require_custom_auth_pass is true but rke2_keepalived_auth_pass
+      is still the role default; set a vaulted value.
+    quiet: true
+  when:
+    - rke2_vip_manager == 'keepalived'
+    - rke2_keepalived_require_custom_auth_pass | bool
 
 # ---- kube-vip ---------------------------------------------------------------
 # kube-vip runs as a DaemonSet on control-plane nodes, deployed via RKE2's
@@ -122,7 +151,8 @@
     dest: /etc/keepalived/keepalived.conf
     owner: root
     group: root
-    mode: "0644"
+    mode: "0600"
+  no_log: true
   when: rke2_vip_manager == 'keepalived'
   notify: Restart keepalived
 

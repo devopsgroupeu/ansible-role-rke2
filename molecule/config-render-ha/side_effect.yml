@@ -1,0 +1,289 @@
+---
+# Runs before any play of this file sets facts: the first server is not part
+# of the play and its token fact is unknown, so token.yml reads node-token
+# from it (the --limit / agents-only path).
+- name: Resolve the join token without the first server in the play
+  hosts: agent_nodes
+  gather_facts: false
+  tasks:
+    - name: Include the token tasks
+      ansible.builtin.include_role:
+        name: ansible-role-rke2
+        tasks_from: token.yml
+      vars:
+        rke2_cluster_token: ""
+
+    - name: Assert the token was read from the first server
+      ansible.builtin.assert:
+        that: _rke2_cluster_token == 'mock-cluster-token-for-ha-testing'
+        fail_msg: the join token was not read from the first server's node-token
+
+- name: Agents-only converge (first server not in the play)
+  ansible.builtin.import_playbook: converge.yml
+  vars:
+    rke2_converge_hosts: agent_nodes
+
+- name: Reject a preset token that differs from the existing cluster token
+  hosts: rke2-server1
+  gather_facts: false
+  tasks:
+    - name: Run the server tasks with a mismatching existing token
+      block:
+        - name: Replace the existing cluster token
+          ansible.builtin.copy:
+            dest: /var/lib/rancher/rke2/server/token
+            content: "K10mockcahash::server:another-password"
+            mode: "0600"
+
+        - name: Include the version tasks
+          ansible.builtin.include_role:
+            name: ansible-role-rke2
+            tasks_from: version.yml
+
+        - name: Include the server tasks
+          ansible.builtin.include_role:
+            name: ansible-role-rke2
+            tasks_from: server.yml
+          vars:
+            rke2_cluster_token: "preset-token-ha"
+
+        - name: Fail when the guard did not fire
+          ansible.builtin.fail:
+            msg: a mismatching rke2_cluster_token was not rejected
+      rescue:
+        - name: Assert the token guard fired
+          ansible.builtin.assert:
+            that: ansible_failed_result.msg is search('rke2 token rotate')
+            fail_msg: "unexpected failure: {{ ansible_failed_result.msg }}"
+      always:
+        - name: Restore the existing cluster token
+          ansible.builtin.copy:
+            dest: /var/lib/rancher/rke2/server/token
+            content: "K10mockcahash::server:preset-token-ha"
+            mode: "0600"
+
+# run_once failures fail every host of the play, so the check runs from the
+# first server only; it inspects all servers through delegation.
+- name: Refuse to initialise a second cluster on an empty first server
+  hosts: rke2-server1
+  gather_facts: false
+  tasks:
+    - name: Run the bootstrap check with etcd data on the second server only
+      block:
+        - name: Create etcd data on the second server
+          ansible.builtin.file:
+            path: /var/lib/rancher/rke2/server/db/etcd
+            state: directory
+            mode: "0700"
+          delegate_to: rke2-server2
+
+        - name: Include the bootstrap check
+          ansible.builtin.include_role:
+            name: ansible-role-rke2
+            tasks_from: bootstrap_check.yml
+
+        - name: Fail when the guard did not fire
+          ansible.builtin.fail:
+            msg: an empty first server with an initialised peer was not rejected
+      rescue:
+        - name: Assert the bootstrap guard fired
+          ansible.builtin.assert:
+            that: ansible_failed_result.msg is search('second, independent cluster')
+            fail_msg: "unexpected failure: {{ ansible_failed_result.msg }}"
+      always:
+        - name: Remove the etcd data again
+          ansible.builtin.file:
+            path: /var/lib/rancher/rke2/server/db
+            state: absent
+          delegate_to: rke2-server2
+
+- name: Refuse to move an installed agent to an empty data dir
+  hosts: agent_nodes
+  gather_facts: false
+  tasks:
+    - name: Run the agent tasks with a new rke2_data_dir
+      block:
+        - name: Include the version tasks
+          ansible.builtin.include_role:
+            name: ansible-role-rke2
+            tasks_from: version.yml
+
+        - name: Include the agent tasks
+          ansible.builtin.include_role:
+            name: ansible-role-rke2
+            tasks_from: agent.yml
+          vars:
+            rke2_data_dir: /data/rke2
+
+        - name: Fail when the guard did not fire
+          ansible.builtin.fail:
+            msg: an installed agent was moved to an empty rke2_data_dir
+      rescue:
+        - name: Assert the data dir guard fired
+          ansible.builtin.assert:
+            that: ansible_failed_result.msg is search('move\s+/var/lib/rancher/rke2\s+to\s+/data/rke2')
+            fail_msg: "unexpected failure: {{ ansible_failed_result.msg }}"
+
+# Second converge with one changed config value: every node's config.yaml
+# changes, so the restart handlers fire on all servers and the agent. verify.yml
+# then checks that the servers restarted one at a time.
+- name: Converge again with a changed kubelet argument
+  ansible.builtin.import_playbook: converge.yml
+  vars:
+    rke2_kubelet_args:
+      - "max-pods=120"
+
+- name: Reject the kube-vip cloud provider without a CCM that initialises nodes
+  hosts: server_nodes
+  gather_facts: false
+  tasks:
+    - name: Run the VIP tasks with the built-in CCM disabled and no external CCM
+      block:
+        - name: Include the VIP tasks
+          ansible.builtin.include_role:
+            name: ansible-role-rke2
+            tasks_from: vip.yml
+          vars:
+            rke2_vip_enabled: true
+            rke2_vip_address: "10.0.0.100"
+            rke2_vip_manager: kubevip
+            rke2_kubevip_cloud_provider_enabled: true
+            rke2_kubevip_load_balancer_ip_range: "10.0.0.200-10.0.0.220"
+            rke2_disable_cloud_controller: true
+            rke2_external_ccm_deployed: false
+
+        - name: Fail when the guard did not fire
+          ansible.builtin.fail:
+            msg: kube-vip cloud provider with a disabled CCM was not rejected
+      rescue:
+        - name: Assert the CCM guard fired
+          ansible.builtin.assert:
+            that: ansible_failed_result.msg is search('rke2_external_ccm_deployed')
+            fail_msg: "unexpected failure: {{ ansible_failed_result.msg }}"
+
+# The agent's container hostname (rke2-agent1-host) differs from the name it
+# registers with (inventory_hostname), so a hostname-based name would be wrong.
+- name: Rolling restart of an agent uses its registered node name
+  hosts: agent_nodes
+  gather_facts: true
+  tasks:
+    - name: Run the rolling restart on the agent
+      ansible.builtin.include_role:
+        name: ansible-role-rke2
+        tasks_from: rolling_restart.yml
+
+    - name: Read the agent config
+      ansible.builtin.slurp:
+        src: /etc/rancher/rke2/config.yaml
+      register: _agent_cfg_raw
+
+    - name: Read the kubectl calls on the server that drove the restart
+      ansible.builtin.slurp:
+        src: /tmp/rke2-mock-kubectl.log
+      delegate_to: "{{ _rke2_drain_delegate }}"
+      register: _kubectl_log
+
+    - name: Assert the rolling restart targeted the registered node name
+      vars:
+        _registered: "{{ (_agent_cfg_raw.content | b64decode | from_yaml)['node-name'] }}"
+      ansible.builtin.assert:
+        that:
+          - ansible_facts['nodename'] != _registered
+          - _rke2_node_name == _registered
+          - (_kubectl_log.content | b64decode) is search('get node ' ~ _registered ~ ' --no-headers')
+        fail_msg: >-
+          rolling_restart used {{ _rke2_node_name }}, the agent registered as {{ _registered }}
+          (hostname {{ ansible_facts['nodename'] }})
+
+# throttle alone still runs the restart handler on every server after one of
+# them failed. The handler refuses to restart while another server's
+# supervisor is down, so a server that did not come back stops the rollout.
+- name: Refuse to restart servers while another server is down
+  hosts: rke2-server2:rke2-server3
+  gather_facts: false
+  tasks:
+    - name: Read the rke2-server start time before
+      ansible.builtin.command: systemctl show rke2-server -p ActiveEnterTimestampMonotonic --value # noqa: command-instead-of-module
+      register: _started_before
+      changed_when: false
+
+    - name: Notify the restart handler with the first server down
+      block:
+        - name: Stop rke2-server on the first server
+          ansible.builtin.systemd_service:
+            name: rke2-server
+            state: stopped
+          delegate_to: rke2-server1
+          run_once: true
+
+        - name: Load the role handlers
+          ansible.builtin.include_role:
+            name: ansible-role-rke2
+            tasks_from: version.yml
+
+        - name: Trigger a server restart
+          ansible.builtin.command: "true"
+          changed_when: true
+          notify: Restart rke2-server
+
+        - name: Run the restart handler now
+          ansible.builtin.meta: flush_handlers
+
+        - name: Fail when the handler did not refuse
+          ansible.builtin.fail:
+            msg: the restart handler ran while rke2-server1 was down
+      rescue:
+        - name: Assert the peer check refused the restart
+          ansible.builtin.assert:
+            that: ansible_failed_result.stderr | default('') is search('rke2-server1 does not answer')
+            fail_msg: "unexpected failure: {{ ansible_failed_result.msg | default('') }}"
+      always:
+        - name: Start rke2-server on the first server again
+          ansible.builtin.systemd_service:
+            name: rke2-server
+            state: started
+          delegate_to: rke2-server1
+          run_once: true
+
+    - name: Read the rke2-server start time after
+      ansible.builtin.command: systemctl show rke2-server -p ActiveEnterTimestampMonotonic --value # noqa: command-instead-of-module
+      register: _started_after
+      changed_when: false
+
+    - name: Assert rke2-server was not restarted
+      ansible.builtin.assert:
+        that: _started_after.stdout == _started_before.stdout
+        fail_msg: rke2-server restarted on {{ inventory_hostname }} while rke2-server1 was down
+
+# Last on purpose: add_host changes the inventory for the rest of this run.
+# A server that is down must not end the play for the other hosts: the
+# bootstrap check probes every server with run_once, where any unreachable
+# result used to be fatal for all hosts (the run ended with rc 2 right
+# after that task, so this side effect failed).
+- name: Add a server that is down to server_nodes
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Add an unreachable server (closed port on 127.0.0.1)
+      ansible.builtin.add_host:
+        name: rke2-server-down
+        groups: server_nodes
+        ansible_connection: ssh
+        ansible_host: 127.0.0.1
+        ansible_port: 18922
+        ansible_ssh_common_args: "-o ConnectTimeout=3 -o BatchMode=yes"
+
+- name: Bootstrap check while a server is down
+  hosts: server_nodes:agent_nodes:!rke2-server-down
+  gather_facts: false
+  tasks:
+    - name: Include the bootstrap check
+      ansible.builtin.include_role:
+        name: ansible-role-rke2
+        tasks_from: bootstrap_check.yml
+
+    - name: Assert the play continued on every host
+      ansible.builtin.assert:
+        that: ansible_play_hosts | length == 4
+        fail_msg: "the bootstrap check removed hosts from the play: {{ ansible_play_hosts }}"
+      run_once: true

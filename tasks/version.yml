@@ -1,0 +1,100 @@
+---
+# Resolve the version this run installs (_rke2_target_version) and the version
+# already installed on the node (_rke2_current_version). Every probe here is
+# read-only, so it also runs in check mode.
+
+- name: Assert an RKE2 version or channel is set
+  ansible.builtin.assert:
+    that:
+      - (rke2_version | default('') | length > 0) or (rke2_channel | default('') | length > 0)
+    fail_msg: Set rke2_version (recommended) or rke2_channel.
+    quiet: true
+
+- name: Assert channel mode is not used air-gapped
+  ansible.builtin.assert:
+    that:
+      - rke2_version | default('') | length > 0
+    fail_msg: >-
+      rke2_airgapped is true but rke2_version is empty. An air-gapped install
+      cannot look up an RKE2 channel; pin rke2_version to the staged artifacts.
+    quiet: true
+  when: rke2_airgapped | default(false) | bool
+
+- name: Look up the latest RKE2 version of the channel
+  ansible.builtin.uri:
+    url: "{{ rke2_channel_url }}"
+    return_content: true
+  register: _rke2_channels
+  delegate_to: localhost
+  become: false
+  run_once: true
+  check_mode: false
+  when: rke2_version | default('') | length == 0
+
+- name: Set the RKE2 target version
+  ansible.builtin.set_fact:
+    _rke2_target_version: >-
+      {{ rke2_version if rke2_version | default('') | length > 0
+         else (_rke2_channels.json.data | selectattr('id', 'equalto', rke2_channel)
+               | map(attribute='latest') | first | default('')) }}
+
+- name: Assert the RKE2 channel resolved to a version
+  ansible.builtin.assert:
+    that:
+      - _rke2_target_version | length > 0
+    fail_msg: "RKE2 channel '{{ rke2_channel }}' was not found at {{ rke2_channel_url }}."
+    quiet: true
+
+# get.rke2.io installs to /usr/local/bin (tarball), /usr/bin (RPM, the default
+# on yum/dnf hosts) or /opt/rke2/bin (read-only or mounted /usr/local).
+- name: Find the installed RKE2 binary
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  loop:
+    - /usr/local/bin/rke2
+    - /usr/bin/rke2
+    - /opt/rke2/bin/rke2
+  register: _rke2_binary_stat
+  check_mode: false
+
+- name: Set the RKE2 binary path
+  ansible.builtin.set_fact:
+    _rke2_binary: >-
+      {{ _rke2_binary_stat.results | selectattr('stat.exists') | map(attribute='item') | first | default('') }}
+
+- name: Read the installed RKE2 version
+  ansible.builtin.command:
+    argv:
+      - "{{ _rke2_binary }}"
+      - --version
+  register: _rke2_version_output
+  changed_when: false
+  check_mode: false
+  when: _rke2_binary | length > 0
+
+# "unknown" = installed, but the version string did not parse: skip the
+# downgrade guard and do not reinstall.
+- name: Set the installed RKE2 version
+  ansible.builtin.set_fact:
+    _rke2_current_version: >-
+      {{ 'not_installed' if _rke2_binary | length == 0
+         else (_rke2_version_output.stdout
+               | regex_search('v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?\+rke2r[0-9]+')
+               | default('unknown', true)) }}
+
+- name: Prevent accidental downgrade
+  ansible.builtin.fail:
+    msg: >-
+      Downgrade blocked: {{ _rke2_current_version }} is installed but
+      {{ _rke2_target_version }} was requested. Set rke2_allow_downgrade: true to override.
+  when:
+    - not rke2_allow_downgrade | default(false) | bool
+    - _rke2_current_version not in ['not_installed', 'unknown']
+    - _rke2_current_version != _rke2_target_version
+    - _rke2_current_version is version(_rke2_target_version, '>', version_type='loose')
+
+- name: Decide whether RKE2 must be installed
+  ansible.builtin.set_fact:
+    _rke2_install_needed: >-
+      {{ _rke2_current_version == 'not_installed'
+         or (_rke2_current_version != 'unknown' and _rke2_current_version != _rke2_target_version) }}

@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 
-# Example K3s CA certificate generation script.
+# CA certificate generation script for RKE2 (adapted from the K3s example).
 #
-# This script will generate files sufficient to bootstrap K3s cluster certificate
+# This script will generate files sufficient to bootstrap RKE2 cluster certificate
 # authorities.  By default, the script will create the required files under
-# /var/lib/rancher/k3s/server/tls, where they will be found and used by K3s during initial
-# cluster startup. Note that these files MUST be present before K3s is started the first
+# /var/lib/rancher/rke2/server/tls, where they will be found and used by RKE2 during initial
+# cluster startup. Note that these files MUST be present before RKE2 is started the first
 # time; certificate data SHOULD NOT be changed once the cluster has been initialized.
 #
 # The output path may be overridden with the DATA_DIR environment variable.
@@ -157,5 +157,5 @@ ls ${DATA_DIR}/server/tls/root-ca.* ${DATA_DIR}/server/tls/intermediate-ca.* | x
 if [ "${DATA_DIR}" != "/var/lib/rancher/${PRODUCT}" ]; then
   echo
   echo "To update certificates on an existing cluster, you may now run:"
-  echo "    k3s certificate rotate-ca --path=${DATA_DIR}/server"
+  echo "    ${PRODUCT} certificate rotate-ca --path=${DATA_DIR}/server"
 fi

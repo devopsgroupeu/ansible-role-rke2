@@ -1,4 +1,17 @@
 ---
+- name: Assert rke2_extra_config does not collide with keys the role renders
+  vars:
+    _collisions: "{{ (rke2_extra_config | default({})).keys() | list | intersect(_rke2_managed_config_keys) }}"
+  ansible.builtin.assert:
+    that:
+      - _collisions | length == 0
+    fail_msg: >-
+      rke2_extra_config sets {{ _collisions | join(', ') }}, which the role
+      already renders into config.yaml. Use the dedicated variable instead to
+      avoid duplicate YAML keys.
+    quiet: true
+  when: "'server_nodes' in group_names or 'agent_nodes' in group_names"
+
 - name: Collect service facts
   ansible.builtin.service_facts:
 

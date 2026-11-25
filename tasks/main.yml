@@ -17,17 +17,36 @@
     - rke2_setup
 
 - name: Configure proxy settings
-  ansible.builtin.include_tasks: proxy_setup.yml
+  # import, not include: tags on include_tasks do not reach the included tasks.
+  ansible.builtin.import_tasks: proxy_setup.yml
   tags:
     - rke2_proxy
+
+- name: Resolve target and installed RKE2 versions
+  # Unconditional on purpose: the channel lookup is run_once, and a group
+  # condition would skip it for every host when the first host is not a node.
+  ansible.builtin.import_tasks: version.yml
+  tags:
+    - rke2_setup
+
+- name: Check the cluster bootstrap state
+  # Unconditional on purpose: run_once, like the version lookup. Runs before
+  # the custom CA tasks, so a refused first server gets no fresh CA files in
+  # server/tls that would later be newer than the datastore.
+  ansible.builtin.import_tasks: bootstrap_check.yml
+  tags:
+    - rke2_setup
 
 - name: Configure custom CA certificates
   ansible.builtin.import_tasks: custom_ca_certs.yml
   when:
-    - "'server_nodes' in group_names"
+    # RKE2 reads the custom CA files only when the first server initialises
+    # the cluster; joining servers receive the CA from the datastore and
+    # refuse to start with newer local CA files.
+    - inventory_hostname == groups['server_nodes'][0]
     - rke2_custom_root_ca_cert | default('') | length > 0
     # A custom CA can be seeded either as a full root (cert + key) or as a root
-    # cert plus an intermediate (cert + key) — e.g. an intermediate issued by
+    # cert plus an intermediate (cert + key) - e.g. an intermediate issued by
     # Vault while the root private key never leaves Vault. generate_ca.sh signs
     # the leaf CAs with whichever signing key is present.
     - >-
@@ -65,11 +84,30 @@
   tags:
     - rke2_certs
 
+# Only call the cron module when the job exists: minimal and container images
+# may ship without crontab, and systemd-cron's `crontab -l` exits 2 for an
+# empty crontab, which the cron module reports as "Unable to read crontab".
+- name: Check for the certificate rotation cron job
+  ansible.builtin.shell: |
+    set -o pipefail
+    crontab -l 2>/dev/null | grep -qxF '#Ansible: Rotate RKE2 certificates'
+  args:
+    executable: /bin/bash
+  register: _rke2_cert_cron_probe
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  when: not rke2_cert_rotation_enabled | default(false) | bool
+  tags:
+    - rke2_certs
+
 - name: Remove certificate rotation cron job when disabled
   ansible.builtin.cron:
     name: "Rotate RKE2 certificates"
     state: absent
-  when: not rke2_cert_rotation_enabled | default(false) | bool
+  when:
+    - not rke2_cert_rotation_enabled | default(false) | bool
+    - _rke2_cert_cron_probe.rc == 0
   tags:
     - rke2_certs
 

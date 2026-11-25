@@ -49,11 +49,10 @@
         fail_msg: "VIP address 10.0.0.100 not found in tls-san: {{ rke2_config_parsed.get('tls-san', []) }}"
       when: inventory_hostname == groups['server_nodes'][0]
 
-    - name: Assert additional server config has token key
+    - name: Assert every server uses the preset cluster token
       ansible.builtin.assert:
-        that: "'token' in rke2_config_parsed"
-        fail_msg: "token key missing from additional server config"
-      when: inventory_hostname != groups['server_nodes'][0]
+        that: rke2_config_parsed['token'] == 'preset-token-ha'
+        fail_msg: "server config token is not the preset rke2_cluster_token"
 
     - name: Assert additional server config has server key
       ansible.builtin.assert:
@@ -161,12 +160,49 @@
         src: /var/lib/rancher/rke2/server/manifests/kube-vip-rbac.yml
       register: kubevip_rbac_raw
 
-    - name: Assert kube-vip RBAC grants endpointslices and image is v1.x (VIP-1/VIP-2)
+    - name: Assert kube-vip RBAC grants endpointslices and image is the default tag (VIP-1/VIP-2)
       ansible.builtin.assert:
         that:
           - "'endpointslices' in (kubevip_rbac_raw.content | b64decode)"
-          - "'kube-vip:v1.' in (kubevip_manifest_raw.content | b64decode)"
-        fail_msg: "kube-vip RBAC missing endpointslices or image is not v1.x"
+          - kubevip_parsed.spec.template.spec.containers[0].image == 'ghcr.io/kube-vip/kube-vip:v1.3.2'
+          - >-
+            (kubevip_parsed.spec.template.spec.containers[0].env | selectattr('name', 'equalto', 'vip_nodename')
+             | map(attribute='valueFrom') | first).fieldRef.fieldPath == 'spec.nodeName'
+        fail_msg: "kube-vip RBAC missing endpointslices, image is not v1.3.2 or vip_nodename is not from spec.nodeName"
+
+    - name: Read kube-vip cloud provider manifest
+      ansible.builtin.slurp:
+        src: /var/lib/rancher/rke2/server/manifests/kube-vip-cloud-controller.yml
+      register: kubevip_cloud_raw
+
+    - name: Assert the cloud provider tolerates control-plane taints and uses v0.0.13
+      vars:
+        _sts: >-
+          {{ kubevip_cloud_raw.content | b64decode | from_yaml_all | selectattr('kind', 'equalto', 'StatefulSet') | first }}
+      ansible.builtin.assert:
+        that:
+          - _sts.spec.template.spec.containers[0].image == 'ghcr.io/kube-vip/kube-vip-cloud-provider:v0.0.13'
+          - >-
+            _sts.spec.template.spec.tolerations | selectattr('key', 'equalto', 'node-role.kubernetes.io/control-plane')
+            | list | length == 1
+          - >-
+            _sts.spec.template.spec.tolerations | selectattr('key', 'equalto', 'CriticalAddonsOnly')
+            | list | length == 1
+        fail_msg: "kube-vip cloud provider StatefulSet lacks control-plane tolerations or the v0.0.13 image"
+
+    - name: Read kube-vip cloud provider ConfigMap
+      ansible.builtin.slurp:
+        src: /var/lib/rancher/rke2/server/manifests/kube-vip-cloud-configmap.yml
+      register: kubevip_cm_raw
+
+    - name: Assert the CIDR pool renders as cidr-global
+      vars:
+        _cm: "{{ kubevip_cm_raw.content | b64decode | from_yaml }}"
+      ansible.builtin.assert:
+        that:
+          - _cm.data['cidr-global'] == '10.0.0.200/29'
+          - "'range-global' not in _cm.data"
+        fail_msg: "kube-vip cloud provider ConfigMap data is {{ _cm.data }}"
 
     - name: Check audit policy file exists on ALL server nodes
       ansible.builtin.stat:
@@ -186,6 +222,87 @@
         fail_msg: >-
           /etc/rancher/rke2/audit-policy.yaml on {{ inventory_hostname }} has mode
           {{ audit_policy_stat.stat.mode }}, expected 0600
+
+    - name: Stat registries.yaml
+      ansible.builtin.stat:
+        path: /etc/rancher/rke2/registries.yaml
+      register: registries_stat
+
+    - name: Read registries.yaml
+      ansible.builtin.slurp:
+        src: /etc/rancher/rke2/registries.yaml
+      register: registries_raw
+
+    - name: Assert registries.yaml is 0600, role-managed and valid YAML
+      ansible.builtin.assert:
+        that:
+          - registries_stat.stat.mode == '0600'
+          - (registries_raw.content | b64decode).startswith('# Managed by Ansible - ansible-role-rke2')
+          - "'docker.io' in (registries_raw.content | b64decode | from_yaml).mirrors"
+        fail_msg: "registries.yaml mode {{ registries_stat.stat.mode }} or content is wrong"
+
+- name: Verify custom CA and certificate rotation on the servers
+  hosts: server_nodes
+  gather_facts: false
+  tasks:
+    - name: Stat the custom CA files
+      ansible.builtin.stat:
+        path: "/var/lib/rancher/rke2/server/tls/{{ item }}"
+      loop:
+        - server-ca.crt
+        - root-ca.pem
+        - root-ca.key
+        - intermediate-ca.key
+      register: ca_files
+
+    - name: Assert the custom CA exists on the first server only
+      vars:
+        _exists: "{{ ca_files.results | selectattr('stat.exists') | map(attribute='item') | list }}"
+      ansible.builtin.assert:
+        that: >-
+          _exists == (['server-ca.crt', 'root-ca.pem'] if inventory_hostname == groups['server_nodes'][0] else [])
+        fail_msg: "unexpected custom CA files on {{ inventory_hostname }}: {{ _exists }}"
+
+    - name: Read root's crontab
+      ansible.builtin.command: crontab -l -u root
+      register: root_crontab
+      changed_when: false
+
+    - name: Assert the rotation schedules differ on every server
+      vars:
+        _schedules: >-
+          {{ groups['server_nodes'] | map('extract', hostvars, ['root_crontab', 'stdout'])
+             | map('regex_search', '(?m)^[0-9]+ [0-9]+ [*] [*] [0-9]+') | list }}
+      ansible.builtin.assert:
+        that:
+          - _schedules == ['0 20 * * 1', '30 20 * * 1', '0 21 * * 1']
+        fail_msg: "server rotation schedules are not staggered: {{ _schedules }}"
+      run_once: true
+
+- name: Verify serial server restarts
+  hosts: server_nodes
+  gather_facts: false
+  tasks:
+    - name: Read rke2-server start time (monotonic, microseconds)
+      ansible.builtin.command: systemctl show rke2-server -p ActiveEnterTimestampMonotonic --value # noqa: command-instead-of-module
+      register: rke2_server_started_at
+      changed_when: false
+
+    - name: Assert servers restarted one at a time
+      vars:
+        _started: >-
+          {{ groups['server_nodes'] | map('extract', hostvars, ['rke2_server_started_at', 'stdout'])
+             | map('int') | sort }}
+      ansible.builtin.assert:
+        that:
+          - _started | length == 3
+          - _started[0] > 0
+          - (_started[1] - _started[0]) >= 1000000
+          - (_started[2] - _started[1]) >= 1000000
+        fail_msg: >-
+          rke2-server restarts were not serial (start times in us: {{ _started }});
+          the restart handler must restart one server at a time and wait for it
+      run_once: true
 
 - name: Verify agent nodes
   hosts: agent_nodes
@@ -236,11 +353,60 @@
         that: "'token' in rke2_agent_config_parsed"
         fail_msg: "token key missing from agent config"
 
-    - name: Assert agent config uses agent token when set
+    - name: Assert agent uses the server-group-scoped agent token, not the server token
       ansible.builtin.assert:
-        that: rke2_agent_config_parsed['token'] == rke2_agent_token
-        fail_msg: "agent config token '{{ rke2_agent_config_parsed['token'] }}' does not match rke2_agent_token"
-      when: rke2_agent_token | default('') | length > 0
+        that:
+          - rke2_agent_config_parsed['token'] == '0123:#mock-agent-token-ha'
+          - rke2_agent_config_parsed['token'] == hostvars[groups['server_nodes'][0]]['rke2_config_parsed']['agent-token']
+          - rke2_agent_config_parsed['token'] != 'preset-token-ha'
+        fail_msg: "agent config does not use the rke2_agent_token defined for server_nodes"
+
+    - name: Assert system-default-registry is rendered on servers only
+      ansible.builtin.assert:
+        that:
+          - "'system-default-registry' not in rke2_agent_config_parsed"
+          - hostvars[groups['server_nodes'][0]]['rke2_config_parsed']['system-default-registry'] == 'registry.example.com:5000'
+        fail_msg: "system-default-registry must be in the server config and absent from the agent config"
+
+    - name: Assert agent config has profile and cloud-provider-name
+      ansible.builtin.assert:
+        that:
+          - rke2_agent_config_parsed['profile'] == 'cis'
+          - rke2_agent_config_parsed['cloud-provider-name'] == 'external'
+        fail_msg: "agent config lacks profile: cis or cloud-provider-name: external"
+
+    - name: Stat registries.yaml
+      ansible.builtin.stat:
+        path: /etc/rancher/rke2/registries.yaml
+      register: registries_stat
+
+    - name: Read registries.yaml
+      ansible.builtin.slurp:
+        src: /etc/rancher/rke2/registries.yaml
+      register: registries_raw
+
+    - name: Assert registries.yaml is 0600, role-managed and valid YAML
+      ansible.builtin.assert:
+        that:
+          - registries_stat.stat.mode == '0600'
+          - (registries_raw.content | b64decode).startswith('# Managed by Ansible - ansible-role-rke2')
+          - "'docker.io' in (registries_raw.content | b64decode | from_yaml).mirrors"
+        fail_msg: "registries.yaml mode {{ registries_stat.stat.mode }} or content is wrong"
+
+    - name: Assert agent config has the default data-dir
+      ansible.builtin.assert:
+        that: rke2_agent_config_parsed['data-dir'] == '/var/lib/rancher/rke2'
+        fail_msg: "agent config data-dir is {{ rke2_agent_config_parsed['data-dir'] | default('missing') }}"
+
+    - name: Read root's crontab on the agent
+      ansible.builtin.command: crontab -l -u root
+      register: root_crontab
+      changed_when: false
+
+    - name: Assert the agent rotates after the last server
+      ansible.builtin.assert:
+        that: root_crontab.stdout is search('(?m)^30 21 [*] [*] 1 ')
+        fail_msg: "agent rotation schedule is not after the servers: {{ root_crontab.stdout }}"
 
     - name: Assert agent config has server key
       ansible.builtin.assert:
@@ -254,3 +420,38 @@
       when:
         - rke2_vip_enabled | default(false) | bool
         - rke2_agent_server_address | default('') | length == 0
+
+- name: Verify rke2_server_join_address and rke2_data_dir rendering
+  hosts: rke2-server2:rke2-agent1
+  gather_facts: false
+  # Task vars: they must win over the role defaults loaded from vars_files.
+  vars_files:
+    - ../../defaults/main.yml
+  tasks:
+    - name: Render the node config with a join address
+      ansible.builtin.template:
+        src: "{{ lookup('ansible.builtin.env', 'MOLECULE_PROJECT_DIRECTORY') }}/templates/{{ 'server' if 'server_nodes' in group_names else 'agent' }}-config.yml.j2"
+        dest: /tmp/rke2-join-address.yaml
+        mode: "0600"
+      vars:
+        rke2_server_join_address: "10.0.0.100"
+        rke2_data_dir: /data/rke2
+        _rke2_cluster_token: "preset-token-ha"
+        _rke2_agent_join_token: ""
+
+    - name: Read the rendered config
+      ansible.builtin.slurp:
+        src: /tmp/rke2-join-address.yaml
+      register: join_render
+
+    - name: Assert the node joins through rke2_server_join_address
+      vars:
+        _cfg: "{{ join_render.content | b64decode | from_yaml }}"
+      ansible.builtin.assert:
+        that:
+          - _cfg['server'] == 'https://10.0.0.100:9345'
+          - _cfg['token'] == 'preset-token-ha'
+          - _cfg['data-dir'] == '/data/rke2'
+        fail_msg: >-
+          server is {{ _cfg['server'] }}, expected https://10.0.0.100:9345 (token must fall
+          back to the cluster token, data-dir must be /data/rke2: {{ _cfg['data-dir'] }})

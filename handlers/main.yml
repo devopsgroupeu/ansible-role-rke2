@@ -1,21 +1,79 @@
 ---
+# Restart handlers are serialised with throttle and health-gated in the SAME
+# task: under the linear strategy a separate "wait" handler would only run
+# after every notified host had already restarted. A version or config change
+# therefore restarts one server at a time (waiting for the supervisor /ping
+# and the node to be Ready) and rke2_agent_restart_throttle agents at a time
+# (waiting for the kubelet port), as the RKE2 upgrade docs require.
+#
+# throttle only serialises: when one server fails its restart, Ansible still
+# runs the handler on the remaining servers. Each server therefore first
+# checks that every other server's supervisor answers /ping (at its
+# private_ip, else ansible_host, as for the keepalived peers) and refuses to
+# restart otherwise, so a server that did not come back (or was already down)
+# stops the rollout instead of costing etcd its quorum.
 - name: Restart rke2-server
-  ansible.builtin.systemd_service:
-    name: rke2-server
-    state: restarted
-    daemon_reload: true
+  ansible.builtin.shell: |
+    set -o pipefail
+    {% if rke2_handler_wait_for_ready | bool %}
+    peer_up() {
+      for _ in $(seq 1 6); do
+        curl -ksf --max-time 5 -o /dev/null "$1" && return 0
+        sleep 5
+      done
+      return 1
+    }
+    {% for peer in groups['server_nodes'] | default([]) if peer != inventory_hostname %}
+    {% set addr = hostvars[peer]['private_ip'] | default(hostvars[peer]['ansible_host'] | default(peer)) | string %}
+    {% set url = 'https://' ~ (('[' ~ addr ~ ']') if ':' in addr else addr) ~ ':9345/ping' %}
+    peer_up {{ url | quote }} \
+      || { echo "not restarting rke2-server: {{ peer }} does not answer {{ url }}; restarting this server too could break the etcd quorum" >&2; exit 1; }
+    {% endfor %}
+    {% endif %}
+    systemctl daemon-reload
+    systemctl restart rke2-server
+    {% if rke2_handler_wait_for_ready | bool %}
+    for _ in $(seq 1 60); do
+      curl -ksf --max-time 5 -o /dev/null https://127.0.0.1:9345/ping && break
+      sleep 5
+    done
+    curl -ksf --max-time 5 -o /dev/null https://127.0.0.1:9345/ping \
+      || { echo "rke2-server supervisor did not answer https://127.0.0.1:9345/ping" >&2; exit 1; }
+    node="{{ rke2_node_name | default('') }}"
+    [ -n "${node}" ] || node="$(hostname | tr '[:upper:]' '[:lower:]')"
+    for _ in $(seq 1 120); do
+      ready="$({{ rke2_data_dir }}/bin/kubectl --kubeconfig /etc/rancher/rke2/rke2.yaml \
+        get node "${node}" -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || true)"
+      [ "${ready}" = "True" ] && exit 0
+      sleep 5
+    done
+    echo "node ${node} did not become Ready after the restart" >&2
+    exit 1
+    {% endif %}
+  args:
+    executable: /bin/bash
+  throttle: 1
+  changed_when: true
 
 - name: Restart rke2-agent
-  ansible.builtin.systemd_service:
-    name: rke2-agent
-    state: restarted
-    daemon_reload: true
+  ansible.builtin.shell: |
+    set -o pipefail
+    systemctl daemon-reload
+    systemctl restart rke2-agent
+    {% if rke2_handler_wait_for_ready | bool %}
+    for _ in $(seq 1 60); do
+      timeout 5 bash -c '</dev/tcp/127.0.0.1/10250' 2>/dev/null && exit 0
+      sleep 5
+    done
+    echo "kubelet did not open port 10250 after the rke2-agent restart" >&2
+    exit 1
+    {% endif %}
+  args:
+    executable: /bin/bash
+  throttle: "{{ rke2_agent_restart_throttle }}"
+  changed_when: true
 
 - name: Restart keepalived
   ansible.builtin.systemd_service:
     name: keepalived
     state: restarted
-
-- name: Apply CIS sysctl
-  ansible.builtin.command: sysctl -p /etc/sysctl.d/60-rke2-cis.conf
-  changed_when: true

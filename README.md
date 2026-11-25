@@ -10,7 +10,7 @@
 [![LinkedIn](https://img.shields.io/badge/linkedin-%230077B5.svg?style=for-the-badge&logo=linkedin&logoColor=white)](https://www.linkedin.com/company/devopsgroup8/)
 ![RKE2](https://img.shields.io/badge/RKE2-0075A8?logo=rancher&logoColor=fff&style=for-the-badge)
 
-Ansible role for installing and configuring [RKE2](https://docs.rke2.io/) — Rancher's next-generation Kubernetes distribution. Supports single-node, server+agent, and 3-server HA deployments with kube-vip or keepalived VIP management, air-gapped installs, kube-vip LoadBalancer cloud provider, rolling upgrades, custom CA certificates, and automatic certificate rotation.
+Ansible role for installing and configuring [RKE2](https://docs.rke2.io/) - Rancher's next-generation Kubernetes distribution. Supports single-node, server+agent, and 3-server HA deployments with kube-vip or keepalived VIP management, air-gapped installs, kube-vip LoadBalancer cloud provider, rolling upgrades, custom CA certificates, and automatic certificate rotation.
 
 ---
 
@@ -43,9 +43,11 @@ Ansible role for installing and configuring [RKE2](https://docs.rke2.io/) — Ra
 
 ## Requirements
 
-- ansible-core >= 2.19
-- Python >= 3.9
-- Target nodes: Ubuntu 24.04, Debian 12 / 13, Rocky Linux 9
+- ansible-core >= 2.19 on the controller, which needs Python >= 3.11 (2.19),
+  >= 3.12 (2.20, 2.21) or >= 3.13 (2.22)
+- The `netaddr` Python library on the controller when
+  `rke2_kubevip_load_balancer_ip_range` is a CIDR (`pip install netaddr`)
+- Target nodes: Ubuntu 22.04 / 24.04, Debian 12 / 13, Rocky Linux 9
 - `become: true` (root access required)
 - For HA: odd number of server nodes (3 recommended), reachable by each other on ports 9345 (join) and 6443 (API)
 
@@ -65,7 +67,7 @@ Or pin a specific version via `requirements.yml`:
 roles:
   - name: devopsgroupeu.rke2
     src: https://github.com/devopsgroupeu/ansible-role-rke2
-    version: "v1.0.0"
+    version: "v1.2.0"
     scm: git
 ```
 
@@ -95,7 +97,7 @@ all:
   hosts: all
   become: true
   vars:
-    rke2_version: v1.36.1+rke2r2
+    rke2_version: v1.36.6+rke2r2
     rke2_tls_san:
       - "10.0.0.10"
   roles:
@@ -132,7 +134,7 @@ all:
   hosts: all
   become: true
   vars:
-    rke2_version: v1.36.1+rke2r2
+    rke2_version: v1.36.6+rke2r2
   roles:
     - role: devopsgroupeu.rke2
 ```
@@ -167,7 +169,7 @@ all:
   hosts: all
   become: true
   vars:
-    rke2_version: v1.36.1+rke2r2
+    rke2_version: v1.36.6+rke2r2
     rke2_vip_enabled: true
     rke2_vip_address: "10.0.0.100"
     rke2_vip_interface: "eth0"
@@ -183,9 +185,9 @@ all:
 
 ### HA Cluster with keepalived
 
-keepalived manages the VIP via VRRP directly on the server nodes. Health checks verify the API server and RKE2 registration port before failing over. **Unicast VRRP** is used — works on cloud SDN networks (Hetzner, AWS VPC, GCP) where multicast `224.0.0.18` is filtered.
+keepalived manages the VIP via VRRP directly on the server nodes. Health checks verify the API server and RKE2 registration port before failing over. **Unicast VRRP** is used - works on cloud SDN networks (Hetzner, AWS VPC, GCP) where multicast `224.0.0.18` is filtered.
 
-**Inventory requirement:** each server node must have a `private_ip` host variable set to its LAN/private IP. keepalived uses it to build the unicast peer list. If omitted, `ansible_host` is used as fallback.
+**Inventory requirement:** each server node must have a `private_ip` host variable set to its LAN/private IP. keepalived uses it to build the unicast peer list. If omitted, `ansible_host` (or else the inventory name) is used as fallback.
 
 ```yaml
 # examples/inventory/ha-keepalived.yml (or adapt the ready-made file directly,
@@ -212,14 +214,19 @@ rke2_vip_address: "10.0.0.100"
 rke2_vip_interface: "eth0"
 rke2_vip_manager: "keepalived"
 rke2_keepalived_router_id: 51
-rke2_keepalived_auth_pass: "rke2vip"
+rke2_keepalived_auth_pass: "{{ vault_rke2_keepalived_auth_pass }}"  # max 8 chars
 ```
 
 keepalived deploys two health check scripts on each server node:
-- `/etc/keepalived/check-apiserver.sh` — curls `/healthz` on port 6443
-- `/etc/keepalived/check-rke2server.sh` — curls the RKE2 registration API on port 9345
+- `/etc/keepalived/check-apiserver.sh` - queries the authenticated `/readyz`
+  endpoint on port 6443 with the node's kubectl and admin kubeconfig
+- `/etc/keepalived/check-rke2server.sh` - queries the RKE2 supervisor `/ping`
+  on port 9345
 
-If both checks fail on the MASTER, keepalived drops its VRRP priority and another node takes over the VIP.
+A failing check puts that node's VRRP instance into FAULT and releases the VIP;
+another healthy server takes it over. While the first server bootstraps, no
+node holds the VIP until its API server is ready (agents already wait for
+`VIP:9345`, and servers join through the first server's address).
 
 ---
 
@@ -230,7 +237,7 @@ The role uses two inventory groups:
 | Group | Purpose |
 |-------|---------|
 | `server_nodes` | RKE2 control plane nodes (etcd + API server). First host in group bootstraps the cluster. |
-| `agent_nodes` | RKE2 worker nodes. Optional — omit for control-plane-only clusters. |
+| `agent_nodes` | RKE2 worker nodes. Optional - omit for control-plane-only clusters. |
 
 The **first host** in `server_nodes` is the bootstrap node. All other server nodes and agents join through it.
 
@@ -252,18 +259,22 @@ Run subsets with `--tags`:
 
 ## Variables
 
-All variables are defined in [`defaults/main.yml`](defaults/main.yml) with inline documentation. Full type and constraint information is in [`meta/argument_specs.yml`](meta/argument_specs.yml).
+All variables are defined in [`defaults/main.yml`](defaults/main.yml) with inline documentation. Full type and constraint information is in [`meta/argument_specs.yml`](meta/argument_specs.yml), and [`docs/CONFIGURATION.md`](docs/CONFIGURATION.md) describes every variable.
 
 ### Core
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `rke2_version` | `v1.36.1+rke2r2` | RKE2 version to install |
+| `rke2_version` | `v1.36.6+rke2r2` | RKE2 version to install |
 | `rke2_cluster_token` | `""` | Pre-shared cluster token. Auto-generated when empty. |
 | `rke2_agent_token` | `""` | Separate token for agent nodes (less privileged than server token) |
 | `rke2_allow_downgrade` | `false` | Allow installing a version older than currently installed |
+| `rke2_channel` | `""` | Channel used only when `rke2_version` is empty; resolved on the controller via `rke2_channel_url` |
+| `rke2_install_method` | `""` | `INSTALL_RKE2_METHOD` for get.rke2.io: `""` (installer default), `rpm` or `tar` |
 | `rke2_airgapped` | `false` | Enable air-gapped installation mode |
 | `rke2_airgapped_artifacts_dir` | `""` | Path on controller to pre-downloaded artifacts |
+| `rke2_architecture` | node CPU (`amd64`/`arm64`) | Architecture suffix of the air-gap artifacts |
+| `rke2_airgapped_additional_image_tarballs` | `[]` | Extra `rke2-images-*.linux-<arch>.tar.zst` files from the artifacts dir to stage |
 
 ### VIP / HA
 
@@ -273,22 +284,26 @@ All variables are defined in [`defaults/main.yml`](defaults/main.yml) with inlin
 | `rke2_vip_address` | `""` | The VIP IP address |
 | `rke2_vip_interface` | `eth0` | Network interface for VIP |
 | `rke2_vip_manager` | `kubevip` | VIP manager: `kubevip` or `keepalived` |
-| `rke2_kubevip_version` | `v1.2.0` | kube-vip image tag |
+| `rke2_kubevip_version` | `v1.3.2` | kube-vip image tag. Since v1.3.0 shared service VIPs are restricted to Services in the same lease |
+| `rke2_kubevip_image_repository` | `ghcr.io/kube-vip/kube-vip` | kube-vip image repository (e.g. an internal mirror) |
 | `rke2_kubevip_svc_enable` | `false` | Enable kube-vip watching of LoadBalancer Services |
 | `rke2_kubevip_service_election_enable` | `false` | Per-service leader election |
 | `rke2_kubevip_metrics_port` | `0` | Prometheus metrics port (0 = disabled) |
 | `rke2_kubevip_cloud_provider_enabled` | `false` | Deploy kube-vip cloud provider for LoadBalancer Services |
-| `rke2_kubevip_cloud_provider_image` | `ghcr.io/kube-vip/kube-vip-cloud-provider:v0.0.12` | Cloud provider image |
+| `rke2_kubevip_cloud_provider_image` | `ghcr.io/kube-vip/kube-vip-cloud-provider:v0.0.13` | Cloud provider image |
+| `rke2_external_ccm_deployed` | `false` | A third-party CCM initialises nodes; allows the kube-vip cloud provider with `rke2_disable_cloud_controller: true` |
 | `rke2_kubevip_load_balancer_ip_range` | `""` | IP pool: CIDR (`192.168.0.200/29`) or range (`192.168.0.200-192.168.0.250`) |
 | `rke2_keepalived_router_id` | `51` | VRRP virtual router ID (1-255, unique per subnet) |
 | `rke2_keepalived_priority_master` | `101` | VRRP priority for first server (MASTER) |
 | `rke2_keepalived_priority_backup` | `100` | VRRP priority for additional servers (BACKUP) |
-| `rke2_keepalived_auth_pass` | `rke2vip` | VRRP authentication password (max 8 chars) |
+| `rke2_keepalived_auth_pass` | `rke2vip` | VRRP authentication password (max 8 chars). Store with Ansible Vault |
+| `rke2_keepalived_require_custom_auth_pass` | `false` | Fail when `rke2_keepalived_auth_pass` is still the default |
 | `rke2_keepalived_failover_enabled` | `false` | Enable cloud floating IP failover via `notify_master` hook |
 | `rke2_keepalived_failover_script` | `/etc/keepalived/notify-master.sh` | Path on target nodes for the notify script |
 | `rke2_keepalived_failover_script_content` | `""` | Shell script body executed when this node becomes MASTER |
 | `rke2_keepalived_failover_env` | `{}` | Key/value pairs written to a protected env file (mode 0600) |
 | `rke2_agent_server_address` | `""` | Override server address in agent config (useful on cloud SDN networks) |
+| `rke2_server_join_address` | `""` | Fixed registration address for additional servers and agents (load balancer, DNS name). Joining while the first server is down needs `rke2_cluster_token` |
 
 ### Networking
 
@@ -308,6 +323,11 @@ All variables are defined in [`defaults/main.yml`](defaults/main.yml) with inlin
 | `rke2_http_proxy` | `""` | HTTP proxy for RKE2 and containerd |
 | `rke2_https_proxy` | `""` | HTTPS proxy for RKE2 and containerd |
 | `rke2_no_proxy` | `""` | Comma-separated no-proxy list |
+| `rke2_containerd_http_proxy` / `_https_proxy` / `_no_proxy` | `""` | containerd-only proxy settings (image pulls) |
+
+Any of these writes `/etc/default/rke2-server` or `/etc/default/rke2-agent`
+(mode 0600, since proxy URLs may carry credentials); with none set the file is
+removed.
 
 ### Cloud Provider
 
@@ -323,6 +343,8 @@ All variables are defined in [`defaults/main.yml`](defaults/main.yml) with inlin
 | `rke2_drain_node_during_upgrade` | `false` | Cordon and drain nodes before restarting during upgrades |
 | `rke2_drain_additional_args` | `--timeout=120s` | Extra arguments passed to `kubectl drain` |
 | `rke2_wait_for_all_pods_to_be_ready` | `false` | Wait for all pods to be Running/Succeeded after uncordon |
+| `rke2_handler_wait_for_ready` | `true` | Restart handlers wait for the supervisor `/ping` and node Ready (servers) or the kubelet port (agents) before the next node restarts; a server does not restart while another server's `/ping` fails |
+| `rke2_agent_restart_throttle` | `1` | Maximum number of agents restarted at the same time |
 
 ### Kubeconfig
 
@@ -330,6 +352,7 @@ All variables are defined in [`defaults/main.yml`](defaults/main.yml) with inlin
 |----------|---------|-------------|
 | `rke2_kubeconfig_download` | `false` | Fetch kubeconfig to Ansible controller after install |
 | `rke2_kubeconfig_output_path` | `{{ playbook_dir }}/rke2.yaml` | Local path on controller to write kubeconfig |
+| `rke2_kubeconfig_server` | `""` | API server address in the downloaded kubeconfig (default: VIP, else the first server's `ansible_host`) |
 
 ### Certificates
 
@@ -338,6 +361,13 @@ All variables are defined in [`defaults/main.yml`](defaults/main.yml) with inlin
 | `rke2_cert_rotation_enabled` | `false` | Enable automatic certificate rotation via cron |
 | `rke2_cert_rotation_expiry_threshold_days` | `20` | Rotate when cert expires within N days |
 | `rke2_cert_rotation_schedule_type` | `weekly` | Schedule type: `daily`, `weekly`, `monthly` |
+| `rke2_cert_rotation_stagger_minutes` | `30` | Minutes between the rotation jobs of consecutive nodes (servers first, then agents) |
+
+RKE2 already renews certificates that expire within 120 days every time it
+starts. The rotation cron job covers nodes that run longer than that without a
+restart. It stops RKE2 while it rotates, so each node runs it
+`rke2_cert_rotation_stagger_minutes` after the previous one. The role installs
+`cron` (`cronie` on EL) when rotation is enabled.
 
 ### etcd Snapshots
 
@@ -355,15 +385,20 @@ RKE2 takes local etcd snapshots by default; set `rke2_etcd_disable_snapshots: tr
 | `rke2_etcd_s3_folder` | `""` | Optional path prefix inside the S3 bucket |
 | `rke2_etcd_s3_access_key` | `""` | S3 access key. Source from Vault; rendered with `no_log` |
 | `rke2_etcd_s3_secret_key` | `""` | S3 secret key. Source from Vault; rendered with `no_log` |
-| `rke2_etcd_s3_endpoint_ca` | `""` | Optional PEM CA bundle for a private S3 endpoint |
+| `rke2_etcd_s3_endpoint_ca` | `""` | Optional CA for a private S3 endpoint: a PEM bundle (written to `/etc/rancher/rke2/etcd-s3-endpoint-ca.pem`, mode 0600), a CA file path on the servers, or base64-encoded PEM |
 | `rke2_etcd_s3_skip_ssl_verify` | `false` | Skip TLS verification of the S3 endpoint (lab/self-signed only) |
 
 ### Hardening
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `rke2_cis_profile` | `""` | CIS hardening profile: `cis` (RKE2 ≥ 1.25) or `cis-1.23` |
+| `rke2_cis_profile` | `""` | Hardening profile for servers and agents: `cis` (kernel parameters + etcd user) or `etcd` (etcd user only) |
 | `rke2_selinux` | `false` | Enable SELinux mode for RKE2 and containerd |
+
+> **SELinux on EL:** with `rke2_selinux: false` (the default) the role sets
+> SELinux to permissive on RHEL-family nodes. `rke2_selinux: true` keeps the
+> host in its current SELinux mode, installs `container-selinux` and renders
+> `selinux: true` for RKE2 and containerd.
 
 > **Secrets encryption at rest:** RKE2 enables secrets encryption (aescbc) by
 > default; no role variable is needed to turn it on.
@@ -374,7 +409,7 @@ RKE2 takes local etcd snapshots by default; set `rke2_etcd_disable_snapshots: tr
 
 When using `rke2_vip_manager: keepalived`, the role can automatically reassign a cloud provider floating IP to whichever node becomes the keepalived MASTER. This combines the internal VRRP VIP (for private traffic) with an external floating IP (for public traffic) so both always point to the same active node.
 
-The mechanism is provider-agnostic — you supply the script and credentials, the role deploys and wires them into keepalived's `notify_master` directive.
+The mechanism is provider-agnostic - you supply the script and credentials, the role deploys and wires them into keepalived's `notify_master` directive.
 
 ```yaml
 rke2_keepalived_failover_enabled: true
@@ -389,7 +424,7 @@ rke2_keepalived_failover_env:
   CLOUD_API: "https://api.your-cloud.example/v1"   # your provider's API base URL
   METADATA_URL: "http://169.254.169.254/metadata"  # provider metadata service
 
-# Script body — executed when this node becomes MASTER
+# Script body - executed when this node becomes MASTER
 # Sources failover.env automatically (same directory as the script).
 # This is an example for a generic cloud floating-IP API; adapt the metadata
 # lookup and the reassign call to your provider.
@@ -409,12 +444,12 @@ rke2_keepalived_failover_script_content: |
 
 **Failover sequence:**
 1. A server node fails its health checks (API server or port 9345 unreachable)
-2. keepalived VRRP elects a new MASTER — internal VIP moves automatically
+2. keepalived VRRP elects a new MASTER - internal VIP moves automatically
 3. `notify_master` fires the script on the new MASTER
 4. Script calls the cloud API to reassign the floating IP
 5. Both the private VIP and the public floating IP now point to the same node
 
-**The env file** (`failover.env`) is deployed with `mode: 0600`, owned by root — API tokens are never written to the script body or visible in process listings.
+**The env file** (`failover.env`) is deployed with `mode: 0600`, owned by root - API tokens are never written to the script body or visible in process listings.
 
 ---
 
@@ -428,7 +463,7 @@ kube-vip runs as a **DaemonSet** on every control plane node and uses ARP + lead
 graph TD
     client(["kubectl / API clients"])
 
-    subgraph cp["Control Plane — kube-vip leader election"]
+    subgraph cp["Control Plane - kube-vip leader election"]
         vip["VIP 10.0.0.100:6443"]
         s1["server1\nbootstrap"]
         s2["server2"]
@@ -458,7 +493,7 @@ keepalived manages the VIP directly via VRRP. The role installs keepalived, depl
 graph TD
     client(["kubectl / API clients"])
 
-    subgraph cp["Control Plane — keepalived VRRP"]
+    subgraph cp["Control Plane - keepalived VRRP"]
         vip["VIP 10.0.0.100"]
         s1["server1\nMASTER"]
         s2["server2\nBACKUP"]
@@ -488,11 +523,16 @@ vars:
   # Enable cloud provider
   rke2_kubevip_cloud_provider_enabled: true
   rke2_kubevip_load_balancer_ip_range: "10.0.0.200-10.0.0.250"
-
-  # Required: disable the built-in cloud controller and set provider to external
-  rke2_disable_cloud_controller: true
-  rke2_cloud_provider_name: "external"
 ```
+
+Keep the built-in RKE2 cloud controller enabled (the default,
+`rke2_disable_cloud_controller: false`). kube-vip-cloud-provider only
+implements LoadBalancer Services and does not initialise nodes: with the
+built-in CCM disabled and no other CCM, every node keeps the
+`node.cloudprovider.kubernetes.io/uninitialized` taint and nothing schedules.
+The role refuses that combination unless `rke2_external_ccm_deployed: true`
+says a third-party CCM (e.g. the hcloud CCM, with
+`rke2_cloud_provider_name: external`) initialises the nodes.
 
 The role automatically enables `svc_enable=true` on the kube-vip DaemonSet when the cloud provider is enabled. Accepts CIDR notation (`192.168.0.200/29`) or a range (`192.168.0.200-192.168.0.250`).
 
@@ -507,30 +547,87 @@ rke2-artifacts/
   rke2-install.sh           # from https://get.rke2.io
   rke2.linux-amd64.tar.gz   # from GitHub releases
   sha256sum-amd64.txt        # from GitHub releases
-  rke2-images.linux-amd64.tar.zst  # optional — for fully offline image loading
+  rke2-images.linux-amd64.tar.zst  # optional - for fully offline image loading
+  rke2-images-ingress-nginx.linux-amd64.tar.zst  # optional extra tarball
 ```
 
 ```yaml
 vars:
   rke2_airgapped: true
   rke2_airgapped_artifacts_dir: "{{ playbook_dir }}/rke2-artifacts"
+  # Optional: images that are not in rke2-images.linux-<arch>.tar.zst
+  rke2_airgapped_additional_image_tarballs:
+    - rke2-images-ingress-nginx.linux-amd64.tar.zst
+  # Optional: pull kube-vip from an internal mirror
+  rke2_kubevip_image_repository: registry.example.com/kube-vip/kube-vip
 ```
 
-The role copies all artifacts to the target nodes and runs the install script locally — no outbound internet required from the nodes.
+The artifact names follow `rke2_architecture`, which defaults to the node's CPU
+architecture (`amd64` on x86_64, `arm64` on aarch64). get.rke2.io installs the
+additional tarballs only when they are named `rke2-images-*.linux-<arch>.tar.zst`
+(or `.tar.gz`) and the full `rke2-images.linux-<arch>.tar.zst` is staged too;
+the role fails early otherwise.
+
+The role copies all artifacts to the target nodes and runs the install script locally - no outbound internet required from the nodes.
 
 ---
 
 ## Rolling Upgrades
 
-To upgrade RKE2 without downtime, run the playbook with `serial: 1` and set `rke2_drain_node_during_upgrade: true`. The role will cordon, drain, restart, wait for Ready, then uncordon each node before moving to the next.
+When a run changes the RKE2 version or `config.yaml`, the restart handlers
+restart **servers one at a time**: each restart waits for the supervisor
+(`https://127.0.0.1:9345/ping`) and for the node to report Ready before the
+next server restarts. Before it restarts, each server checks that every
+other server in `server_nodes` answers `https://<private_ip or ansible_host>:9345/ping` and
+refuses to restart otherwise, so a server that did not come back (or was
+already down) stops the remaining server restarts instead of breaking the
+etcd quorum. Agents restart `rke2_agent_restart_throttle` at a time
+(default `1`) and wait for the kubelet port. Set
+`rke2_handler_wait_for_ready: false` only for nodes that cannot answer these
+probes.
+
+The handlers only serialise the restarts: a server that comes back with its
+supervisor up but stays NotReady, or an agent that fails its restart, fails
+only that host, and the remaining nodes still restart. To stop at the first
+failure, run the role with `serial: 1` as in the upgrade example below.
+
+RKE2 upstream: "Upgrade the server nodes first, one at a time. Once all servers
+have been upgraded, you may then upgrade agent nodes." A real upgrade therefore
+runs the **full role** with `serial: 1`, servers in the first play and agents in
+the second:
 
 ```yaml
-- name: Rolling upgrade RKE2
+- name: Upgrade RKE2 servers
   hosts: server_nodes
   become: true
   serial: 1
   vars:
-    rke2_version: v1.29.4+rke2r1
+    rke2_version: v1.36.6+rke2r2
+  roles:
+    - devopsgroupeu.rke2
+
+- name: Upgrade RKE2 agents
+  hosts: agent_nodes
+  become: true
+  serial: 1
+  vars:
+    rke2_version: v1.36.6+rke2r2
+  roles:
+    - devopsgroupeu.rke2
+```
+
+The `rolling_restart` entry point does **not** install anything: it only
+cordons, drains, restarts the node's RKE2 service, waits for Ready and
+uncordons. Use it to restart nodes without changing the installed version
+(certificate change, kernel update, manual config change). Set
+`rke2_drain_node_during_upgrade: true` to cordon and drain each node first.
+
+```yaml
+- name: Rolling restart RKE2 servers
+  hosts: server_nodes
+  become: true
+  serial: 1
+  vars:
     rke2_drain_node_during_upgrade: true
     rke2_drain_additional_args: "--timeout=180s --delete-emptydir-data"
     rke2_wait_for_all_pods_to_be_ready: true
@@ -540,7 +637,8 @@ To upgrade RKE2 without downtime, run the playbook with `serial: 1` and set `rke
         tasks_from: rolling_restart
 ```
 
-> **Note:** `serial: 1` is required at the play level. Without it all nodes restart simultaneously.
+> **Note:** `serial: 1` is required at the play level for `rolling_restart`.
+> Without it all nodes restart simultaneously.
 
 For a rolling restart of **agent (worker)** nodes, run the same `rolling_restart`
 entry point against `hosts: agent_nodes` with `serial: 1`. The task auto-detects
@@ -560,9 +658,9 @@ the node type and restarts `rke2-agent`; cordon/drain still run when
         tasks_from: rolling_restart
 ```
 
-> `rolling_restart` always restarts the node's RKE2 service — it is a
+> `rolling_restart` always restarts the node's RKE2 service. It is a
 > deliberate force-restart entry point, not gated on a version change. Run it
-> only when you intend to restart (upgrade, cert change, config change).
+> only when you intend to restart.
 
 ---
 
@@ -597,18 +695,21 @@ Restoring from S3 uses the same flags plus `--etcd-s3` and the S3 flags.
 
 ## Separate Agent Token
 
-RKE2 supports a dedicated agent token that gives worker nodes less cluster access than server nodes. Set different token values per group:
+RKE2 supports a dedicated agent token that gives worker nodes less cluster
+access than server nodes. Anyone with the server token essentially has full
+administrator access, so agents should only ever get the agent token. Define
+both tokens for all hosts:
 
 ```yaml
-# group_vars/server_nodes.yml
-rke2_cluster_token: "my-strong-server-token"
-rke2_agent_token: "my-agent-token"
-
-# group_vars/agent_nodes.yml
-rke2_cluster_token: "my-agent-token"
+# group_vars/all.yml
+rke2_cluster_token: "{{ vault_rke2_cluster_token }}"
+rke2_agent_token: "{{ vault_rke2_agent_token }}"
 ```
 
-When `rke2_agent_token` is set on servers, agent nodes must use that token (passed as `rke2_cluster_token` in their group vars). The role writes `agent-token` into the server config and uses `rke2_agent_token` (when set) as the `token` in the agent config automatically.
+The role writes `agent-token` into the server config and uses
+`rke2_agent_token` as the `token` in the agent config. A `rke2_agent_token`
+defined only for `server_nodes` is still read from the first server's host vars
+for the agents, so agents never fall back to the server token by accident.
 
 ---
 
@@ -624,31 +725,34 @@ vars:
   rke2_kubeconfig_output_path: "~/.kube/rke2.yaml"
 ```
 
-The downloaded kubeconfig points to `127.0.0.1:6443`. Update the server address before using remotely:
-
-```bash
-kubectl config set-cluster default \
-  --server=https://10.0.0.100:6443 \
-  --kubeconfig ~/.kube/rke2.yaml
-```
+The role writes the file with mode 0600 and replaces `127.0.0.1` with
+`rke2_kubeconfig_server`, or with `rke2_vip_address` when the VIP is enabled,
+otherwise with the first server's `ansible_host` (or inventory name).
 
 ---
 
 ## Ingress controller
 
-From RKE2 v1.36 the default ingress is **Traefik** (`rke2-traefik`);
-`rke2-ingress-nginx` is deprecated (upstream EOL March 2026, removed in v1.37).
-Select the controller with `rke2_ingress_controller`:
+From RKE2 v1.36 the default ingress for new clusters is **Traefik**
+(`rke2-traefik`). `rke2-ingress-nginx` is retired upstream: RKE2 v1.37 no
+longer accepts it as the only controller and keeps it only in dual mode for
+migration. The role renders the RKE2 `ingress-controller` key from
+`rke2_ingress_controller` (RKE2 deploys only the listed controllers, the first
+one is the default ingress class):
 
-| Value | Effect |
-|-------|--------|
-| `traefik` (default) | Disables rke2-ingress-nginx; applies `rke2_traefik_config` |
-| `ingress-nginx` | Disables rke2-traefik; applies `rke2_ingress_nginx_config` |
-| `none` | Disables both built-in controllers (bring your own) |
+| Value | `ingress-controller` | Effect |
+|-------|----------------------|--------|
+| `traefik` (default) | `[traefik]` | Traefik only; applies `rke2_traefik_config` |
+| `ingress-nginx` | `[ingress-nginx]` | nginx only; RKE2 < v1.37 (the role fails fast on a v1.37+ target); applies `rke2_ingress_nginx_config` |
+| `ingress-nginx+traefik` | `[ingress-nginx, traefik]` | Dual mode for migrating off nginx (nginx stays the default class); applies both configs |
+| `none` | `[none]` | No bundled ingress controller (bring your own) |
 
-Migration: set `rke2_ingress_controller: ingress-nginx` to stay on nginx for
-now, or `traefik` to adopt the new default and move custom values into
-`rke2_traefik_config`.
+Migration: use `ingress-nginx+traefik` while you move Ingresses to Traefik
+(see https://docs.rke2.io/reference/ingress_migration), then switch to
+`traefik` and keep custom values in `rke2_traefik_config`.
+
+Air-gapped clusters that select ingress-nginx must stage the
+`rke2-images-ingress-nginx` image tarball themselves.
 
 ---
 
@@ -682,7 +786,7 @@ rke2_addons:
 
 | Key | Required | Description |
 |-----|----------|-------------|
-| `name` | yes | Unique name — used for the manifest filename |
+| `name` | yes | Unique name - used for the manifest filename |
 | `enabled` | yes | `false` removes the manifest file. The running release is NOT uninstalled unless `rke2_addons_delete_on_disable: true` |
 | `repo` | yes | Helm chart repository URL |
 | `version` | yes | Chart version to pin |
@@ -691,7 +795,8 @@ rke2_addons:
 | `values` | no | Dict of Helm values merged into the HelmChart spec |
 | `bootstrap` | no | Apply during cluster bootstrap (before kube-apiserver is ready) |
 | `set` | no | Dict of scalar Helm overrides rendered under `spec.set` |
-| `repoCA` | no | ConfigMap name holding a CA bundle for the chart repo (air-gap) |
+| `repoCA` | no | PEM CA certificate(s) for the chart repo (air-gap). A value without `BEGIN CERTIFICATE` is treated as a ConfigMap name and rendered as `repoCAConfigMap` (compatibility) |
+| `repoCAConfigMap` | no | Name of a ConfigMap in `kube-system` holding CA certificates for the chart repo |
 | `authSecret` | no | Name of an existing Secret with repo credentials (air-gap Nexus/Harbor) |
 | `failurePolicy` | no | `reinstall` or `abort` on chart failure |
 
@@ -708,12 +813,14 @@ The role ships four [Molecule](https://molecule.readthedocs.io/) scenarios:
 | Scenario | Driver | Validates |
 |----------|--------|-----------|
 | `config-render` | docker | Single-node config/template rendering (proxy, CNI, etcd, CIS, kube-vip, audit, addons, HelmChartConfigs). NOT a running cluster. |
-| `config-render-ha` | docker | HA kube-vip manifest rendering — DaemonSet kind, svc_enable, RBAC endpointslices, cloud provider, agent token. NOT a running cluster. |
-| `config-render-keepalived` | docker | keepalived.conf VRRP path — unicast, state BACKUP, nopreempt, health scripts, failover.env, kube-vip cleanup. NOT a running cluster. |
-| `cluster` | VM (delegated) | Real RKE2 cluster end-to-end — all nodes Ready, /healthz ok, etcd member count, VIP ports, etcd snapshot key. |
+| `config-render-ha` | docker | HA kube-vip manifest rendering - DaemonSet kind, svc_enable, RBAC endpointslices, cloud provider, agent token. NOT a running cluster. |
+| `config-render-keepalived` | docker | keepalived.conf VRRP path - unicast, state BACKUP, nopreempt, health scripts, failover.env, kube-vip cleanup. NOT a running cluster. |
+| `cluster` | VM (delegated) | Real RKE2 cluster end-to-end - all nodes Ready, /healthz ok, etcd member count, VIP ports, etcd snapshot key. |
 
 The `config-render*` scenarios use a mock rke2 binary and only assert that the
-role generates correct files. They run on every PR across 5 distros.
+role generates correct files. They run on every PR on Debian 12 / 13 and
+Ubuntu 22.04 / 24.04 (`config-render` also on Rocky Linux 9, and once with
+ansible-core 2.22 on Python 3.13), with injected fact variables turned off.
 The `cluster` scenario installs a real cluster and is run manually or nightly with dedicated VMs.
 
 ```bash
@@ -729,7 +836,7 @@ molecule test -s config-render-ha
 # Run keepalived render scenario
 molecule test -s config-render-keepalived
 
-# Run real cluster scenario (requires VMs — NOT run in PR CI)
+# Run real cluster scenario (requires VMs - NOT run in PR CI)
 # Provide hosts via delegated inventory and set cluster variables:
 #   MOLECULE_CLUSTER_VIP=10.0.0.100 \
 #   MOLECULE_CLUSTER_VIP_IFACE=eth0 \
@@ -739,7 +846,7 @@ molecule test -s config-render-keepalived
 > The `cluster` scenario uses Molecule's `delegated` driver and runs a real
 > install. Provide reachable hosts via a delegated inventory (any cloud or
 > local libvirt/vagrant) and set `rke2_cluster_vip` / `rke2_cluster_vip_interface`.
-> It is NOT run on every PR — it requires dedicated infrastructure.
+> It is NOT run on every PR - it requires dedicated infrastructure.
 
 ---
 
@@ -769,11 +876,11 @@ cat /var/lib/rancher/rke2/server/node-token
 
 ## Contributing
 
-We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) to get started.
+We welcome contributions! Please see [CONTRIBUTING.md](.github/CONTRIBUTING.md) to get started.
 
 ## Code of Conduct
 
-Read our [Code of Conduct](CODE_OF_CONDUCT.md).
+Read our [Code of Conduct](.github/CODE_OF_CONDUCT.md).
 
 ## Changelog
 

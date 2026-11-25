@@ -3,8 +3,10 @@
   hosts: all
   gather_facts: true
   vars:
-    rke2_version: v1.36.1+rke2r2
     rke2_airgapped: false
+    # The mock rke2-server is a oneshot unit without a supervisor or kubectl,
+    # so the health-gated restart waits are exercised in config-render-ha.
+    rke2_handler_wait_for_ready: false
     rke2_cni: default
     rke2_tls_san:
       - "10.0.0.100"
@@ -23,6 +25,9 @@
       source "$(dirname "$0")/failover.env"
       echo "failover: API_TOKEN=${API_TOKEN} FLOATING_IP_ID=${FLOATING_IP_ID}"
     rke2_cert_rotation_enabled: false
+    # Only a containerd proxy: the env file must still be written.
+    rke2_containerd_https_proxy: "http://proxy.example.com:3128"
+    rke2_cis_profile: etcd
     rke2_additional_packages: []
   tasks:
     - name: Include rke2 role

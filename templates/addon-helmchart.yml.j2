@@ -1,13 +1,13 @@
 apiVersion: helm.cattle.io/v1
 kind: HelmChart
 metadata:
-  name: {{ item.name }}
+  name: {{ item.name | to_json }}
   namespace: kube-system
 spec:
-  repo: {{ item.repo }}
-  chart: {{ item.chart | default(item.name) }}
-  version: {{ item.version | default('') }}
-  targetNamespace: {{ item.namespace | default(item.name) }}
+  repo: {{ item.repo | to_json }}
+  chart: {{ item.chart | default(item.name) | to_json }}
+  version: {{ item.version | default('') | string | to_json }}
+  targetNamespace: {{ item.namespace | default(item.name) | to_json }}
   createNamespace: true
 {% if item.bootstrap is defined %}
   bootstrap: {{ item.bootstrap | bool | lower }}
@@ -15,8 +15,19 @@ spec:
 {% if item.failurePolicy is defined and item.failurePolicy | length > 0 %}
   failurePolicy: {{ item.failurePolicy }}
 {% endif %}
-{% if item.repoCA is defined and item.repoCA | length > 0 %}
-  repoCA: {{ item.repoCA }}
+{# spec.repoCA holds PEM certificates and spec.repoCAConfigMap names a
+   ConfigMap. A repoCA without a certificate is a ConfigMap name (the role
+   used to document it that way) and is rendered as repoCAConfigMap. #}
+{% set _repo_ca = item.repoCA | default('') %}
+{% set _repo_ca_pem = 'BEGIN CERTIFICATE' in _repo_ca %}
+{% set _repo_ca_cm = item.repoCAConfigMap | default('' if _repo_ca_pem else _repo_ca) %}
+{% if _repo_ca_pem %}
+  repoCA: |-
+{{ _repo_ca | trim | indent(4, true) }}
+{% endif %}
+{% if _repo_ca_cm | length > 0 %}
+  repoCAConfigMap:
+    name: {{ _repo_ca_cm | to_json }}
 {% endif %}
 {% if item.authSecret is defined and item.authSecret | length > 0 %}
   authSecret:
@@ -28,7 +39,8 @@ spec:
     {{ k }}: "{{ v }}"
 {% endfor %}
 {% endif %}
-{% if item['values'] is defined and item['values'] | length > 0 %}
+{# item.get: item['values'] falls back to the dict's values() method. #}
+{% if item.get('values') %}
   valuesContent: |-
-{{ item['values'] | to_nice_yaml(indent=2) | indent(4, first=True) }}
+{{ item.get('values') | to_nice_yaml(indent=2) | indent(4, first=True) }}
 {% endif %}

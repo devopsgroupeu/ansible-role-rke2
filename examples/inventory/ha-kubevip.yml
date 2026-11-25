@@ -1,4 +1,4 @@
-# HA RKE2 inventory — 3 server nodes + 2 agent nodes, VIP managed by kube-vip
+# HA RKE2 inventory - 3 server nodes + 2 agent nodes, VIP managed by kube-vip
 # Set rke2_vip_enabled: true and rke2_vip_manager: kubevip in group_vars
 
 all:

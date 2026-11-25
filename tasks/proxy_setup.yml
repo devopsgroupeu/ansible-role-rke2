@@ -1,4 +1,13 @@
 ---
+# The env file carries the node and containerd proxy settings; it is needed as
+# soon as any of them is set. Proxy URLs may embed credentials.
+- name: Decide whether the RKE2 proxy environment file is needed
+  ansible.builtin.set_fact:
+    _rke2_proxy_env_needed: >-
+      {{ [rke2_http_proxy, rke2_https_proxy, rke2_no_proxy,
+          rke2_containerd_http_proxy, rke2_containerd_https_proxy, rke2_containerd_no_proxy]
+         | select | list | length > 0 }}
+
 - name: Check if server proxy file exists
   ansible.builtin.stat:
     path: /etc/default/rke2-server
@@ -20,11 +29,9 @@
         dest: /etc/default/rke2-server
         owner: root
         group: root
-        mode: "0644"
-      when: >-
-        (rke2_http_proxy | default('') | length > 0)
-        or (rke2_https_proxy | default('') | length > 0)
-        or (rke2_no_proxy | default('') | length > 0)
+        mode: "0600"
+      no_log: true
+      when: _rke2_proxy_env_needed | bool
       notify: Restart rke2-server
 
     - name: Remove RKE2 server proxy environment file if not needed
@@ -32,7 +39,7 @@
         path: /etc/default/rke2-server
         state: absent
       when:
-        - not ((rke2_http_proxy | default('') | length > 0) or (rke2_https_proxy | default('') | length > 0) or (rke2_no_proxy | default('') | length > 0))
+        - not _rke2_proxy_env_needed | bool
         - server_proxy_file.stat.exists | default(false)
       notify: Restart rke2-server
 
@@ -45,11 +52,9 @@
         dest: /etc/default/rke2-agent
         owner: root
         group: root
-        mode: "0644"
-      when: >-
-        (rke2_http_proxy | default('') | length > 0)
-        or (rke2_https_proxy | default('') | length > 0)
-        or (rke2_no_proxy | default('') | length > 0)
+        mode: "0600"
+      no_log: true
+      when: _rke2_proxy_env_needed | bool
       notify: Restart rke2-agent
 
     - name: Remove RKE2 agent proxy environment file if not needed
@@ -57,6 +62,6 @@
         path: /etc/default/rke2-agent
         state: absent
       when:
-        - not ((rke2_http_proxy | default('') | length > 0) or (rke2_https_proxy | default('') | length > 0) or (rke2_no_proxy | default('') | length > 0))
+        - not _rke2_proxy_env_needed | bool
         - agent_proxy_file.stat.exists | default(false)
       notify: Restart rke2-agent

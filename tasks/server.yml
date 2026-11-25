@@ -1,37 +1,4 @@
 ---
-- name: Check if RKE2 server binary exists
-  ansible.builtin.stat:
-    path: /usr/local/bin/rke2
-  register: rke2_server_binary
-
-- name: Check current RKE2 server installed version
-  ansible.builtin.command: rke2 --version
-  register: rke2_installed_version_output
-  when: rke2_server_binary.stat.exists
-  changed_when: false
-
-- name: Set current RKE2 server version fact
-  ansible.builtin.set_fact:
-    current_rke2_server_version: "{{ rke2_installed_version_output.stdout | regex_search('v[0-9]+\\.[0-9]+\\.[0-9]+\\+rke2r[0-9]+') }}"
-  when: rke2_server_binary.stat.exists
-
-- name: Set RKE2 server version as not installed
-  ansible.builtin.set_fact:
-    current_rke2_server_version: "not_installed"
-  when: not rke2_server_binary.stat.exists
-
-- name: Prevent accidental downgrade
-  ansible.builtin.fail:
-    msg: >-
-      Downgrade blocked: {{ current_rke2_server_version }} is installed but
-      {{ rke2_version }} was requested. Set rke2_allow_downgrade: true to override.
-  when:
-    - not rke2_allow_downgrade | default(false) | bool
-    - current_rke2_server_version != "not_installed"
-    - current_rke2_server_version | length > 0
-    - current_rke2_server_version != rke2_version
-    - current_rke2_server_version is version(rke2_version, '>', version_type='loose')
-
 - name: Assert external cloud-provider is paired with disabled built-in CCM
   ansible.builtin.assert:
     that:
@@ -41,16 +8,61 @@
       is false; set rke2_disable_cloud_controller: true.
   when: rke2_cloud_provider_name | default('') == 'external'
 
-- name: Assert rke2_extra_config does not collide with dedicated keys
-  vars:
-    _managed_keys: ['disable', 'tls-san', 'cni', 'node-ip', 'cluster-dns', 'system-default-registry']
+- name: Assert standalone ingress-nginx targets RKE2 before v1.37
   ansible.builtin.assert:
     that:
-      - (rke2_extra_config | default({})).keys() | list | intersect(_managed_keys) | length == 0
+      - _rke2_target_version | regex_replace('^v?([0-9]+[.][0-9]+).*$', '\\1') is version('1.37', '<')
     fail_msg: >-
-      rke2_extra_config sets a key already managed by a dedicated variable;
-      use the dedicated variable instead to avoid duplicate YAML keys.
+      RKE2 {{ _rke2_target_version }} no longer supports ingress-nginx as a
+      standalone ingress controller. Use rke2_ingress_controller:
+      ingress-nginx+traefik to migrate (nginx stays the default class) or traefik.
+  when: rke2_ingress_controller == 'ingress-nginx'
 
+- name: Check for the token of an existing cluster on the first server
+  ansible.builtin.stat:
+    path: "{{ rke2_data_dir }}/server/token"
+  register: _rke2_existing_token_file
+  check_mode: false
+  when:
+    - inventory_hostname == groups['server_nodes'][0]
+    - rke2_cluster_token | default('') | length > 0
+
+- name: Read the token of the existing cluster
+  ansible.builtin.slurp:
+    src: "{{ rke2_data_dir }}/server/token"
+  register: _rke2_existing_token
+  no_log: true
+  check_mode: false
+  when:
+    - inventory_hostname == groups['server_nodes'][0]
+    - rke2_cluster_token | default('') | length > 0
+    - _rke2_existing_token_file.stat.exists
+
+# server/token holds the full token (K10<ca-hash>::server:<password>). A preset
+# without "::" is the password part only.
+- name: Assert rke2_cluster_token matches the existing cluster token
+  vars:
+    _existing: "{{ _rke2_existing_token.content | b64decode | trim }}"
+  ansible.builtin.assert:
+    that:
+      - >-
+        (_existing == rke2_cluster_token) if '::' in rke2_cluster_token
+        else ((_existing | regex_replace('^.*?::server:', '')) == rke2_cluster_token)
+    fail_msg: >-
+      rke2_cluster_token does not match the token of the existing cluster on
+      {{ inventory_hostname }} ({{ rke2_data_dir }}/server/token). RKE2 would refuse
+      the new token; rotate it first with `rke2 token rotate` and then update
+      rke2_cluster_token.
+    quiet: true
+  when:
+    - inventory_hostname == groups['server_nodes'][0]
+    - rke2_cluster_token | default('') | length > 0
+    - _rke2_existing_token_file.stat.exists
+
+# INSTALL_RKE2_VERSION is the version version.yml resolved (also in channel
+# mode), so get.rke2.io installs exactly what the role compared against
+# instead of resolving the channel again from its own default URL. The
+# channel is still passed: the RPM method picks its repository from it.
 - name: Install RKE2 server (internet)
   ansible.builtin.shell: |
     set -o pipefail
@@ -58,29 +70,30 @@
   args:
     executable: /bin/bash
   environment:
-    INSTALL_RKE2_VERSION: "{{ rke2_version }}"
+    INSTALL_RKE2_VERSION: "{{ _rke2_target_version }}"
     INSTALL_RKE2_CHANNEL: "{{ rke2_channel if (rke2_version | default('') | length == 0) else '' }}"
     INSTALL_RKE2_TYPE: "server"
+    INSTALL_RKE2_METHOD: "{{ rke2_install_method }}"
   changed_when: true
   notify: Restart rke2-server
   when:
-    - rke2_version | default('') | length > 0 or rke2_channel | default('') | length > 0
     - not (rke2_airgapped | default(false) | bool)
-    - current_rke2_server_version != rke2_version
+    - _rke2_install_needed | bool
 
 - name: Install RKE2 server (air-gapped)
   ansible.builtin.command: sh /tmp/rke2-install.sh
   environment:
-    INSTALL_RKE2_VERSION: "{{ rke2_version }}"
+    INSTALL_RKE2_VERSION: "{{ _rke2_target_version }}"
     INSTALL_RKE2_CHANNEL: "{{ rke2_channel if (rke2_version | default('') | length == 0) else '' }}"
     INSTALL_RKE2_TYPE: "server"
+    INSTALL_RKE2_METHOD: "{{ rke2_install_method }}"
     INSTALL_RKE2_ARTIFACT_PATH: "{{ '/tmp/rke2-artifacts' if rke2_airgapped_artifacts_dir | length > 0 else '' }}"
+    INSTALL_RKE2_AGENT_IMAGES_DIR: "{{ rke2_data_dir }}/agent/images"
   changed_when: true
   notify: Restart rke2-server
   when:
-    - rke2_version | default('') | length > 0 or rke2_channel | default('') | length > 0
     - rke2_airgapped | default(false) | bool
-    - current_rke2_server_version != rke2_version
+    - _rke2_install_needed | bool
 
 - name: Ensure /etc/rancher/rke2 directory exists
   ansible.builtin.file:
@@ -101,6 +114,20 @@
   when:
     - rke2_audit_policy | default('') | length > 0
 
+# RKE2 reads etcd-s3-endpoint-ca as a file path or as base64 data, so a PEM
+# bundle is written to a file and the config references the file.
+- name: Write the etcd S3 endpoint CA bundle
+  ansible.builtin.copy:
+    content: "{{ rke2_etcd_s3_endpoint_ca | trim }}\n"
+    dest: /etc/rancher/rke2/etcd-s3-endpoint-ca.pem
+    owner: root
+    group: root
+    mode: "0600"
+  notify: Restart rke2-server
+  when:
+    - rke2_etcd_s3_enabled | default(false) | bool
+    - "'BEGIN CERTIFICATE' in rke2_etcd_s3_endpoint_ca | default('')"
+
 - name: Configure RKE2 server (first node)
   ansible.builtin.template:
     src: server-config.yml.j2
@@ -117,7 +144,9 @@
     name: rke2-server
     state: started
     enabled: true
-  when: inventory_hostname == groups['server_nodes'][0]
+  when:
+    - inventory_hostname == groups['server_nodes'][0]
+    - not (ansible_check_mode and _rke2_install_needed | bool)
 
 - name: Use pre-set cluster token
   ansible.builtin.set_fact:
@@ -131,18 +160,22 @@
   ansible.builtin.wait_for:
     path: "{{ rke2_data_dir }}/server/node-token"
     timeout: 300
+  check_mode: false
   when:
     - inventory_hostname == groups['server_nodes'][0]
     - rke2_cluster_token | default('') | length == 0
+    - not (ansible_check_mode and _rke2_install_needed | bool)
 
 - name: Fetch cluster token from first node
   ansible.builtin.slurp:
     src: "{{ rke2_data_dir }}/server/node-token"
   register: _rke2_node_token
   no_log: true
+  check_mode: false
   when:
     - inventory_hostname == groups['server_nodes'][0]
     - rke2_cluster_token | default('') | length == 0
+    - not (ansible_check_mode and _rke2_install_needed | bool)
 
 - name: Set cluster token fact from node-token file
   ansible.builtin.set_fact:
@@ -151,15 +184,24 @@
   when:
     - inventory_hostname == groups['server_nodes'][0]
     - rke2_cluster_token | default('') | length == 0
+    - _rke2_node_token.content is defined
+
+- name: Resolve the cluster join token (additional nodes)
+  ansible.builtin.import_tasks: token.yml
+  when: inventory_hostname != groups['server_nodes'][0]
 
 - name: Wait for RKE2 first server registration API to be available
   ansible.builtin.wait_for:
-    host: "{{ hostvars[groups['server_nodes'][0]]['ansible_host'] | default(groups['server_nodes'][0]) }}"
+    host: >-
+      {{ rke2_server_join_address if rke2_server_join_address | default('') | length > 0
+         else hostvars[groups['server_nodes'][0]]['ansible_host'] | default(groups['server_nodes'][0]) }}
     port: 9345
     timeout: 300
   when:
     - inventory_hostname != groups['server_nodes'][0]
     - groups['server_nodes'] | length > 1
+    # Check mode does not start a first server that is not installed yet.
+    - not (ansible_check_mode and hostvars[groups['server_nodes'][0]]['_rke2_install_needed'] | default(false) | bool)
 
 - name: Configure RKE2 server (additional nodes)
   ansible.builtin.template:
@@ -181,9 +223,11 @@
   delay: 10
   register: rke2_server_status
   until: not rke2_server_status.failed
-  when: inventory_hostname != groups['server_nodes'][0]
+  when:
+    - inventory_hostname != groups['server_nodes'][0]
+    - not (ansible_check_mode and _rke2_install_needed | bool)
 
-- name: Apply custom ingress-nginx HelmChartConfig (controller=ingress-nginx)
+- name: Apply custom ingress-nginx HelmChartConfig (controller includes ingress-nginx)
   ansible.builtin.template:
     src: rke2-ingress-nginx-config.yml.j2
     dest: "{{ rke2_data_dir }}/server/manifests/rke2-ingress-nginx-config.yml"
@@ -191,13 +235,13 @@
     group: root
     mode: "0644"
   when:
-    - rke2_ingress_controller == 'ingress-nginx'
+    - rke2_ingress_controller in ['ingress-nginx', 'ingress-nginx+traefik']
     - rke2_ingress_nginx_config is defined
     - rke2_ingress_nginx_config | trim | length > 0
     - not rke2_ingress_nginx_config | trim | regex_search('^#')
     - inventory_hostname == groups['server_nodes'][0]
 
-- name: Apply custom Traefik HelmChartConfig (controller=traefik)
+- name: Apply custom Traefik HelmChartConfig (controller includes traefik)
   ansible.builtin.template:
     src: rke2-traefik-config.yml.j2
     dest: "{{ rke2_data_dir }}/server/manifests/rke2-traefik-config.yml"
@@ -205,7 +249,7 @@
     group: root
     mode: "0644"
   when:
-    - rke2_ingress_controller == 'traefik'
+    - rke2_ingress_controller in ['traefik', 'ingress-nginx+traefik']
     - rke2_traefik_config | trim | length > 0
     - not rke2_traefik_config | trim | regex_search('^#')
     - inventory_hostname == groups['server_nodes'][0]
@@ -223,56 +267,73 @@
     - rke2_cni_configs is defined and rke2_cni_configs[rke2_cni] is defined
     - inventory_hostname == groups['server_nodes'][0]
 
-- name: Validate private registry config is parseable YAML
-  ansible.builtin.assert:
-    that:
-      - rke2_private_registries_config | from_yaml is mapping
-    fail_msg: "rke2_private_registries_config is not valid YAML mapping"
-  when:
-    - rke2_private_registries_config | trim | length > 0
-    - not rke2_private_registries_config | trim | regex_search('^#')
-
-- name: Deploy private registry configuration
-  ansible.builtin.template:
-    src: registries.yml.j2
-    dest: /etc/rancher/rke2/registries.yaml
-    owner: root
-    group: root
-    mode: "0600"
-  no_log: true
-  when:
-    - rke2_private_registries_config is defined
-    - rke2_private_registries_config | trim | length > 0
-    - not rke2_private_registries_config | trim | regex_search('^#')
+- name: Configure the private registries
+  ansible.builtin.import_tasks: registries.yml
 
 - name: Ensure .kube directory exists
   ansible.builtin.file:
-    path: "{{ ansible_user_dir }}/.kube"
+    path: "{{ ansible_facts['user_dir'] }}/.kube"
     state: directory
     mode: "0755"
 
 - name: Copy RKE2 kubeconfig to user home
   ansible.builtin.copy:
     src: /etc/rancher/rke2/rke2.yaml
-    dest: "{{ ansible_user_dir }}/.kube/config"
+    dest: "{{ ansible_facts['user_dir'] }}/.kube/config"
     remote_src: true
     mode: "0600"
-  when: inventory_hostname == groups['server_nodes'][0]
+  when:
+    - inventory_hostname == groups['server_nodes'][0]
+    - not (ansible_check_mode and _rke2_install_needed | bool)
 
-- name: Fetch kubeconfig to Ansible controller
-  ansible.builtin.fetch:
+# The kubeconfig is read and rewritten in memory and written once, so a rerun
+# compares the same content and reports no change.
+- name: Read the kubeconfig for the Ansible controller
+  ansible.builtin.slurp:
     src: /etc/rancher/rke2/rke2.yaml
-    dest: "{{ rke2_kubeconfig_output_path }}"
-    flat: true
+  register: _rke2_kubeconfig
+  no_log: true
+  check_mode: false
+  when:
+    - inventory_hostname == groups['server_nodes'][0]
+    - rke2_kubeconfig_download | default(false) | bool
+    - not (ansible_check_mode and _rke2_install_needed | bool)
+
+# Not delegated, so the address is this server's, never the controller's.
+# A relative output path is relative to the playbook directory, as it was
+# with fetch; the copy and file modules would resolve it against their cwd.
+- name: Choose the API server address and local path for the downloaded kubeconfig
+  ansible.builtin.set_fact:
+    _rke2_kubeconfig_endpoint: >-
+      {{ rke2_kubeconfig_server if rke2_kubeconfig_server | length > 0
+         else rke2_vip_address if (rke2_vip_enabled | bool and rke2_vip_address | length > 0)
+         else hostvars[inventory_hostname]['ansible_host'] | default(inventory_hostname) }}
+    _rke2_kubeconfig_dest: >-
+      {{ (rke2_kubeconfig_output_path | expanduser) if (rke2_kubeconfig_output_path | expanduser) is abs
+         else playbook_dir ~ '/' ~ rke2_kubeconfig_output_path }}
   when:
     - inventory_hostname == groups['server_nodes'][0]
     - rke2_kubeconfig_download | default(false) | bool
 
-- name: Fix kubeconfig server address
-  ansible.builtin.replace:
-    path: "{{ rke2_kubeconfig_output_path }}"
-    regexp: 'https://127\.0\.0\.1:6443'
-    replace: "https://{{ ansible_host }}:6443"
+# No mode: an existing directory (e.g. playbook_dir) keeps its permissions.
+- name: Ensure the kubeconfig directory exists on the Ansible controller
+  ansible.builtin.file: # noqa: risky-file-permissions
+    path: "{{ _rke2_kubeconfig_dest | dirname }}"
+    state: directory
+  delegate_to: localhost
+  become: false
+  when:
+    - inventory_hostname == groups['server_nodes'][0]
+    - rke2_kubeconfig_download | default(false) | bool
+
+- name: Write the kubeconfig on the Ansible controller
+  ansible.builtin.copy:
+    content: >-
+      {{ _rke2_kubeconfig.content | b64decode
+         | replace('https://127.0.0.1:6443', 'https://' ~ _rke2_kubeconfig_endpoint ~ ':6443') }}
+    dest: "{{ _rke2_kubeconfig_dest }}"
+    mode: "0600"
+  no_log: true
   delegate_to: localhost
   # Runs on the control node: do not inherit the play's become (sudo on the
   # controller is unnecessary and fails when it requires a password). The
@@ -281,3 +342,4 @@
   when:
     - inventory_hostname == groups['server_nodes'][0]
     - rke2_kubeconfig_download | default(false) | bool
+    - _rke2_kubeconfig.content is defined

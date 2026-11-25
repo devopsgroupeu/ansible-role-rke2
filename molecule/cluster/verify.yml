@@ -1,5 +1,5 @@
 ---
-# Real cluster verification — asserts a running RKE2 cluster, not rendered files.
+# Real cluster verification - asserts a running RKE2 cluster, not rendered files.
 # Runs only against the first server node to avoid parallel kubectl races.
 - name: Verify real RKE2 cluster
   hosts: server_nodes[0]
