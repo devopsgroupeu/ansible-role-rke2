@@ -196,6 +196,8 @@
   when:
     - inventory_hostname != groups['server_nodes'][0]
     - groups['server_nodes'] | length > 1
+    # Check mode does not start a first server that is not installed yet.
+    - not (ansible_check_mode and hostvars[groups['server_nodes'][0]]['_rke2_install_needed'] | default(false) | bool)
 
 - name: Configure RKE2 server (additional nodes)
   ansible.builtin.template:
@@ -276,7 +278,9 @@
     dest: "{{ ansible_facts['user_dir'] }}/.kube/config"
     remote_src: true
     mode: "0600"
-  when: inventory_hostname == groups['server_nodes'][0]
+  when:
+    - inventory_hostname == groups['server_nodes'][0]
+    - not (ansible_check_mode and _rke2_install_needed | bool)
 
 # The kubeconfig is read and rewritten in memory and written once, so a rerun
 # compares the same content and reports no change.
@@ -289,6 +293,7 @@
   when:
     - inventory_hostname == groups['server_nodes'][0]
     - rke2_kubeconfig_download | default(false) | bool
+    - not (ansible_check_mode and _rke2_install_needed | bool)
 
 # Not delegated, so the address is this server's, never the controller's.
 # A relative output path is relative to the playbook directory, as it was
@@ -333,3 +338,4 @@
   when:
     - inventory_hostname == groups['server_nodes'][0]
     - rke2_kubeconfig_download | default(false) | bool
+    - _rke2_kubeconfig.content is defined

@@ -81,6 +81,8 @@
     creates: "{{ rke2_data_dir }}/server/tls/server-ca.crt"
   environment:
     DATA_DIR: "{{ rke2_data_dir }}"
+  # In check mode on a new node, server/tls and the seeded keys do not exist.
+  when: not (ansible_check_mode and not rke2_server_ca_pregen.stat.exists)
 
 - name: Verify CA certificates were generated
   ansible.builtin.stat:
@@ -90,7 +92,9 @@
 - name: Fail if CA certificates were not generated
   ansible.builtin.fail:
     msg: "Custom CA certificates were not generated. Check the generate_ca.sh script."
-  when: not ca_cert_check.stat.exists
+  when:
+    - not ca_cert_check.stat.exists
+    - not ansible_check_mode
 
 - name: Remove CA signing private keys after generation
   ansible.builtin.file:
